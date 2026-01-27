@@ -1,5 +1,5 @@
 import * as z from "zod";
-import { GoogleGenAI } from "@google/genai";
+import { generateObject } from "@rork-ai/toolkit-sdk";
 
 import { createTRPCRouter, publicProcedure } from "../create-context";
 
@@ -41,23 +41,18 @@ For each item you can identify, provide:
 4. estimatedQuantity: An estimate like "full", "half", "almost empty", "multiple" if visible
 5. suggestedStatus: "good" if item appears fresh/full, "low" if running low, "expiring" if it looks old or near expiration
 
-Be thorough but only include items you can actually see in the image. Don't make up items that aren't visible.
+Be thorough but only include items you can actually see in the image. Don't make up items that aren't visible.`;
 
-Return your response as a JSON object with this exact structure:
-{
-  "items": [
-    {
-      "name": "Item Name",
-      "category": "Category",
-      "confidence": 0.95,
-      "estimatedQuantity": "full",
-      "suggestedStatus": "good"
-    }
-  ],
-  "overallConfidence": 0.85
-}
-
-Only return the JSON object, no additional text.`;
+const ScanResultSchema = z.object({
+  items: z.array(z.object({
+    name: z.string(),
+    category: z.string(),
+    confidence: z.number(),
+    estimatedQuantity: z.string().optional(),
+    suggestedStatus: z.enum(["good", "low", "expiring"]).optional(),
+  })),
+  overallConfidence: z.number(),
+});
 
 export const pantryScanRouter = createTRPCRouter({
   analyzeImage: publicProcedure
@@ -70,71 +65,27 @@ export const pantryScanRouter = createTRPCRouter({
     .mutation(async ({ input }) => {
       const startTime = Date.now();
 
-      const apiKey = process.env.GEMINI_API_KEY;
-      if (!apiKey) {
-        console.error("GEMINI_API_KEY is missing");
-        throw new Error("Server configuration error: API key missing");
-      }
-
-      const ai = new GoogleGenAI({ apiKey });
-
       try {
         console.log(`[PantryScan] Starting image analysis. Payload size: ${Math.round(input.imageBase64.length / 1024)}KB`);
 
-        // Use generateContentStream as per working example for this model
-        const responseStream = await ai.models.generateContentStream({
-          model: "gemini-2.0-flash",
-          contents: [
+        const imageDataUrl = `data:${input.mimeType};base64,${input.imageBase64}`;
+
+        const parsedResult = await generateObject({
+          messages: [
             {
               role: "user",
-              parts: [
-                {
-                  inlineData: {
-                    mimeType: input.mimeType,
-                    data: input.imageBase64,
-                  },
-                },
-                {
-                  text: SCAN_PROMPT,
-                },
+              content: [
+                { type: "image", image: imageDataUrl },
+                { type: "text", text: SCAN_PROMPT },
               ],
             },
           ],
-          config: {
-            responseMimeType: "application/json",
-          },
+          schema: ScanResultSchema,
         });
-
-        let text = "";
-        for await (const chunk of responseStream) {
-          if (chunk.text) {
-            text += chunk.text;
-          }
-        }
 
         const processingTime = Date.now() - startTime;
         console.log(`[PantryScan] Analysis completed in ${processingTime}ms`);
-
-        
-        if (!text) {
-             console.error("[PantryScan] No text in response stream");
-             throw new Error("Empty response from AI model");
-        }
-
-        console.log("[PantryScan] Raw response:", text.substring(0, 500));
-
-        let parsedResult: { items: DetectedItem[]; overallConfidence: number };
-        try {
-          parsedResult = JSON.parse(text);
-        } catch (parseError) {
-          console.error("[PantryScan] Failed to parse response:", parseError);
-          const jsonMatch = text.match(/\{[\s\S]*\}/);
-          if (jsonMatch) {
-            parsedResult = JSON.parse(jsonMatch[0]);
-          } else {
-            throw new Error("Failed to parse AI response as JSON");
-          }
-        }
+        console.log("[PantryScan] Result:", JSON.stringify(parsedResult).substring(0, 500));
 
         const validatedItems = parsedResult.items.map((item) => ({
           name: item.name || "Unknown Item",
