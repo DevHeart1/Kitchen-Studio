@@ -27,24 +27,9 @@ import {
 import Colors from "@/constants/colors";
 import { useSavedRecipes, SavedRecipe } from "@/contexts/SavedRecipesContext";
 import { useInventory } from "@/contexts/InventoryContext";
+import { PANTRY_RECIPES } from "@/mocks/pantryRecipes";
 
-const PANTRY_RECIPES = [
-  {
-    id: "1",
-    title: "Smashed Avo Toast",
-    image: "https://lh3.googleusercontent.com/aida-public/AB6AXuDbORWyKcFoNSQNwrAhXwEnACgEq9iKiYxfPU3NM1X52YCS5AbxTwaYWKe2N4_UVX9RG6ekc1dVLgNWS22pTz6Opy0hcmHekFanmaOkqJ8P2glG06yFlhzz0vYyEL8SR4jvshI8FF2JbmayhirMO6d4STTwhWFYWK_q6c0Yr91ylZNuDpe42xYTVT53EQUXasx4PrXVNhK38djgbV4ftB0OW7NWO_iCIn571Q3GJ_0avOfdhyXHdRVGFfvkcA-9AASpqE_AMByYWg",
-    hasAll: true,
-    time: "10 min",
-  },
-  {
-    id: "2",
-    title: "Garlic Butter Salmon",
-    image: "https://lh3.googleusercontent.com/aida-public/AB6AXuCthHYMUEBYzQ9rYHH68GujT_ynIprHibR2MMnTaUEwM7HBh5qrLfcWvQQcrb_dDIfj5wy7CBQ8cq-PhIVwrjVxSTSFfLAFQs2wxbofQixsF9MiGHGNtv17z8dCXWAR_O2P2qA7TX4ff42hYp_qhlYVnNBQJ4y8WkYMikDsl4x2QWHske5J56ZmTWDYBsiUhjSzgvByD_wUVIbKHA-qMu9jwZ6pxHrQAuoIM0mjO0mrQeBkdWxlYVMsbkUCsru0Sdh59avkYy6ubA",
-    hasAll: false,
-    missingCount: 1,
-    time: "25 min",
-  },
-];
+
 
 const KITCHEN_TOOLS = [
   { id: "1", name: "Smart\nBlender", icon: "blender", active: true },
@@ -88,6 +73,28 @@ export default function KitchenScreen() {
   const { savedRecipes, removeRecipe, isLoading } = useSavedRecipes();
   const { checkIngredientInPantry, getTotalCount, getExpiringCount } = useInventory();
 
+  const pantryRecipesWithMatch = useMemo(() => {
+    return PANTRY_RECIPES.map((recipe) => {
+      let matchedCount = 0;
+      recipe.ingredients.forEach((ingredient) => {
+        const result = checkIngredientInPantry(ingredient.name);
+        if (result.found || result.hasSubstitute) {
+          matchedCount++;
+        }
+      });
+      const matchPercentage = Math.round((matchedCount / recipe.ingredients.length) * 100);
+      const missingCount = recipe.ingredients.length - matchedCount;
+      return {
+        ...recipe,
+        matchPercentage,
+        missingCount,
+        hasAll: matchPercentage === 100,
+      };
+    })
+      .sort((a, b) => b.matchPercentage - a.matchPercentage)
+      .slice(0, 4);
+  }, [checkIngredientInPantry]);
+
   const calculateRecipeReadiness = useCallback((recipe: SavedRecipe) => {
     if (!recipe.ingredients || recipe.ingredients.length === 0) {
       return { readyCount: 0, totalCount: 0, readinessPercent: 0 };
@@ -116,6 +123,14 @@ export default function KitchenScreen() {
 
   const handleScanItems = () => {
     router.push("/scanner");
+  };
+
+  const handleViewAllPantryRecipes = () => {
+    router.push("/pantry-recipes");
+  };
+
+  const handlePantryRecipePress = (recipeId: string) => {
+    router.push("/pantry-recipes");
   };
 
   const handleRecipePress = (recipe: SavedRecipe) => {
@@ -257,7 +272,7 @@ export default function KitchenScreen() {
         )}
 
         <View style={styles.section}>
-          <View style={styles.sectionHeader}>
+          <View style={styles.sectionHeaderRow}>
             <View>
               <View style={styles.sectionTitleRow}>
                 <Sparkles size={20} color={Colors.primary} />
@@ -267,14 +282,22 @@ export default function KitchenScreen() {
                 Recipes based on what you have
               </Text>
             </View>
+            <TouchableOpacity onPress={handleViewAllPantryRecipes}>
+              <Text style={styles.manageText}>View all</Text>
+            </TouchableOpacity>
           </View>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.recipesScroll}
           >
-            {PANTRY_RECIPES.map((recipe) => (
-              <TouchableOpacity key={recipe.id} style={styles.recipeCard}>
+            {pantryRecipesWithMatch.map((recipe) => (
+              <TouchableOpacity 
+                key={recipe.id} 
+                style={styles.recipeCard}
+                onPress={() => handlePantryRecipePress(recipe.id)}
+                activeOpacity={0.8}
+              >
                 <Image
                   source={{ uri: recipe.image }}
                   style={styles.recipeImage}
@@ -288,24 +311,24 @@ export default function KitchenScreen() {
                         styles.recipeTag,
                         recipe.hasAll
                           ? styles.greenTag
-                          : styles.yellowTag,
+                          : recipe.matchPercentage >= 75
+                          ? styles.yellowTag
+                          : styles.orangeTag,
                       ]}
                     >
                       <Text
                         style={[
                           styles.recipeTagText,
-                          recipe.hasAll
-                            ? styles.greenTagText
-                            : styles.yellowTagText,
+                          styles.greenTagText,
                         ]}
                       >
                         {recipe.hasAll
-                          ? "You have 100%"
-                          : `Missing ${recipe.missingCount} item`}
+                          ? "100% Ready"
+                          : `${recipe.matchPercentage}% • ${recipe.missingCount} missing`}
                       </Text>
                     </View>
                     <View style={styles.timeTag}>
-                      <Text style={styles.timeTagText}>{recipe.time}</Text>
+                      <Text style={styles.timeTagText}>{recipe.cookTime}</Text>
                     </View>
                   </View>
                 </View>
@@ -585,6 +608,9 @@ const styles = StyleSheet.create({
   },
   yellowTag: {
     backgroundColor: Colors.yellow,
+  },
+  orangeTag: {
+    backgroundColor: Colors.orange,
   },
   recipeTagText: {
     fontSize: 10,
