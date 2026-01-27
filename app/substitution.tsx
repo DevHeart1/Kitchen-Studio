@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Image,
 } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
@@ -120,7 +121,7 @@ export default function SubstitutionScreen() {
         style={styles.scrollView}
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingBottom: insets.bottom + 180 },
+          { paddingBottom: insets.bottom + 220 },
         ]}
         showsVerticalScrollIndicator={false}
       >
@@ -212,6 +213,10 @@ export default function SubstitutionScreen() {
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
+        <LinearGradient
+          colors={['transparent', Colors.backgroundDark]}
+          style={styles.footerGradient}
+        />
         <TouchableOpacity
           style={styles.storeButton}
           activeOpacity={0.8}
@@ -433,10 +438,17 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     paddingHorizontal: 24,
-    paddingTop: 24,
+    paddingTop: 32,
     gap: 12,
     alignItems: "center",
-    backgroundColor: Colors.backgroundDark,
+  },
+  footerGradient: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 40,
+    backgroundColor: "transparent",
   },
   storeButton: {
     width: "100%",
