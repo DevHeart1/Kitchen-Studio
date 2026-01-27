@@ -271,7 +271,12 @@ export default function RecipeScreen() {
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
-        <TouchableOpacity style={styles.primaryButton} activeOpacity={0.8}>
+        <TouchableOpacity
+          style={styles.primaryButton}
+          activeOpacity={0.8}
+          onPress={() => router.push("/ar-cooking")}
+          testID="start-ar-cooking-button"
+        >
           <Box size={20} color={Colors.backgroundDark} />
           <Text style={styles.primaryButtonText}>Start AR Cooking</Text>
         </TouchableOpacity>
