@@ -14,6 +14,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { CameraView, useCameraPermissions } from "expo-camera";
+import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import { Zap, Check, Loader, CheckCheck, X, Camera, RefreshCw, Scan } from "lucide-react-native";
 import Colors from "@/constants/colors";
 import { useInventory } from "@/contexts/InventoryContext";
@@ -455,20 +456,32 @@ export default function ScannerScreen() {
 
     try {
       const photo = await cameraRef.current.takePictureAsync({
-        base64: true,
         quality: 0.7,
+        skipProcessing: true,
       });
 
-      if (!photo?.base64) {
+      if (!photo?.uri) {
         throw new Error("Failed to capture image");
       }
 
-      console.log("[Scanner] Photo captured, analyzing with Gemini 2.0 Flash...");
-      setCapturedImage(`data:image/jpeg;base64,${photo.base64}`);
+      console.log("[Scanner] Processing image...");
+      // Resize and compress image to reduce payload size
+      const manipulated = await manipulateAsync(
+        photo.uri,
+        [{ resize: { width: 800 } }], // Resize to 800px width
+        { compress: 0.6, format: SaveFormat.JPEG, base64: true }
+      );
+
+      if (!manipulated.base64) {
+        throw new Error("Failed to process image");
+      }
+
+      console.log("[Scanner] Image processed, analyzing with Gemini...");
+      setCapturedImage(manipulated.uri);
       setHasCaptured(true);
 
       const result = await analyzeMutation.mutateAsync({
-        imageBase64: photo.base64,
+        imageBase64: manipulated.base64,
         mimeType: "image/jpeg",
       });
 

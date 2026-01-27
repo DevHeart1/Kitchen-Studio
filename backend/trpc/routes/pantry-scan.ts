@@ -72,16 +72,17 @@ export const pantryScanRouter = createTRPCRouter({
 
       const apiKey = process.env.GEMINI_API_KEY;
       if (!apiKey) {
-        throw new Error("GEMINI_API_KEY is not configured on the server");
+        console.error("GEMINI_API_KEY is missing");
+        throw new Error("Server configuration error: API key missing");
       }
 
       const ai = new GoogleGenAI({ apiKey });
 
       try {
-        console.log("[PantryScan] Starting image analysis...");
+        console.log(`[PantryScan] Starting image analysis. Payload size: ${Math.round(input.imageBase64.length / 1024)}KB`);
 
         const response = await ai.models.generateContent({
-          model: "gemini-3-flash-preview",
+          model: "gemini-2.0-flash",
           contents: [
             {
               role: "user",
