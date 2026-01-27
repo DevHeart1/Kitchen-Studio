@@ -83,7 +83,7 @@ export const pantryScanRouter = createTRPCRouter({
 
         // Use generateContentStream as per working example for this model
         const responseStream = await ai.models.generateContentStream({
-          model: "gemini-3-flash-preview",
+          model: "gemini-2.0-flash",
           contents: [
             {
               role: "user",
@@ -102,13 +102,6 @@ export const pantryScanRouter = createTRPCRouter({
           ],
           config: {
             responseMimeType: "application/json",
-            // @ts-ignore
-            thinkingConfig: {
-              // @ts-ignore
-              thinkingLevel: "MINIMAL",
-            },
-            // @ts-ignore
-            mediaResolution: "MEDIA_RESOLUTION_HIGH",
           },
         });
 
