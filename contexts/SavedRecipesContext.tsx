@@ -2,14 +2,20 @@ import React, { useEffect, useState, useCallback, useMemo } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import createContextHook from "@nkzw/create-context-hook";
 
+export interface RecipeIngredient {
+  id: string;
+  name: string;
+  amount: string;
+  image: string;
+  substituteSuggestion?: string;
+}
+
 export interface SavedRecipe {
   id: string;
   title: string;
   videoThumbnail: string;
   videoDuration: string;
-  readinessPercent: number;
-  totalIngredients: number;
-  readyIngredients: number;
+  ingredients: RecipeIngredient[];
   savedAt: string;
 }
 

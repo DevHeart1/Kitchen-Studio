@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   View,
   Text,
@@ -21,7 +21,8 @@ import {
   BookmarkCheck,
 } from "lucide-react-native";
 import Colors from "@/constants/colors";
-import { useSavedRecipes } from "@/contexts/SavedRecipesContext";
+import { useSavedRecipes, RecipeIngredient } from "@/contexts/SavedRecipesContext";
+import { useInventory } from "@/contexts/InventoryContext";
 
 interface Ingredient {
   id: string;
@@ -32,27 +33,24 @@ interface Ingredient {
   substituteSuggestion?: string;
 }
 
-const ingredients: Ingredient[] = [
+const BASE_INGREDIENTS: RecipeIngredient[] = [
   {
     id: "1",
     name: "Extra Virgin Olive Oil",
     amount: "2 tbsp",
     image: "https://lh3.googleusercontent.com/aida-public/AB6AXuBA-7sCtfjffeCbyNeMwxGx0ZAwPeGwFGrM3RfQtcU-2AZ9Vk6mleSdAYDLzy5Ow6sT31SJbvBvJQwIbcmYi2s9dKyp9fMcvnm13h_1Drc5CMYo9EjX6gCQK6U7nthgiA4oLqh1kad8_TgtELWCvGz6L5Gr5KAHLh7y_hIQbqOyrtVB2QFqTM0l_Mih6P2wMFDqM5yCyGV8pljXtNn_E5hSz57MWjKZCAGYd7vS4HXs_zR8i7YzfK7pPj0ZdcsSalaY2Q-yCdhxow",
-    status: "in_pantry",
   },
   {
     id: "2",
     name: "Salmon Fillets",
     amount: "2 large pieces",
     image: "https://lh3.googleusercontent.com/aida-public/AB6AXuARg6uLtked95kTG0C5p5SRtNryHxrdaIGcD1hMIRwlCp2H0Xnt9NIZnbi01naMTFFqqzLxaf97lrt4L4QA-pQA6EXeU4etHmHrYKHgF16LkIENW2mramX5I8INSM_6hI81K7DAmysd4xv2NbQGtqZuLs2L6rNYSE3qvr6MaXqHHVIqAEcPvRDDdpTrF6qHyQe8fBtD409m2x9mwyvuz_w7ivtFS5Abn1DcDGnfASmo3lYm7u62cXCvbvAoDxgvTtTiM3DFdZrZmQ",
-    status: "in_pantry",
   },
   {
     id: "3",
     name: "Kosher Salt",
     amount: "1 tsp",
     image: "https://lh3.googleusercontent.com/aida-public/AB6AXuAFWdfhVmHNyvkuecLVPnjD8di1NBUCgXaA-UhHv4zk6Nxe8SKYPzL2yzaQiC0bdl_Q5RwisCbFyufK-64zyy0Fox8hsSoGTeeNcGznltPl2ERVaKppby2N38TUOYROOLvY2E5-qOqOJ1NFdKwJ-djhGtDKZrF62oAvd3ug4kBnsWFq5YphCZ3auWCYyqQrse3iuJ4cCgQFf8pL3g0vN6jMh1fMtNtkMezF5yZvtaix5neJLw3jI6EFNh7LikaPx4LQmwt5NcfUtQ",
-    status: "substitute",
     substituteSuggestion: "Use Table Salt (3/4 tsp)",
   },
   {
@@ -60,28 +58,24 @@ const ingredients: Ingredient[] = [
     name: "Fresh Garlic",
     amount: "4 cloves, minced",
     image: "https://lh3.googleusercontent.com/aida-public/AB6AXuDI2f3PaNs2pX7MthcwlQW9PE5bM9Rz8wvXaEmVQvfHHDlKbiText-bJ5YBxIkXLjUW5PTm6ceYLESQdLcEAx3_6SzarUqcCmyoGgjwxLXhpf_5TRqFgRfZXAuWwrqZhEzZ8JE9spU63HbLyCCGR3vrGhuf5_qldjzOQ-pVOHgcRIN1gEgSI5s07sgP9FkJDXHskw8kEJOl3Fa-LmTPV6qnpwgK_Nd1KOLGwnJ8DwYSod9fPzTPQon-nDQh1nVcB-hhWAOn_CH1vg",
-    status: "in_pantry",
   },
   {
     id: "5",
     name: "Unsalted Butter",
     amount: "3 tbsp",
     image: "https://images.unsplash.com/photo-1589985270826-4b7bb135bc9d?w=200",
-    status: "in_pantry",
   },
   {
     id: "6",
     name: "Fresh Lemon",
     amount: "1 whole",
     image: "https://images.unsplash.com/photo-1582087463261-ddea03f80f5d?w=200",
-    status: "in_pantry",
   },
   {
     id: "7",
     name: "Fresh Parsley",
     amount: "2 tbsp, chopped",
     image: "https://images.unsplash.com/photo-1599438099655-1e40f359ca1d?w=200",
-    status: "missing",
     substituteSuggestion: "Use Dried Parsley (1 tsp) or Fresh Cilantro",
   },
 ];
@@ -94,8 +88,34 @@ export default function RecipeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { saveRecipe, isRecipeSaved } = useSavedRecipes();
+  const { checkIngredientInPantry } = useInventory();
   const [isSaving, setIsSaving] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
+
+  const ingredients = useMemo((): Ingredient[] => {
+    return BASE_INGREDIENTS.map((baseIngredient) => {
+      const pantryCheck = checkIngredientInPantry(baseIngredient.name);
+      
+      let status: Ingredient["status"];
+      let substituteSuggestion = baseIngredient.substituteSuggestion;
+      
+      if (pantryCheck.found) {
+        status = "in_pantry";
+        substituteSuggestion = undefined;
+      } else if (pantryCheck.hasSubstitute && pantryCheck.substituteItem) {
+        status = "substitute";
+        substituteSuggestion = substituteSuggestion || `Use ${pantryCheck.substituteItem.name}`;
+      } else {
+        status = "missing";
+      }
+      
+      return {
+        ...baseIngredient,
+        status,
+        substituteSuggestion,
+      };
+    });
+  }, [checkIngredientInPantry]);
 
   const readyCount = ingredients.filter((i) => i.status === "in_pantry").length;
   const totalCount = ingredients.length;
@@ -113,9 +133,7 @@ export default function RecipeScreen() {
       title: RECIPE_TITLE,
       videoThumbnail: VIDEO_THUMBNAIL,
       videoDuration: VIDEO_DURATION,
-      readinessPercent,
-      totalIngredients: totalCount,
-      readyIngredients: readyCount,
+      ingredients: BASE_INGREDIENTS,
     });
     setIsSaving(false);
     

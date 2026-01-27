@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo, useCallback } from "react";
 import {
   View,
   Text,
@@ -26,6 +26,7 @@ import {
 } from "lucide-react-native";
 import Colors from "@/constants/colors";
 import { useSavedRecipes, SavedRecipe } from "@/contexts/SavedRecipesContext";
+import { useInventory } from "@/contexts/InventoryContext";
 
 const PANTRY_RECIPES = [
   {
@@ -85,6 +86,33 @@ export default function KitchenScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { savedRecipes, removeRecipe, isLoading } = useSavedRecipes();
+  const { checkIngredientInPantry, getTotalCount, getExpiringCount } = useInventory();
+
+  const calculateRecipeReadiness = useCallback((recipe: SavedRecipe) => {
+    if (!recipe.ingredients || recipe.ingredients.length === 0) {
+      return { readyCount: 0, totalCount: 0, readinessPercent: 0 };
+    }
+
+    let readyCount = 0;
+    recipe.ingredients.forEach((ingredient) => {
+      const pantryCheck = checkIngredientInPantry(ingredient.name);
+      if (pantryCheck.found) {
+        readyCount++;
+      }
+    });
+
+    const totalCount = recipe.ingredients.length;
+    const readinessPercent = Math.round((readyCount / totalCount) * 100);
+
+    return { readyCount, totalCount, readinessPercent };
+  }, [checkIngredientInPantry]);
+
+  const recipesWithReadiness = useMemo(() => {
+    return savedRecipes.map((recipe) => ({
+      ...recipe,
+      ...calculateRecipeReadiness(recipe),
+    }));
+  }, [savedRecipes, calculateRecipeReadiness]);
 
   const handleScanItems = () => {
     router.push("/scanner");
@@ -144,7 +172,7 @@ export default function KitchenScreen() {
               <Package size={24} color={Colors.primary} />
             </View>
             <Text style={styles.statLabel}>In Stock</Text>
-            <Text style={styles.statValue}>42</Text>
+            <Text style={styles.statValue}>{getTotalCount}</Text>
             <Text style={styles.statNote}>+5 from last scan</Text>
           </View>
           <View style={styles.statCard}>
@@ -153,28 +181,28 @@ export default function KitchenScreen() {
               <Clock size={24} color={Colors.orange} />
             </View>
             <Text style={styles.statLabel}>Expiring Soon</Text>
-            <Text style={styles.statValue}>3</Text>
+            <Text style={styles.statValue}>{getExpiringCount}</Text>
             <Text style={[styles.statNote, styles.orangeText]}>
               Check milk & eggs
             </Text>
           </View>
         </View>
 
-        {savedRecipes.length > 0 && (
+        {recipesWithReadiness.length > 0 && (
           <View style={styles.section}>
             <View style={styles.sectionHeaderRow}>
               <View style={styles.sectionTitleRow}>
                 <Bookmark size={20} color={Colors.primary} />
                 <Text style={styles.sectionTitle}>Saved Recipes</Text>
               </View>
-              <Text style={styles.savedCount}>{savedRecipes.length} saved</Text>
+              <Text style={styles.savedCount}>{recipesWithReadiness.length} saved</Text>
             </View>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.savedRecipesScroll}
             >
-              {savedRecipes.map((recipe) => (
+              {recipesWithReadiness.map((recipe) => (
                 <TouchableOpacity
                   key={recipe.id}
                   style={styles.savedRecipeCard}
