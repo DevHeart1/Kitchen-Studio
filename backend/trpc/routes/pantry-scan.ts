@@ -81,7 +81,7 @@ export const pantryScanRouter = createTRPCRouter({
         console.log("[PantryScan] Starting image analysis...");
 
         const response = await ai.models.generateContent({
-          model: "gemini-3-pro-preview",
+          model: "gemini-3-flash-preview",
           contents: [
             {
               role: "user",
@@ -99,6 +99,10 @@ export const pantryScanRouter = createTRPCRouter({
             },
           ],
           config: {
+            thinkingConfig: {
+              thinkingLevel: "MINIMAL",
+            },
+            mediaResolution: "MEDIA_RESOLUTION_HIGH",
             responseMimeType: "application/json",
           },
         });
