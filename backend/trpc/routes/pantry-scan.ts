@@ -1,5 +1,5 @@
 import * as z from "zod";
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, ThinkingLevel, MediaResolution } from "@google/genai";
 
 import { createTRPCRouter, publicProcedure } from "../create-context";
 
@@ -100,9 +100,9 @@ export const pantryScanRouter = createTRPCRouter({
           ],
           config: {
             thinkingConfig: {
-              thinkingLevel: "MINIMAL",
+              thinkingLevel: ThinkingLevel.MINIMAL,
             },
-            mediaResolution: "MEDIA_RESOLUTION_HIGH",
+            mediaResolution: MediaResolution.MEDIA_RESOLUTION_HIGH,
             responseMimeType: "application/json",
           },
         });
