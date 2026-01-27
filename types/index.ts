@@ -34,3 +34,24 @@ export interface CookingStep {
   completed: boolean;
   tip?: string;
 }
+
+export type NotificationType = 
+  | 'recipe_suggestion'
+  | 'cooking_reminder'
+  | 'ingredient_alert'
+  | 'achievement'
+  | 'chef_update'
+  | 'tip';
+
+export interface Notification {
+  id: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  timestamp: string;
+  read: boolean;
+  image?: string;
+  actionLabel?: string;
+  actionRoute?: string;
+  actionParams?: Record<string, string>;
+}
