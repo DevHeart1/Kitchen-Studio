@@ -14,7 +14,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { CameraView, useCameraPermissions } from "expo-camera";
-import { Zap, Check, Loader, CheckCheck, X, Camera, RefreshCw } from "lucide-react-native";
+import { Zap, Check, Loader, CheckCheck, X, Camera, RefreshCw, Scan } from "lucide-react-native";
 import Colors from "@/constants/colors";
 import { useInventory } from "@/contexts/InventoryContext";
 import { trpc } from "@/lib/trpc";
@@ -46,12 +46,356 @@ const PLACEHOLDER_IMAGES: Record<string, string> = {
   "Other": "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=200",
 };
 
+const ScanLineEffect = ({ isActive }: { isActive: boolean }) => {
+  const scanLine1 = useRef(new Animated.Value(0)).current;
+  const scanLine2 = useRef(new Animated.Value(0)).current;
+  const scanLine3 = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (!isActive) return;
+
+    const createScanAnimation = (anim: Animated.Value, delay: number) => {
+      return Animated.loop(
+        Animated.sequence([
+          Animated.delay(delay),
+          Animated.timing(anim, {
+            toValue: 1,
+            duration: 2500,
+            useNativeDriver: true,
+          }),
+          Animated.timing(anim, {
+            toValue: 0,
+            duration: 0,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+    };
+
+    const anim1 = createScanAnimation(scanLine1, 0);
+    const anim2 = createScanAnimation(scanLine2, 800);
+    const anim3 = createScanAnimation(scanLine3, 1600);
+
+    anim1.start();
+    anim2.start();
+    anim3.start();
+
+    return () => {
+      anim1.stop();
+      anim2.stop();
+      anim3.stop();
+    };
+  }, [isActive, scanLine1, scanLine2, scanLine3]);
+
+  const translateY1 = scanLine1.interpolate({
+    inputRange: [0, 1],
+    outputRange: [-50, SCREEN_HEIGHT + 50],
+  });
+
+  const translateY2 = scanLine2.interpolate({
+    inputRange: [0, 1],
+    outputRange: [-50, SCREEN_HEIGHT + 50],
+  });
+
+  const translateY3 = scanLine3.interpolate({
+    inputRange: [0, 1],
+    outputRange: [-50, SCREEN_HEIGHT + 50],
+  });
+
+  const opacity1 = scanLine1.interpolate({
+    inputRange: [0, 0.3, 0.7, 1],
+    outputRange: [0, 0.8, 0.8, 0],
+  });
+
+  const opacity2 = scanLine2.interpolate({
+    inputRange: [0, 0.3, 0.7, 1],
+    outputRange: [0, 0.5, 0.5, 0],
+  });
+
+  const opacity3 = scanLine3.interpolate({
+    inputRange: [0, 0.3, 0.7, 1],
+    outputRange: [0, 0.3, 0.3, 0],
+  });
+
+  if (!isActive) return null;
+
+  return (
+    <View style={StyleSheet.absoluteFill} pointerEvents="none">
+      <Animated.View
+        style={[
+          styles.fullScanLine,
+          {
+            transform: [{ translateY: translateY1 }],
+            opacity: opacity1,
+            height: 3,
+          },
+        ]}
+      />
+      <Animated.View
+        style={[
+          styles.fullScanLine,
+          styles.scanLineSecondary,
+          {
+            transform: [{ translateY: translateY2 }],
+            opacity: opacity2,
+            height: 2,
+          },
+        ]}
+      />
+      <Animated.View
+        style={[
+          styles.fullScanLine,
+          styles.scanLineTertiary,
+          {
+            transform: [{ translateY: translateY3 }],
+            opacity: opacity3,
+            height: 1,
+          },
+        ]}
+      />
+    </View>
+  );
+};
+
+const CRTScanLines = () => {
+  return (
+    <View style={styles.crtContainer} pointerEvents="none">
+      {Array.from({ length: Math.floor(SCREEN_HEIGHT / 4) }).map((_, i) => (
+        <View
+          key={i}
+          style={[
+            styles.crtLine,
+            { top: i * 4 },
+          ]}
+        />
+      ))}
+    </View>
+  );
+};
+
+const GridOverlay = () => {
+  const pulseAnim = useRef(new Animated.Value(0.15)).current;
+
+  useEffect(() => {
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 0.25,
+          duration: 2000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 0.15,
+          duration: 2000,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    pulse.start();
+    return () => pulse.stop();
+  }, [pulseAnim]);
+
+  return (
+    <Animated.View style={[styles.gridContainer, { opacity: pulseAnim }]} pointerEvents="none">
+      {Array.from({ length: 8 }).map((_, i) => (
+        <View
+          key={`v-${i}`}
+          style={[
+            styles.gridLineVertical,
+            { left: `${(i + 1) * 11.1}%` },
+          ]}
+        />
+      ))}
+      {Array.from({ length: 12 }).map((_, i) => (
+        <View
+          key={`h-${i}`}
+          style={[
+            styles.gridLineHorizontal,
+            { top: `${(i + 1) * 7.7}%` },
+          ]}
+        />
+      ))}
+    </Animated.View>
+  );
+};
+
+const CornerBrackets = ({ size = 280 }: { size?: number }) => {
+  const glowAnim = useRef(new Animated.Value(0)).current;
+  const cornerSize = 40;
+
+  useEffect(() => {
+    const glow = Animated.loop(
+      Animated.sequence([
+        Animated.timing(glowAnim, {
+          toValue: 1,
+          duration: 1500,
+          useNativeDriver: true,
+        }),
+        Animated.timing(glowAnim, {
+          toValue: 0,
+          duration: 1500,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    glow.start();
+    return () => glow.stop();
+  }, [glowAnim]);
+
+  const glowOpacity = glowAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.3, 0.8],
+  });
+
+  const glowScale = glowAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 1.05],
+  });
+
+  return (
+    <Animated.View
+      style={[
+        styles.cornersContainer,
+        { width: size, height: size, transform: [{ scale: glowScale }] },
+      ]}
+    >
+      <View style={[styles.cornerBracket, styles.cornerTL]}>
+        <View style={[styles.bracketHorizontal, { width: cornerSize }]} />
+        <View style={[styles.bracketVertical, { height: cornerSize }]} />
+        <Animated.View style={[styles.cornerGlow, styles.glowTL, { opacity: glowOpacity }]} />
+      </View>
+      <View style={[styles.cornerBracket, styles.cornerTR]}>
+        <View style={[styles.bracketHorizontal, { width: cornerSize }]} />
+        <View style={[styles.bracketVertical, { height: cornerSize }]} />
+        <Animated.View style={[styles.cornerGlow, styles.glowTR, { opacity: glowOpacity }]} />
+      </View>
+      <View style={[styles.cornerBracket, styles.cornerBL]}>
+        <View style={[styles.bracketHorizontal, { width: cornerSize }]} />
+        <View style={[styles.bracketVertical, { height: cornerSize }]} />
+        <Animated.View style={[styles.cornerGlow, styles.glowBL, { opacity: glowOpacity }]} />
+      </View>
+      <View style={[styles.cornerBracket, styles.cornerBR]}>
+        <View style={[styles.bracketHorizontal, { width: cornerSize }]} />
+        <View style={[styles.bracketVertical, { height: cornerSize }]} />
+        <Animated.View style={[styles.cornerGlow, styles.glowBR, { opacity: glowOpacity }]} />
+      </View>
+
+      <View style={styles.centerCrosshair}>
+        <View style={styles.crosshairH} />
+        <View style={styles.crosshairV} />
+        <View style={styles.crosshairDot} />
+      </View>
+    </Animated.View>
+  );
+};
+
+const DataStreamEffect = ({ isScanning }: { isScanning: boolean }) => {
+  const dataStreams = useRef(
+    Array.from({ length: 6 }).map(() => new Animated.Value(0))
+  ).current;
+
+  useEffect(() => {
+    if (!isScanning) return;
+
+    const animations = dataStreams.map((anim, index) => {
+      return Animated.loop(
+        Animated.sequence([
+          Animated.delay(index * 200),
+          Animated.timing(anim, {
+            toValue: 1,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(anim, {
+            toValue: 0,
+            duration: 0,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+    });
+
+    animations.forEach((a) => a.start());
+    return () => animations.forEach((a) => a.stop());
+  }, [isScanning, dataStreams]);
+
+  if (!isScanning) return null;
+
+  return (
+    <View style={styles.dataStreamContainer} pointerEvents="none">
+      {dataStreams.map((anim, i) => {
+        const translateY = anim.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0, 100],
+        });
+        const opacity = anim.interpolate({
+          inputRange: [0, 0.5, 1],
+          outputRange: [0, 1, 0],
+        });
+
+        return (
+          <Animated.View
+            key={i}
+            style={[
+              styles.dataStream,
+              {
+                left: 20 + i * 60,
+                transform: [{ translateY }],
+                opacity,
+              },
+            ]}
+          >
+            <Text style={styles.dataStreamText}>
+              {Math.random().toString(16).substr(2, 4).toUpperCase()}
+            </Text>
+          </Animated.View>
+        );
+      })}
+    </View>
+  );
+};
+
+const GlowVignette = () => {
+  const glowAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const glow = Animated.loop(
+      Animated.sequence([
+        Animated.timing(glowAnim, {
+          toValue: 1,
+          duration: 3000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(glowAnim, {
+          toValue: 0,
+          duration: 3000,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    glow.start();
+    return () => glow.stop();
+  }, [glowAnim]);
+
+  const borderOpacity = glowAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.2, 0.5],
+  });
+
+  return (
+    <Animated.View
+      style={[styles.glowVignette, { opacity: borderOpacity }]}
+      pointerEvents="none"
+    />
+  );
+};
+
 export default function ScannerScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const cameraRef = useRef<CameraView>(null);
-  const scanLineAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  const scanPulse = useRef(new Animated.Value(0)).current;
   
   const [permission, requestPermission] = useCameraPermissions();
   const [flashOn, setFlashOn] = useState(false);
@@ -65,55 +409,49 @@ export default function ScannerScreen() {
   const analyzeMutation = trpc.pantryScan.analyzeImage.useMutation();
 
   useEffect(() => {
-    const scanAnimation = Animated.loop(
-      Animated.sequence([
-        Animated.timing(scanLineAnim, {
-          toValue: 1,
-          duration: 2000,
-          useNativeDriver: true,
-        }),
-        Animated.timing(scanLineAnim, {
-          toValue: 0,
-          duration: 2000,
-          useNativeDriver: true,
-        }),
-      ])
-    );
-    scanAnimation.start();
-
     const pulseAnimation = Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, {
-          toValue: 1.1,
-          duration: 1000,
+          toValue: 1.08,
+          duration: 1200,
           useNativeDriver: true,
         }),
         Animated.timing(pulseAnim, {
           toValue: 1,
-          duration: 1000,
+          duration: 1200,
           useNativeDriver: true,
         }),
       ])
     );
     pulseAnimation.start();
 
-    return () => {
-      scanAnimation.stop();
-      pulseAnimation.stop();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    const scanPulseAnimation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(scanPulse, {
+          toValue: 1,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+        Animated.timing(scanPulse, {
+          toValue: 0,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    scanPulseAnimation.start();
 
-  const scanLineTranslate = scanLineAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, 200],
-  });
+    return () => {
+      pulseAnimation.stop();
+      scanPulseAnimation.stop();
+    };
+  }, [pulseAnim, scanPulse]);
 
   const handleCapture = useCallback(async () => {
     if (!cameraRef.current || isScanning) return;
 
     setIsScanning(true);
-    console.log("[Scanner] Starting capture...");
+    console.log("[Scanner] Starting capture with Gemini 3.0 Pro Preview...");
 
     try {
       const photo = await cameraRef.current.takePictureAsync({
@@ -125,7 +463,7 @@ export default function ScannerScreen() {
         throw new Error("Failed to capture image");
       }
 
-      console.log("[Scanner] Photo captured, analyzing...");
+      console.log("[Scanner] Photo captured, analyzing with Gemini 3.0 Pro...");
       setCapturedImage(`data:image/jpeg;base64,${photo.base64}`);
       setHasCaptured(true);
 
@@ -134,7 +472,7 @@ export default function ScannerScreen() {
         mimeType: "image/jpeg",
       });
 
-      console.log("[Scanner] Analysis complete:", result);
+      console.log("[Scanner] Gemini 3.0 Pro analysis complete:", result);
 
       const items: DetectedItem[] = result.items.map((item, index) => ({
         id: `scan-${Date.now()}-${index}`,
@@ -202,6 +540,11 @@ export default function ScannerScreen() {
 
   const confirmedCount = detectedItems.filter((item) => item.confirmed).length;
 
+  const scanPulseOpacity = scanPulse.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.5, 1],
+  });
+
   if (!permission) {
     return (
       <View style={[styles.container, styles.centered]}>
@@ -239,7 +582,11 @@ export default function ScannerScreen() {
       )}
       
       <View style={styles.overlay} />
-      <View style={styles.vignetteOverlay} />
+      <CRTScanLines />
+      <GridOverlay />
+      <ScanLineEffect isActive={!hasCaptured} />
+      <DataStreamEffect isScanning={isScanning} />
+      <GlowVignette />
 
       <View style={[styles.topBar, { paddingTop: insets.top + 12 }]}>
         <TouchableOpacity
@@ -255,10 +602,13 @@ export default function ScannerScreen() {
         </TouchableOpacity>
 
         <View style={styles.scanningIndicator}>
-          <Text style={styles.scanningText}>
-            {isScanning ? "ANALYZING..." : hasCaptured ? "SCAN COMPLETE" : "LIVE SCANNING"}
-          </Text>
-          <View style={[styles.scanningDot, isScanning && styles.scanningDotActive]} />
+          <View style={styles.statusContainer}>
+            <Animated.View style={[styles.statusDot, { opacity: scanPulseOpacity }]} />
+            <Text style={styles.scanningText}>
+              {isScanning ? "ANALYZING" : hasCaptured ? "COMPLETE" : "SCANNING"}
+            </Text>
+          </View>
+          <Text style={styles.modelBadge}>GEMINI 3.0 PRO</Text>
         </View>
 
         <TouchableOpacity style={styles.topButton} activeOpacity={0.7} onPress={handleClose}>
@@ -267,30 +617,16 @@ export default function ScannerScreen() {
       </View>
 
       <View style={styles.viewfinderContainer}>
-        <View style={styles.viewfinder}>
-          <View style={[styles.corner, styles.cornerTopLeft]} />
-          <View style={[styles.corner, styles.cornerTopRight]} />
-          <View style={[styles.corner, styles.cornerBottomLeft]} />
-          <View style={[styles.corner, styles.cornerBottomRight]} />
-
-          {!hasCaptured && (
-            <Animated.View
-              style={[
-                styles.scanLine,
-                { transform: [{ translateY: scanLineTranslate }] },
-              ]}
-            />
-          )}
-        </View>
+        <CornerBrackets size={280} />
 
         <Animated.Text
           style={[styles.scanningTitle, { transform: [{ scale: pulseAnim }] }]}
         >
           {isScanning 
-            ? "Analyzing with AI..." 
+            ? "AI Processing..." 
             : hasCaptured 
-              ? `Found ${detectedItems.length} items` 
-              : "Point at your pantry"}
+              ? `${detectedItems.length} Items Detected` 
+              : "Aim at Pantry"}
         </Animated.Text>
 
         {!hasCaptured && !isScanning && (
@@ -299,8 +635,10 @@ export default function ScannerScreen() {
             onPress={handleCapture}
             activeOpacity={0.8}
           >
-            <View style={styles.captureButtonInner}>
-              <Camera size={28} color={Colors.backgroundDark} />
+            <View style={styles.captureButtonOuter}>
+              <View style={styles.captureButtonInner}>
+                <Scan size={28} color={Colors.backgroundDark} />
+              </View>
             </View>
           </TouchableOpacity>
         )}
@@ -323,20 +661,20 @@ export default function ScannerScreen() {
         <View style={styles.trayHeader}>
           <View>
             <Text style={styles.trayTitle}>
-              {isScanning ? "Scanning..." : detectedItems.length > 0 ? "Detected Items" : "Ready to Scan"}
+              {isScanning ? "Analyzing..." : detectedItems.length > 0 ? "Detected Items" : "Ready to Scan"}
             </Text>
             <Text style={styles.traySubtitle}>
               {isScanning 
-                ? "AI is analyzing your pantry" 
+                ? "Gemini 3.0 Pro is analyzing" 
                 : detectedItems.length > 0 
-                  ? `${detectedItems.length} items identified • Tap to toggle`
-                  : "Capture your pantry to detect items"}
+                  ? `${detectedItems.length} items • Tap to toggle`
+                  : "Capture your pantry to begin"}
             </Text>
           </View>
           {overallConfidence > 0 && (
             <View style={styles.confidenceBadge}>
               <Text style={styles.confidenceText}>
-                {Math.round(overallConfidence * 100)}% CONFIDENCE
+                {Math.round(overallConfidence * 100)}%
               </Text>
             </View>
           )}
@@ -344,8 +682,10 @@ export default function ScannerScreen() {
 
         {isScanning ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={Colors.primary} />
-            <Text style={styles.loadingText}>Analyzing image with Gemini AI...</Text>
+            <View style={styles.loadingRing}>
+              <ActivityIndicator size="large" color={Colors.primary} />
+            </View>
+            <Text style={styles.loadingText}>Processing with Gemini 3.0 Pro...</Text>
           </View>
         ) : (
           <ScrollView
@@ -355,9 +695,9 @@ export default function ScannerScreen() {
           >
             {detectedItems.length === 0 ? (
               <View style={styles.emptyState}>
-                <Camera size={32} color={Colors.textSecondary} />
+                <Scan size={32} color={Colors.textSecondary} />
                 <Text style={styles.emptyStateText}>
-                  Tap the camera button to scan
+                  Tap scan to detect items
                 </Text>
               </View>
             ) : (
@@ -450,15 +790,222 @@ const styles = StyleSheet.create({
     position: "absolute",
     width: SCREEN_WIDTH,
     height: SCREEN_HEIGHT,
-    backgroundColor: "rgba(0,0,0,0.15)",
+    backgroundColor: "rgba(0,0,0,0.2)",
   },
-  vignetteOverlay: {
+  fullScanLine: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    backgroundColor: Colors.primary,
+    ...Platform.select({
+      ios: {
+        shadowColor: Colors.primary,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 1,
+        shadowRadius: 20,
+      },
+      web: {
+        boxShadow: `0 0 30px ${Colors.primary}, 0 0 60px ${Colors.primary}40`,
+      } as any,
+    }),
+  },
+  scanLineSecondary: {
+    backgroundColor: `${Colors.primary}80`,
+  },
+  scanLineTertiary: {
+    backgroundColor: `${Colors.primary}40`,
+  },
+  crtContainer: {
     position: "absolute",
     width: SCREEN_WIDTH,
     height: SCREEN_HEIGHT,
+    overflow: "hidden",
+  },
+  crtLine: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    height: 1,
+    backgroundColor: "rgba(0,0,0,0.1)",
+  },
+  gridContainer: {
+    position: "absolute",
+    width: SCREEN_WIDTH,
+    height: SCREEN_HEIGHT,
+  },
+  gridLineVertical: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    width: 1,
+    backgroundColor: Colors.primary,
+  },
+  gridLineHorizontal: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    height: 1,
+    backgroundColor: Colors.primary,
+  },
+  cornersContainer: {
+    position: "relative",
+  },
+  cornerBracket: {
+    position: "absolute",
+  },
+  cornerTL: {
+    top: 0,
+    left: 0,
+  },
+  cornerTR: {
+    top: 0,
+    right: 0,
+  },
+  cornerBL: {
+    bottom: 0,
+    left: 0,
+  },
+  cornerBR: {
+    bottom: 0,
+    right: 0,
+  },
+  bracketHorizontal: {
+    position: "absolute",
+    height: 3,
+    backgroundColor: Colors.primary,
     ...Platform.select({
+      ios: {
+        shadowColor: Colors.primary,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.8,
+        shadowRadius: 6,
+      },
       web: {
-        background: "radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.4) 100%)",
+        boxShadow: `0 0 12px ${Colors.primary}`,
+      } as any,
+    }),
+  },
+  bracketVertical: {
+    position: "absolute",
+    width: 3,
+    backgroundColor: Colors.primary,
+    ...Platform.select({
+      ios: {
+        shadowColor: Colors.primary,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.8,
+        shadowRadius: 6,
+      },
+      web: {
+        boxShadow: `0 0 12px ${Colors.primary}`,
+      } as any,
+    }),
+  },
+  cornerGlow: {
+    position: "absolute",
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: Colors.primary,
+    ...Platform.select({
+      ios: {
+        shadowColor: Colors.primary,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 1,
+        shadowRadius: 15,
+      },
+      web: {
+        boxShadow: `0 0 20px ${Colors.primary}, 0 0 40px ${Colors.primary}`,
+      } as any,
+    }),
+  },
+  glowTL: {
+    top: -5,
+    left: -5,
+  },
+  glowTR: {
+    top: -5,
+    right: -5,
+  },
+  glowBL: {
+    bottom: -5,
+    left: -5,
+  },
+  glowBR: {
+    bottom: -5,
+    right: -5,
+  },
+  centerCrosshair: {
+    position: "absolute",
+    top: "50%",
+    left: "50%",
+    width: 30,
+    height: 30,
+    marginTop: -15,
+    marginLeft: -15,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  crosshairH: {
+    position: "absolute",
+    width: 20,
+    height: 1,
+    backgroundColor: `${Colors.primary}60`,
+  },
+  crosshairV: {
+    position: "absolute",
+    width: 1,
+    height: 20,
+    backgroundColor: `${Colors.primary}60`,
+  },
+  crosshairDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: Colors.primary,
+    ...Platform.select({
+      ios: {
+        shadowColor: Colors.primary,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 1,
+        shadowRadius: 4,
+      },
+      web: {
+        boxShadow: `0 0 8px ${Colors.primary}`,
+      } as any,
+    }),
+  },
+  dataStreamContainer: {
+    position: "absolute",
+    top: 120,
+    left: 0,
+    right: 0,
+    height: 100,
+  },
+  dataStream: {
+    position: "absolute",
+  },
+  dataStreamText: {
+    fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
+    fontSize: 10,
+    color: `${Colors.primary}80`,
+    letterSpacing: 2,
+  },
+  glowVignette: {
+    position: "absolute",
+    width: SCREEN_WIDTH,
+    height: SCREEN_HEIGHT,
+    borderWidth: 3,
+    borderColor: Colors.primary,
+    ...Platform.select({
+      ios: {
+        shadowColor: Colors.primary,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 1,
+        shadowRadius: 30,
+      },
+      web: {
+        boxShadow: `inset 0 0 100px ${Colors.primary}20`,
       } as any,
     }),
   },
@@ -486,109 +1033,50 @@ const styles = StyleSheet.create({
   scanningIndicator: {
     alignItems: "center",
   },
-  scanningText: {
-    fontSize: 10,
-    fontWeight: "700" as const,
-    color: Colors.primary,
-    letterSpacing: 2,
-    marginBottom: 6,
-  },
-  scanningDot: {
-    width: 48,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: Colors.primary,
-    ...Platform.select({
-      ios: {
-        shadowColor: Colors.primary,
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.8,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 4,
-      },
-      web: {
-        boxShadow: `0 0 8px ${Colors.primary}`,
-      } as any,
-    }),
-  },
-  scanningDotActive: {
-    backgroundColor: "#FFD700",
-    ...Platform.select({
-      ios: {
-        shadowColor: "#FFD700",
-      },
-      web: {
-        boxShadow: "0 0 8px #FFD700",
-      } as any,
-    }),
-  },
-  viewfinderContainer: {
-    flex: 1,
+  statusContainer: {
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    marginTop: -60,
+    gap: 8,
+    marginBottom: 4,
   },
-  viewfinder: {
-    width: 220,
-    height: 220,
-    borderWidth: 2,
-    borderColor: "rgba(255,255,255,0.2)",
-    borderRadius: 16,
-    overflow: "hidden",
-  },
-  corner: {
-    position: "absolute",
-    width: 24,
-    height: 24,
-    borderColor: Colors.primary,
-  },
-  cornerTopLeft: {
-    top: -1,
-    left: -1,
-    borderTopWidth: 4,
-    borderLeftWidth: 4,
-    borderTopLeftRadius: 12,
-  },
-  cornerTopRight: {
-    top: -1,
-    right: -1,
-    borderTopWidth: 4,
-    borderRightWidth: 4,
-    borderTopRightRadius: 12,
-  },
-  cornerBottomLeft: {
-    bottom: -1,
-    left: -1,
-    borderBottomWidth: 4,
-    borderLeftWidth: 4,
-    borderBottomLeftRadius: 12,
-  },
-  cornerBottomRight: {
-    bottom: -1,
-    right: -1,
-    borderBottomWidth: 4,
-    borderRightWidth: 4,
-    borderBottomRightRadius: 12,
-  },
-  scanLine: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    height: 2,
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
     backgroundColor: Colors.primary,
     ...Platform.select({
       ios: {
         shadowColor: Colors.primary,
         shadowOffset: { width: 0, height: 0 },
         shadowOpacity: 1,
-        shadowRadius: 10,
+        shadowRadius: 4,
       },
       web: {
-        boxShadow: `0 0 15px ${Colors.primary}`,
+        boxShadow: `0 0 8px ${Colors.primary}`,
       } as any,
     }),
+  },
+  scanningText: {
+    fontSize: 12,
+    fontWeight: "700" as const,
+    color: Colors.primary,
+    letterSpacing: 3,
+  },
+  modelBadge: {
+    fontSize: 8,
+    fontWeight: "600" as const,
+    color: Colors.textSecondary,
+    letterSpacing: 1,
+    backgroundColor: "rgba(0,0,0,0.3)",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  viewfinderContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: -60,
   },
   scanningTitle: {
     marginTop: 32,
@@ -598,27 +1086,40 @@ const styles = StyleSheet.create({
     textAlign: "center",
     ...Platform.select({
       ios: {
-        textShadowColor: "rgba(0,0,0,0.5)",
-        textShadowOffset: { width: 0, height: 2 },
-        textShadowRadius: 4,
+        textShadowColor: Colors.primary,
+        textShadowOffset: { width: 0, height: 0 },
+        textShadowRadius: 10,
       },
     }),
   },
   captureButton: {
     marginTop: 24,
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: "rgba(255,255,255,0.2)",
+  },
+  captureButtonOuter: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: `${Colors.primary}20`,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 3,
     borderColor: Colors.primary,
+    ...Platform.select({
+      ios: {
+        shadowColor: Colors.primary,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.6,
+        shadowRadius: 15,
+      },
+      web: {
+        boxShadow: `0 0 30px ${Colors.primary}40`,
+      } as any,
+    }),
   },
   captureButtonInner: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     backgroundColor: Colors.primary,
     alignItems: "center",
     justifyContent: "center",
@@ -687,15 +1188,15 @@ const styles = StyleSheet.create({
   },
   confidenceBadge: {
     backgroundColor: `${Colors.primary}33`,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
     borderColor: `${Colors.primary}4D`,
   },
   confidenceText: {
-    fontSize: 11,
-    fontWeight: "700" as const,
+    fontSize: 14,
+    fontWeight: "800" as const,
     color: Colors.primary,
   },
   loadingContainer: {
@@ -703,6 +1204,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingVertical: 40,
     gap: 16,
+  },
+  loadingRing: {
+    padding: 8,
+    borderRadius: 40,
+    borderWidth: 2,
+    borderColor: `${Colors.primary}30`,
   },
   loadingText: {
     fontSize: 14,
