@@ -6,6 +6,7 @@ import React, { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SavedRecipesProvider } from "@/contexts/SavedRecipesContext";
 import { InventoryProvider } from "@/contexts/InventoryContext";
+import { UserProfileProvider } from "@/contexts/UserProfileContext";
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -81,6 +82,20 @@ function RootLayoutNav() {
           animation: "slide_from_right",
         }}
       />
+      <Stack.Screen
+        name="settings"
+        options={{
+          headerShown: false,
+          animation: "slide_from_right",
+        }}
+      />
+      <Stack.Screen
+        name="shared-recipe"
+        options={{
+          headerShown: false,
+          animation: "slide_from_right",
+        }}
+      />
     </Stack>
   );
 }
@@ -95,7 +110,9 @@ export default function RootLayout() {
       <GestureHandlerRootView>
         <InventoryProvider>
           <SavedRecipesProvider>
-            <RootLayoutNav />
+            <UserProfileProvider>
+              <RootLayoutNav />
+            </UserProfileProvider>
           </SavedRecipesProvider>
         </InventoryProvider>
       </GestureHandlerRootView>
