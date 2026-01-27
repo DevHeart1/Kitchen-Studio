@@ -181,81 +181,92 @@ export default function RecipeScreen() {
         </View>
 
         <View style={styles.ingredientsList}>
-          {ingredients.map((ingredient) => (
-            <View
-              key={ingredient.id}
-              style={[
-                styles.ingredientCard,
-                ingredient.status === "substitute" && styles.substituteCard,
-                ingredient.status === "missing" && styles.missingCard,
-              ]}
-            >
-              <View style={styles.ingredientMain}>
-                <View style={styles.ingredientLeft}>
-                  <Image
-                    source={{ uri: ingredient.image }}
-                    style={[
-                      styles.ingredientImage,
-                      ingredient.status !== "in_pantry" &&
-                        styles.ingredientImageFaded,
-                    ]}
-                  />
-                  <View style={styles.ingredientInfo}>
-                    <Text style={styles.ingredientName}>{ingredient.name}</Text>
-                    <Text style={styles.ingredientAmount}>
-                      {ingredient.amount}
+          {ingredients.map((ingredient) => {
+            const isClickable = ingredient.status === "substitute" || ingredient.status === "missing";
+            const CardWrapper = isClickable ? TouchableOpacity : View;
+            const cardProps = isClickable ? {
+              onPress: () => router.push(`/substitution?id=${ingredient.id}`),
+              activeOpacity: 0.7,
+              testID: `ingredient-${ingredient.id}`,
+            } : {};
+
+            return (
+              <CardWrapper
+                key={ingredient.id}
+                style={[
+                  styles.ingredientCard,
+                  ingredient.status === "substitute" && styles.substituteCard,
+                  ingredient.status === "missing" && styles.missingCard,
+                ]}
+                {...cardProps}
+              >
+                <View style={styles.ingredientMain}>
+                  <View style={styles.ingredientLeft}>
+                    <Image
+                      source={{ uri: ingredient.image }}
+                      style={[
+                        styles.ingredientImage,
+                        ingredient.status !== "in_pantry" &&
+                          styles.ingredientImageFaded,
+                      ]}
+                    />
+                    <View style={styles.ingredientInfo}>
+                      <Text style={styles.ingredientName}>{ingredient.name}</Text>
+                      <Text style={styles.ingredientAmount}>
+                        {ingredient.amount}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.ingredientRight}>
+                    <Text
+                      style={[
+                        styles.statusText,
+                        { color: getStatusColor(ingredient.status) },
+                      ]}
+                    >
+                      {getStatusText(ingredient.status)}
                     </Text>
+                    <View
+                      style={[
+                        styles.statusDot,
+                        {
+                          backgroundColor: `${getStatusColor(ingredient.status)}33`,
+                        },
+                      ]}
+                    >
+                      <View
+                        style={[
+                          styles.statusDotInner,
+                          { backgroundColor: getStatusColor(ingredient.status) },
+                        ]}
+                      />
+                    </View>
                   </View>
                 </View>
-                <View style={styles.ingredientRight}>
-                  <Text
-                    style={[
-                      styles.statusText,
-                      { color: getStatusColor(ingredient.status) },
-                    ]}
-                  >
-                    {getStatusText(ingredient.status)}
-                  </Text>
+                {ingredient.substituteSuggestion && (
                   <View
                     style={[
-                      styles.statusDot,
+                      styles.suggestionBox,
                       {
-                        backgroundColor: `${getStatusColor(ingredient.status)}33`,
+                        backgroundColor: `${getStatusColor(ingredient.status)}15`,
+                        borderColor: `${getStatusColor(ingredient.status)}20`,
                       },
                     ]}
                   >
-                    <View
+                    <Info size={14} color={getStatusColor(ingredient.status)} />
+                    <Text
                       style={[
-                        styles.statusDotInner,
-                        { backgroundColor: getStatusColor(ingredient.status) },
+                        styles.suggestionText,
+                        { color: getStatusColor(ingredient.status) },
                       ]}
-                    />
+                    >
+                      AI suggests: {ingredient.substituteSuggestion}
+                    </Text>
                   </View>
-                </View>
-              </View>
-              {ingredient.substituteSuggestion && (
-                <View
-                  style={[
-                    styles.suggestionBox,
-                    {
-                      backgroundColor: `${getStatusColor(ingredient.status)}15`,
-                      borderColor: `${getStatusColor(ingredient.status)}20`,
-                    },
-                  ]}
-                >
-                  <Info size={14} color={getStatusColor(ingredient.status)} />
-                  <Text
-                    style={[
-                      styles.suggestionText,
-                      { color: getStatusColor(ingredient.status) },
-                    ]}
-                  >
-                    AI suggests: {ingredient.substituteSuggestion}
-                  </Text>
-                </View>
-              )}
-            </View>
-          ))}
+                )}
+              </CardWrapper>
+            );
+          })}
         </View>
       </ScrollView>
 
