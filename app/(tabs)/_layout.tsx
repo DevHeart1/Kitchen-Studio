@@ -1,5 +1,5 @@
 import React from "react";
-import { Tabs } from "expo-router";
+import { Tabs, useRouter } from "expo-router";
 import { View, Text, StyleSheet, Platform, TouchableOpacity } from "react-native";
 import { Home, Compass, ChefHat, User, ScanLine } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -69,7 +69,11 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
         })}
 
         <View style={styles.centerButtonWrapper}>
-          <TouchableOpacity style={styles.centerButton} activeOpacity={0.8}>
+          <TouchableOpacity
+            style={styles.centerButton}
+            activeOpacity={0.8}
+            onPress={() => navigation.navigate("scanner" as never)}
+          >
             <ScanLine size={28} color={Colors.backgroundDark} strokeWidth={2.5} />
           </TouchableOpacity>
         </View>
