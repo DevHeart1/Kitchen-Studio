@@ -82,7 +82,7 @@ export const pantryScanRouter = createTRPCRouter({
         console.log(`[PantryScan] Starting image analysis. Payload size: ${Math.round(input.imageBase64.length / 1024)}KB`);
 
         const response = await ai.models.generateContent({
-          model: "gemini-2.0-flash",
+          model: "gemini-3-flash-preview",
           contents: [
             {
               role: "user",
