@@ -8,6 +8,7 @@ import {
   Dimensions,
   Platform,
   Share,
+  ScrollView,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter, useLocalSearchParams } from "expo-router";
@@ -455,7 +456,12 @@ export default function LevelUpScreen() {
 
       {renderConfetti()}
 
-      <View style={[styles.content, { paddingTop: insets.top + 40 }]}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={[styles.content, { paddingTop: insets.top + 40 }]}
+        showsVerticalScrollIndicator={false}
+        bounces={true}
+      >
         <View style={styles.badgeSection}>
           <Animated.View
             style={[
@@ -619,7 +625,7 @@ export default function LevelUpScreen() {
             <Text style={styles.secondaryButtonText}>Share Achievement</Text>
           </TouchableOpacity>
         </Animated.View>
-      </View>
+      </ScrollView>
     </View>
   );
 }
@@ -650,10 +656,14 @@ const styles = StyleSheet.create({
   glowGradient: {
     flex: 1,
   },
-  content: {
+  scrollView: {
     flex: 1,
+  },
+  content: {
+    flexGrow: 1,
     alignItems: "center",
     paddingHorizontal: 24,
+    paddingBottom: 20,
   },
   badgeSection: {
     alignItems: "center",
