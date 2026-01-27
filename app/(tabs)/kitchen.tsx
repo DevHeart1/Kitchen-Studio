@@ -20,8 +20,12 @@ import {
   UtensilsCrossed,
   Fish,
   Leaf,
+  Bookmark,
+  Play,
+  Trash2,
 } from "lucide-react-native";
 import Colors from "@/constants/colors";
+import { useSavedRecipes, SavedRecipe } from "@/contexts/SavedRecipesContext";
 
 const PANTRY_RECIPES = [
   {
@@ -80,9 +84,30 @@ const INVENTORY_CATEGORIES = [
 export default function KitchenScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { savedRecipes, removeRecipe, isLoading } = useSavedRecipes();
 
   const handleScanItems = () => {
     router.push("/scanner");
+  };
+
+  const handleRecipePress = (recipe: SavedRecipe) => {
+    router.push("/recipe");
+  };
+
+  const handleRemoveRecipe = (recipeId: string) => {
+    removeRecipe(recipeId);
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffTime = Math.abs(now.getTime() - date.getTime());
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 0) return "Today";
+    if (diffDays === 1) return "Yesterday";
+    if (diffDays < 7) return `${diffDays} days ago`;
+    return date.toLocaleDateString();
   };
 
   return (
@@ -134,6 +159,74 @@ export default function KitchenScreen() {
             </Text>
           </View>
         </View>
+
+        {savedRecipes.length > 0 && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeaderRow}>
+              <View style={styles.sectionTitleRow}>
+                <Bookmark size={20} color={Colors.primary} />
+                <Text style={styles.sectionTitle}>Saved Recipes</Text>
+              </View>
+              <Text style={styles.savedCount}>{savedRecipes.length} saved</Text>
+            </View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.savedRecipesScroll}
+            >
+              {savedRecipes.map((recipe) => (
+                <TouchableOpacity
+                  key={recipe.id}
+                  style={styles.savedRecipeCard}
+                  onPress={() => handleRecipePress(recipe)}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.savedRecipeImageContainer}>
+                    <Image
+                      source={{ uri: recipe.videoThumbnail }}
+                      style={styles.savedRecipeImage}
+                    />
+                    <View style={styles.savedRecipeOverlay} />
+                    <View style={styles.playIconContainer}>
+                      <Play size={16} color={Colors.white} fill={Colors.white} />
+                    </View>
+                    <TouchableOpacity
+                      style={styles.removeButton}
+                      onPress={() => handleRemoveRecipe(recipe.id)}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                      <Trash2 size={14} color={Colors.white} />
+                    </TouchableOpacity>
+                    <View style={styles.durationBadge}>
+                      <Text style={styles.durationText}>{recipe.videoDuration}</Text>
+                    </View>
+                  </View>
+                  <View style={styles.savedRecipeInfo}>
+                    <Text style={styles.savedRecipeTitle} numberOfLines={2}>
+                      {recipe.title}
+                    </Text>
+                    <View style={styles.savedRecipeMeta}>
+                      <View style={styles.readinessIndicator}>
+                        <View
+                          style={[
+                            styles.readinessDot,
+                            { backgroundColor: recipe.readinessPercent >= 80 ? Colors.primary : Colors.orange },
+                          ]}
+                        />
+                        <Text style={styles.readinessText}>
+                          {recipe.readinessPercent}% ready
+                        </Text>
+                      </View>
+                      <Text style={styles.savedDateText}>
+                        {formatDate(recipe.savedAt)}
+                      </Text>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
 
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
@@ -610,5 +703,106 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600" as const,
     color: Colors.white,
+  },
+  savedCount: {
+    fontSize: 12,
+    fontWeight: "600" as const,
+    color: Colors.primary,
+  },
+  savedRecipesScroll: {
+    paddingRight: 16,
+    gap: 12,
+  },
+  savedRecipeCard: {
+    width: 200,
+    backgroundColor: Colors.cardGlass,
+    borderRadius: 16,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: Colors.cardGlassBorder,
+  },
+  savedRecipeImageContainer: {
+    width: "100%",
+    height: 120,
+    position: "relative",
+  },
+  savedRecipeImage: {
+    width: "100%",
+    height: "100%",
+  },
+  savedRecipeOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0, 0, 0, 0.2)",
+  },
+  playIconContainer: {
+    position: "absolute",
+    top: "50%",
+    left: "50%",
+    transform: [{ translateX: -16 }, { translateY: -16 }],
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  removeButton: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  durationBadge: {
+    position: "absolute",
+    bottom: 8,
+    left: 8,
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  durationText: {
+    fontSize: 10,
+    fontWeight: "600" as const,
+    color: Colors.white,
+  },
+  savedRecipeInfo: {
+    padding: 12,
+  },
+  savedRecipeTitle: {
+    fontSize: 14,
+    fontWeight: "700" as const,
+    color: Colors.white,
+    marginBottom: 8,
+    lineHeight: 18,
+  },
+  savedRecipeMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  readinessIndicator: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  readinessDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  readinessText: {
+    fontSize: 11,
+    fontWeight: "500" as const,
+    color: Colors.textMuted,
+  },
+  savedDateText: {
+    fontSize: 10,
+    color: Colors.textMuted,
   },
 });

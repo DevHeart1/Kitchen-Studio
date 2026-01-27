@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -6,6 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
+  Alert,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -16,8 +17,11 @@ import {
   Play,
   Box,
   Info,
+  Bookmark,
+  BookmarkCheck,
 } from "lucide-react-native";
 import Colors from "@/constants/colors";
+import { useSavedRecipes } from "@/contexts/SavedRecipesContext";
 
 interface Ingredient {
   id: string;
@@ -82,13 +86,46 @@ const ingredients: Ingredient[] = [
   },
 ];
 
+const RECIPE_TITLE = "Garlic Butter Pan-Seared Salmon";
+const VIDEO_THUMBNAIL = "https://lh3.googleusercontent.com/aida-public/AB6AXuBl4IEulb0Sr42Sz0eGt_Pe88SfKEOFNBpkVh0KzP_BHswiHkNKGGJmt0vLDWxJdJj4_sT1sgnjt8yEltOIDsfAXvq37k6XCMTG28E2dU8AE8WVy0MUJemFr2KrddIqaEaxjpXKgW54ddhMI7b8hsZz9agaS5Jg5ym47lTXSaxUgAOW_1Bzwq72MsMA4dzJvx6BIG5Mn_r1euv6KhMu9HWUO_KqGqyn7K2jLLdIn5lQys0a3IMZ9uBZ_3cXR_izKH2LtZKAVEk55g";
+const VIDEO_DURATION = "8:42 min";
+
 export default function RecipeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { saveRecipe, isRecipeSaved } = useSavedRecipes();
+  const [isSaving, setIsSaving] = useState(false);
 
   const readyCount = ingredients.filter((i) => i.status === "in_pantry").length;
   const totalCount = ingredients.length;
   const readinessPercent = Math.round((readyCount / totalCount) * 100);
+  const isSaved = isRecipeSaved(RECIPE_TITLE);
+
+  const handleSaveForLater = async () => {
+    if (isSaved) {
+      Alert.alert("Already Saved", "This recipe is already in your saved recipes.");
+      return;
+    }
+    
+    setIsSaving(true);
+    const success = await saveRecipe({
+      title: RECIPE_TITLE,
+      videoThumbnail: VIDEO_THUMBNAIL,
+      videoDuration: VIDEO_DURATION,
+      readinessPercent,
+      totalIngredients: totalCount,
+      readyIngredients: readyCount,
+    });
+    setIsSaving(false);
+    
+    if (success) {
+      Alert.alert(
+        "Recipe Saved!",
+        "You can find this recipe in your Kitchen under Saved Recipes.",
+        [{ text: "OK" }]
+      );
+    }
+  };
 
   const getStatusColor = (status: Ingredient["status"]) => {
     switch (status) {
@@ -138,9 +175,7 @@ export default function RecipeScreen() {
         <View style={styles.videoCard}>
           <View style={styles.videoThumbnail}>
             <Image
-              source={{
-                uri: "https://lh3.googleusercontent.com/aida-public/AB6AXuBl4IEulb0Sr42Sz0eGt_Pe88SfKEOFNBpkVh0KzP_BHswiHkNKGGJmt0vLDWxJdJj4_sT1sgnjt8yEltOIDsfAXvq37k6XCMTG28E2dU8AE8WVy0MUJemFr2KrddIqaEaxjpXKgW54ddhMI7b8hsZz9agaS5Jg5ym47lTXSaxUgAOW_1Bzwq72MsMA4dzJvx6BIG5Mn_r1euv6KhMu9HWUO_KqGqyn7K2jLLdIn5lQys0a3IMZ9uBZ_3cXR_izKH2LtZKAVEk55g",
-              }}
+              source={{ uri: VIDEO_THUMBNAIL }}
               style={styles.thumbnailImage}
             />
             <View style={styles.playOverlay}>
@@ -149,9 +184,9 @@ export default function RecipeScreen() {
           </View>
           <View style={styles.videoInfo}>
             <Text style={styles.videoTitle} numberOfLines={1}>
-              Garlic Butter Pan-Seared Salmon
+              {RECIPE_TITLE}
             </Text>
-            <Text style={styles.videoMeta}>8:42 min • Extracted via AI</Text>
+            <Text style={styles.videoMeta}>{VIDEO_DURATION} • Extracted via AI</Text>
           </View>
         </View>
 
@@ -271,15 +306,39 @@ export default function RecipeScreen() {
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
-        <TouchableOpacity
-          style={styles.primaryButton}
-          activeOpacity={0.8}
-          onPress={() => router.push("/ar-cooking")}
-          testID="start-ar-cooking-button"
-        >
-          <Box size={20} color={Colors.backgroundDark} />
-          <Text style={styles.primaryButtonText}>Start AR Cooking</Text>
-        </TouchableOpacity>
+        <View style={styles.footerButtons}>
+          <TouchableOpacity
+            style={styles.primaryButton}
+            activeOpacity={0.8}
+            onPress={() => router.push("/ar-cooking")}
+            testID="start-ar-cooking-button"
+          >
+            <Box size={20} color={Colors.backgroundDark} />
+            <Text style={styles.primaryButtonText}>Start AR Cooking</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.saveButton,
+              isSaved && styles.saveButtonSaved,
+            ]}
+            activeOpacity={0.8}
+            onPress={handleSaveForLater}
+            disabled={isSaving}
+            testID="save-for-later-button"
+          >
+            {isSaved ? (
+              <BookmarkCheck size={20} color={Colors.primary} />
+            ) : (
+              <Bookmark size={20} color={Colors.white} />
+            )}
+            <Text style={[
+              styles.saveButtonText,
+              isSaved && styles.saveButtonTextSaved,
+            ]}>
+              {isSaving ? "Saving..." : isSaved ? "Saved" : "Save for Later"}
+            </Text>
+          </TouchableOpacity>
+        </View>
         <TouchableOpacity>
           <Text style={styles.editLink}>Edit Ingredients List</Text>
         </TouchableOpacity>
@@ -515,14 +574,19 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: Colors.backgroundDark,
   },
-  primaryButton: {
+  footerButtons: {
     width: "100%",
+    flexDirection: "row",
+    gap: 12,
+  },
+  primaryButton: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 10,
+    gap: 8,
     backgroundColor: Colors.primary,
-    paddingVertical: 18,
+    paddingVertical: 16,
     borderRadius: 9999,
     shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 8 },
@@ -531,9 +595,33 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   primaryButtonText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "700" as const,
     color: Colors.backgroundDark,
+  },
+  saveButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderRadius: 9999,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.2)",
+  },
+  saveButtonSaved: {
+    backgroundColor: "rgba(43, 238, 91, 0.1)",
+    borderColor: Colors.primary + "40",
+  },
+  saveButtonText: {
+    fontSize: 14,
+    fontWeight: "600" as const,
+    color: Colors.white,
+  },
+  saveButtonTextSaved: {
+    color: Colors.primary,
   },
   editLink: {
     fontSize: 14,
