@@ -82,7 +82,7 @@ export const pantryScanRouter = createTRPCRouter({
         console.log(`[PantryScan] Starting image analysis. Payload size: ${Math.round(input.imageBase64.length / 1024)}KB`);
 
         const response = await ai.models.generateContent({
-          model: "gemini-3-flash-preview",
+          model: "gemini-1.5-flash", // Use 1.5 Flash for speed and reliability
           contents: [
             {
               role: "user",
@@ -107,7 +107,15 @@ export const pantryScanRouter = createTRPCRouter({
         const processingTime = Date.now() - startTime;
         console.log(`[PantryScan] Analysis completed in ${processingTime}ms`);
 
-        const text = response.text || "";
+        // Handle both property and function access for text
+        // @ts-ignore - SDK types might vary
+        const text = typeof response.text === 'function' ? response.text() : response.text;
+        
+        if (!text) {
+             console.error("[PantryScan] No text in response:", JSON.stringify(response, null, 2));
+             throw new Error("Empty response from AI model");
+        }
+
         console.log("[PantryScan] Raw response:", text.substring(0, 500));
 
         let parsedResult: { items: DetectedItem[]; overallConfidence: number };
