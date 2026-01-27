@@ -5,27 +5,40 @@ import {
   StyleSheet,
   TextInput,
   TouchableOpacity,
-  Animated,
 } from "react-native";
+import { useRouter } from "expo-router";
 import { Link2 } from "lucide-react-native";
 import Colors from "@/constants/colors";
+import ConvertLoadingOverlay from "@/components/ConvertLoadingOverlay";
 
 interface LinkInputProps {
   onConvert?: (url: string) => void;
 }
 
 export default function LinkInput({ onConvert }: LinkInputProps) {
+  const router = useRouter();
   const [url, setUrl] = useState("");
   const [isFocused, setIsFocused] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleConvert = () => {
     if (url.trim()) {
+      setIsLoading(true);
       onConvert?.(url);
     }
   };
 
+  const handleLoadingComplete = () => {
+    setIsLoading(false);
+    router.push("/recipe");
+  };
+
   return (
     <View style={styles.container}>
+      <ConvertLoadingOverlay
+        visible={isLoading}
+        onComplete={handleLoadingComplete}
+      />
       <View style={[styles.inputContainer, isFocused && styles.inputFocused]}>
         <View style={styles.iconContainer}>
           <Link2 size={20} color={Colors.textMuted} />
