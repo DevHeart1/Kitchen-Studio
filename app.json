@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Kitchen Video to Guide",
-    "slug": "kitchen-video-to-guide",
+    "name": "Kitchen Studio",
+    "slug": "kitchen-studio",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -15,14 +15,14 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "app.rork.kitchen-video-to-guide"
+      "bundleIdentifier": "app.rork.kitchen-studio"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "app.rork.kitchen_video_to_guide"
+      "package": "app.rork.kitchen_studio"
     },
     "web": {
       "favicon": "./assets/images/favicon.png"
