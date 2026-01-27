@@ -162,7 +162,7 @@ export default function ProfileScreen() {
         <View style={styles.sectionContainer}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Earned Badges</Text>
-            <TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push("/achievements")}>
               <Text style={styles.viewAllText}>View all</Text>
             </TouchableOpacity>
           </View>

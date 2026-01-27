@@ -55,3 +55,21 @@ export interface Notification {
   actionRoute?: string;
   actionParams?: Record<string, string>;
 }
+
+export interface Badge {
+  id: string;
+  name: string;
+  description: string;
+  requirement: string;
+  icon: string;
+  color: string;
+  gradientFrom: string;
+  gradientTo: string;
+  unlocked: boolean;
+  earnedDate?: string;
+  xpReward: number;
+  reward?: string;
+  rewardType?: 'skin' | 'recipe' | 'tool' | 'title';
+  progress?: number;
+  progressMax?: number;
+}
