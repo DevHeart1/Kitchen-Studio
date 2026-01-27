@@ -166,7 +166,7 @@ export default function LevelUpScreen() {
   const rankInfo = RANK_DATA[Math.min(newLevel, 8)] || RANK_DATA[5];
 
   const [confettiPieces, setConfettiPieces] = useState<ConfettiPiece[]>([]);
-  
+
   const badgeScale = useRef(new Animated.Value(0)).current;
   const badgeFloat = useRef(new Animated.Value(0)).current;
   const glowPulse = useRef(new Animated.Value(0.5)).current;
@@ -193,12 +193,12 @@ export default function LevelUpScreen() {
       });
     }
     setConfettiPieces(pieces);
-    
+
     setTimeout(() => {
       pieces.forEach((piece) => {
         const duration = 3000 + Math.random() * 2000;
         const startX = Math.random() * SCREEN_WIDTH;
-        
+
         Animated.loop(
           Animated.parallel([
             Animated.timing(piece.y, {
@@ -329,11 +329,11 @@ export default function LevelUpScreen() {
   useEffect(() => {
     initializeConfetti();
     startEntryAnimations();
-    
+
     if (Platform.OS !== "web") {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     }
-    
+
     console.log(`Level Up! New level: ${newLevel}, Rank: ${rankInfo.title}`);
   }, [newLevel, rankInfo.title, startEntryAnimations]);
 
@@ -350,7 +350,7 @@ export default function LevelUpScreen() {
     if (Platform.OS !== "web") {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
-    
+
     try {
       await Share.share({
         message: `🎉 I just reached Level ${newLevel} - ${rankInfo.title} in my cooking journey! Time to heat things up! 🍳🔥`,
@@ -757,9 +757,16 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: "800" as const,
     color: Colors.primary,
-    textShadowColor: "rgba(43, 238, 91, 0.5)",
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 10,
+    ...Platform.select({
+      web: {
+        textShadow: "0px 0px 10px rgba(43, 238, 91, 0.5)",
+      },
+      default: {
+        textShadowColor: "rgba(43, 238, 91, 0.5)",
+        textShadowOffset: { width: 0, height: 0 },
+        textShadowRadius: 10,
+      },
+    }),
   },
   titleSection: {
     alignItems: "center",
@@ -771,9 +778,16 @@ const styles = StyleSheet.create({
     fontStyle: "italic",
     color: Colors.white,
     letterSpacing: -2,
-    textShadowColor: "rgba(43, 238, 91, 0.5)",
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 20,
+    ...Platform.select({
+      web: {
+        textShadow: "0px 0px 20px rgba(43, 238, 91, 0.5)",
+      },
+      default: {
+        textShadowColor: "rgba(43, 238, 91, 0.5)",
+        textShadowOffset: { width: 0, height: 0 },
+        textShadowRadius: 20,
+      },
+    }),
   },
   subtitleText: {
     fontSize: 15,

@@ -144,12 +144,12 @@ export default function ARCookingScreen() {
         Animated.timing(pulseAnim, {
           toValue: 1.2,
           duration: 1000,
-          useNativeDriver: true,
+          useNativeDriver: Platform.OS !== "web",
         }),
         Animated.timing(pulseAnim, {
           toValue: 1,
           duration: 1000,
-          useNativeDriver: true,
+          useNativeDriver: Platform.OS !== "web",
         }),
       ])
     );
@@ -163,7 +163,7 @@ export default function ARCookingScreen() {
       toValue: 1,
       friction: 6,
       tension: 40,
-      useNativeDriver: true,
+      useNativeDriver: Platform.OS !== "web",
     }).start();
   }, [currentStep, feedbackAnim]);
 
@@ -200,12 +200,12 @@ export default function ARCookingScreen() {
         Animated.timing(fadeAnim, {
           toValue: 0,
           duration: 200,
-          useNativeDriver: true,
+          useNativeDriver: Platform.OS !== "web",
         }),
         Animated.timing(slideAnim, {
           toValue: -50,
           duration: 200,
-          useNativeDriver: true,
+          useNativeDriver: Platform.OS !== "web",
         }),
       ]).start(() => {
         setCurrentStep((prev) => prev + 1);
@@ -222,12 +222,12 @@ export default function ARCookingScreen() {
           Animated.timing(fadeAnim, {
             toValue: 1,
             duration: 300,
-            useNativeDriver: true,
+            useNativeDriver: Platform.OS !== "web",
           }),
           Animated.timing(slideAnim, {
             toValue: 0,
             duration: 300,
-            useNativeDriver: true,
+            useNativeDriver: Platform.OS !== "web",
           }),
         ]).start();
       });

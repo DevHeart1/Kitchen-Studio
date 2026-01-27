@@ -62,12 +62,12 @@ const ScanLineEffect = ({ isActive }: { isActive: boolean }) => {
           Animated.timing(anim, {
             toValue: 1,
             duration: 2500,
-            useNativeDriver: true,
+            useNativeDriver: Platform.OS !== "web",
           }),
           Animated.timing(anim, {
             toValue: 0,
             duration: 0,
-            useNativeDriver: true,
+            useNativeDriver: Platform.OS !== "web",
           }),
         ])
       );
@@ -121,7 +121,7 @@ const ScanLineEffect = ({ isActive }: { isActive: boolean }) => {
   if (!isActive) return null;
 
   return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="none">
+    <View style={[StyleSheet.absoluteFill, { pointerEvents: "none" }]}>
       <Animated.View
         style={[
           styles.fullScanLine,
@@ -160,7 +160,7 @@ const ScanLineEffect = ({ isActive }: { isActive: boolean }) => {
 
 const CRTScanLines = () => {
   return (
-    <View style={styles.crtContainer} pointerEvents="none">
+    <View style={[styles.crtContainer, { pointerEvents: "none" }]}>
       {Array.from({ length: Math.floor(SCREEN_HEIGHT / 4) }).map((_, i) => (
         <View
           key={i}
@@ -183,12 +183,12 @@ const GridOverlay = () => {
         Animated.timing(pulseAnim, {
           toValue: 0.25,
           duration: 2000,
-          useNativeDriver: true,
+          useNativeDriver: Platform.OS !== "web",
         }),
         Animated.timing(pulseAnim, {
           toValue: 0.15,
           duration: 2000,
-          useNativeDriver: true,
+          useNativeDriver: Platform.OS !== "web",
         }),
       ])
     );
@@ -197,7 +197,7 @@ const GridOverlay = () => {
   }, [pulseAnim]);
 
   return (
-    <Animated.View style={[styles.gridContainer, { opacity: pulseAnim }]} pointerEvents="none">
+    <Animated.View style={[styles.gridContainer, { opacity: pulseAnim, pointerEvents: "none" }]}>
       {Array.from({ length: 8 }).map((_, i) => (
         <View
           key={`v-${i}`}
@@ -230,12 +230,12 @@ const CornerBrackets = ({ size = 280 }: { size?: number }) => {
         Animated.timing(glowAnim, {
           toValue: 1,
           duration: 1500,
-          useNativeDriver: true,
+          useNativeDriver: Platform.OS !== "web",
         }),
         Animated.timing(glowAnim, {
           toValue: 0,
           duration: 1500,
-          useNativeDriver: true,
+          useNativeDriver: Platform.OS !== "web",
         }),
       ])
     );
@@ -305,12 +305,12 @@ const DataStreamEffect = ({ isScanning }: { isScanning: boolean }) => {
           Animated.timing(anim, {
             toValue: 1,
             duration: 1000,
-            useNativeDriver: true,
+            useNativeDriver: Platform.OS !== "web",
           }),
           Animated.timing(anim, {
             toValue: 0,
             duration: 0,
-            useNativeDriver: true,
+            useNativeDriver: Platform.OS !== "web",
           }),
         ])
       );
@@ -323,7 +323,7 @@ const DataStreamEffect = ({ isScanning }: { isScanning: boolean }) => {
   if (!isScanning) return null;
 
   return (
-    <View style={styles.dataStreamContainer} pointerEvents="none">
+    <View style={[styles.dataStreamContainer, { pointerEvents: "none" }]}>
       {dataStreams.map((anim, i) => {
         const translateY = anim.interpolate({
           inputRange: [0, 1],
@@ -365,12 +365,12 @@ const GlowVignette = () => {
         Animated.timing(glowAnim, {
           toValue: 1,
           duration: 3000,
-          useNativeDriver: true,
+          useNativeDriver: Platform.OS !== "web",
         }),
         Animated.timing(glowAnim, {
           toValue: 0,
           duration: 3000,
-          useNativeDriver: true,
+          useNativeDriver: Platform.OS !== "web",
         }),
       ])
     );
@@ -385,8 +385,7 @@ const GlowVignette = () => {
 
   return (
     <Animated.View
-      style={[styles.glowVignette, { opacity: borderOpacity }]}
-      pointerEvents="none"
+      style={[styles.glowVignette, { opacity: borderOpacity, pointerEvents: "none" }]}
     />
   );
 };
@@ -415,12 +414,12 @@ export default function ScannerScreen() {
         Animated.timing(pulseAnim, {
           toValue: 1.08,
           duration: 1200,
-          useNativeDriver: true,
+          useNativeDriver: Platform.OS !== "web",
         }),
         Animated.timing(pulseAnim, {
           toValue: 1,
           duration: 1200,
-          useNativeDriver: true,
+          useNativeDriver: Platform.OS !== "web",
         }),
       ])
     );
@@ -431,12 +430,12 @@ export default function ScannerScreen() {
         Animated.timing(scanPulse, {
           toValue: 1,
           duration: 800,
-          useNativeDriver: true,
+          useNativeDriver: Platform.OS !== "web",
         }),
         Animated.timing(scanPulse, {
           toValue: 0,
           duration: 800,
-          useNativeDriver: true,
+          useNativeDriver: Platform.OS !== "web",
         }),
       ])
     );
@@ -1152,6 +1151,9 @@ const styles = StyleSheet.create({
         textShadowOffset: { width: 0, height: 0 },
         textShadowRadius: 10,
       },
+      web: {
+        textShadow: `0 0 10px ${Colors.primary}`,
+      } as any,
     }),
   },
   captureButton: {

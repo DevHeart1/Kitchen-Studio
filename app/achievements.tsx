@@ -356,7 +356,7 @@ export default function AchievementsScreen() {
         onRequestClose={handleCloseModal}
       >
         <Pressable style={styles.modalOverlay} onPress={handleCloseModal}>
-          <Pressable style={styles.modalContent} onPress={() => {}}>
+          <Pressable style={styles.modalContent} onPress={() => { }}>
             <TouchableOpacity
               style={styles.modalCloseButton}
               onPress={handleCloseModal}
@@ -738,9 +738,16 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "700" as const,
     color: Colors.primary,
-    textShadowColor: Colors.primary,
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 8,
+    ...Platform.select({
+      web: {
+        textShadow: `0px 0px 8px ${Colors.primary}`,
+      },
+      default: {
+        textShadowColor: Colors.primary,
+        textShadowOffset: { width: 0, height: 0 },
+        textShadowRadius: 8,
+      },
+    }),
   },
   rewardTypeContainer: {
     flexDirection: "row",
