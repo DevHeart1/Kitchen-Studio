@@ -52,6 +52,7 @@ export default function SettingsScreen() {
 
   const [editNameModal, setEditNameModal] = useState(false);
   const [editAvatarModal, setEditAvatarModal] = useState(false);
+  const [logoutModal, setLogoutModal] = useState(false);
   const [tempName, setTempName] = useState(profile.name);
 
   const handleSaveName = async () => {
@@ -90,20 +91,13 @@ export default function SettingsScreen() {
   };
 
   const handleLogout = () => {
-    Alert.alert(
-      "Log Out",
-      "Are you sure you want to log out?",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Log Out",
-          onPress: () => {
-            console.log("User logged out");
-            router.replace("/");
-          },
-        },
-      ]
-    );
+    setLogoutModal(true);
+  };
+
+  const confirmLogout = () => {
+    console.log("User logged out");
+    setLogoutModal(false);
+    router.replace("/");
   };
 
   const renderSettingRow = (
@@ -331,6 +325,32 @@ export default function SettingsScreen() {
                   )}
                 </TouchableOpacity>
               ))}
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      <Modal visible={logoutModal} transparent animationType="fade">
+        <Pressable style={styles.modalOverlay} onPress={() => setLogoutModal(false)}>
+          <Pressable style={styles.logoutModalContent} onPress={() => {}}>
+            <View style={styles.logoutIconContainer}>
+              <LogOut size={32} color="#ef4444" />
+            </View>
+            <Text style={styles.logoutTitle}>Log Out</Text>
+            <Text style={styles.logoutMessage}>Are you sure you want to log out?</Text>
+            <View style={styles.logoutButtonsContainer}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => setLogoutModal(false)}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.logoutButton}
+                onPress={confirmLogout}
+              >
+                <Text style={styles.logoutButtonText}>Log Out</Text>
+              </TouchableOpacity>
             </View>
           </Pressable>
         </Pressable>
@@ -580,5 +600,67 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary,
     alignItems: "center",
     justifyContent: "center",
+  },
+  logoutModalContent: {
+    width: "100%",
+    maxWidth: 320,
+    backgroundColor: Colors.backgroundDark,
+    borderRadius: 24,
+    padding: 24,
+    borderWidth: 1,
+    borderColor: Colors.cardGlassBorder,
+    alignItems: "center",
+  },
+  logoutIconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: "rgba(239, 68, 68, 0.15)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 16,
+  },
+  logoutTitle: {
+    fontSize: 20,
+    fontWeight: "700" as const,
+    color: Colors.white,
+    marginBottom: 8,
+  },
+  logoutMessage: {
+    fontSize: 14,
+    color: Colors.textMuted,
+    textAlign: "center",
+    marginBottom: 24,
+  },
+  logoutButtonsContainer: {
+    flexDirection: "row",
+    gap: 12,
+    width: "100%",
+  },
+  cancelButton: {
+    flex: 1,
+    backgroundColor: Colors.cardGlass,
+    borderRadius: 16,
+    padding: 14,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: Colors.cardGlassBorder,
+  },
+  cancelButtonText: {
+    fontSize: 15,
+    fontWeight: "600" as const,
+    color: Colors.white,
+  },
+  logoutButton: {
+    flex: 1,
+    backgroundColor: "#ef4444",
+    borderRadius: 16,
+    padding: 14,
+    alignItems: "center",
+  },
+  logoutButtonText: {
+    fontSize: 15,
+    fontWeight: "600" as const,
+    color: Colors.white,
   },
 });
