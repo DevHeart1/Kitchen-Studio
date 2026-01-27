@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -9,60 +9,60 @@ import {
   Animated,
   Dimensions,
   Platform,
+  ActivityIndicator,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { Zap, HelpCircle, Check, Loader, CheckCheck, X } from "lucide-react-native";
+import { CameraView, useCameraPermissions } from "expo-camera";
+import { Zap, Check, Loader, CheckCheck, X, Camera, RefreshCw } from "lucide-react-native";
 import Colors from "@/constants/colors";
+import { useInventory } from "@/contexts/InventoryContext";
+import { trpc } from "@/lib/trpc";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 interface DetectedItem {
   id: string;
   name: string;
-  image: string;
+  category: string;
+  confidence: number;
   confirmed: boolean;
-  position: { top: string; left: string };
-  size: { width: number; height: number };
-  isRound?: boolean;
+  estimatedQuantity?: string;
+  suggestedStatus?: "good" | "low" | "expiring";
 }
 
-const MOCK_DETECTED_ITEMS: DetectedItem[] = [
-  {
-    id: "1",
-    name: "Olive Oil",
-    image: "https://lh3.googleusercontent.com/aida-public/AB6AXuCGihIrsVtJRXiaNrreWJ3lM36p0d3HqJYFX5GfaAqlOPdgqetMaggvadRosPF4KsiZcrN9Xpcn_1GSKCoLMrRZNegS43G0NSdJpcevWkvKtuWmjkozS7lRFoXkjR2UaTu3Nby-s526Ct-5mmUEuAjvYyx1hexJZ9u4p8_konOz-p-t0C65FMjWeLoN1H1CwoxoRTug4tOPB6wfuaxNCZ_2N_PuzX8UPeOkPE02YfJ-S6NccQzIoVcrtN0tlLgAu9sij7Qd1qG3Dw",
-    confirmed: true,
-    position: { top: "28%", left: "15%" },
-    size: { width: 100, height: 140 },
-  },
-  {
-    id: "2",
-    name: "Garlic",
-    image: "https://lh3.googleusercontent.com/aida-public/AB6AXuAUuHZTd2EL84IxLzodhX6BSnuiMWOsvVrJ_PI7i0V24zTPHLL8gvOMBQ5nbl-UrrnMOvDvTOhRj40j9_Dp8ykRFnxe8nuLvdDi0xmGOpPGtTpja-6Nci0g_jGEGwj-fv9Kmm8Gj7icidipi4QGdsho4ofbJAMXdfWSE24c2AKoISz4IkBZgHBkG4PuWxXDi2RqkLBNHOIXRSHHSC0SzcGwif9tTNp3EFl9gwLTJovDGmFfkZyuzOGahIMizI0ZV_Ev90A4IrUegA",
-    confirmed: true,
-    position: { top: "48%", left: "42%" },
-    size: { width: 70, height: 70 },
-    isRound: true,
-  },
-  {
-    id: "3",
-    name: "Pasta",
-    image: "https://lh3.googleusercontent.com/aida-public/AB6AXuCyBHuo2syefoICrth20zOOkyxJGr7IdioHXX-118lN1ydGbO7e3ZPyodX6okmABO7GfEhV8_swxL0zAeoHPt21YSECsfgKSqfn_KcEABDsgS2qwQtEvVjKVowT4dB_jkoBTD0eqbxJIIV51irecbAEK3FanqFcQ2Dn9hDLHdY6wqtcS6GOnfeXVDFvDPi7Q6xM9vuTawlj6HcvCipskJhvFNrTWJ_r79kTXxoIflzGxRD9a28b9EGLfBKbjqmb8bwEwUoeGb8Zig",
-    confirmed: false,
-    position: { top: "38%", left: "65%" },
-    size: { width: 90, height: 120 },
-  },
-];
-
-const PANTRY_BG = "https://lh3.googleusercontent.com/aida-public/AB6AXuDFBjVsYo6FI2HtenEQ0CdD7FS-eF3Oag5PxJIgXbPa32CRyiVIZDnvnBhlqRp-f_yPGTwlbIV4-ugkDmG0Wu5__MhnJXabpzmoKB8-ygnCmCwVqSpFXiX38e0P6vffaE1J9Gs8zjtJ8l9ul3Vb5xPcAKXtas4oELv1CUTY-dKAAzBdllbIx_LMn2kzZngy7OM31RwT7zr_az9ePjV4uolVWuHo8ipQxZUC8tmymVyfAbj5LjW717BV1gBy-NWs6WOS17NSnGMRaQ";
+const PLACEHOLDER_IMAGES: Record<string, string> = {
+  "Oils & Spices": "https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=200",
+  "Grains & Pasta": "https://images.unsplash.com/photo-1551462147-ff29053bfc14?w=200",
+  "Proteins": "https://images.unsplash.com/photo-1607623814075-e51df1bdc82f?w=200",
+  "Dairy": "https://images.unsplash.com/photo-1628088062854-d1870b4553da?w=200",
+  "Produce": "https://images.unsplash.com/photo-1540420773420-3366772f4999?w=200",
+  "Canned Goods": "https://images.unsplash.com/photo-1584568694244-14fbdf83bd30?w=200",
+  "Condiments": "https://images.unsplash.com/photo-1472476443507-c7a5948772fc?w=200",
+  "Beverages": "https://images.unsplash.com/photo-1544145945-f90425340c7e?w=200",
+  "Snacks": "https://images.unsplash.com/photo-1621939514649-280e2ee25f60?w=200",
+  "Baking": "https://images.unsplash.com/photo-1486427944544-d2c6128c6804?w=200",
+  "Frozen": "https://images.unsplash.com/photo-1584568694244-14fbdf83bd30?w=200",
+  "Other": "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=200",
+};
 
 export default function ScannerScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const cameraRef = useRef<CameraView>(null);
   const scanLineAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  
+  const [permission, requestPermission] = useCameraPermissions();
   const [flashOn, setFlashOn] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
+  const [detectedItems, setDetectedItems] = useState<DetectedItem[]>([]);
+  const [overallConfidence, setOverallConfidence] = useState(0);
+  const [hasCaptured, setHasCaptured] = useState(false);
+  const [capturedImage, setCapturedImage] = useState<string | null>(null);
+  
+  const { addItem } = useInventory();
+  const analyzeMutation = trpc.pantryScan.analyzeImage.useMutation();
 
   useEffect(() => {
     const scanAnimation = Animated.loop(
@@ -101,6 +101,7 @@ export default function ScannerScreen() {
       scanAnimation.stop();
       pulseAnimation.stop();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const scanLineTranslate = scanLineAnim.interpolate({
@@ -108,59 +109,137 @@ export default function ScannerScreen() {
     outputRange: [0, 200],
   });
 
+  const handleCapture = useCallback(async () => {
+    if (!cameraRef.current || isScanning) return;
+
+    setIsScanning(true);
+    console.log("[Scanner] Starting capture...");
+
+    try {
+      const photo = await cameraRef.current.takePictureAsync({
+        base64: true,
+        quality: 0.7,
+      });
+
+      if (!photo?.base64) {
+        throw new Error("Failed to capture image");
+      }
+
+      console.log("[Scanner] Photo captured, analyzing...");
+      setCapturedImage(`data:image/jpeg;base64,${photo.base64}`);
+      setHasCaptured(true);
+
+      const result = await analyzeMutation.mutateAsync({
+        imageBase64: photo.base64,
+        mimeType: "image/jpeg",
+      });
+
+      console.log("[Scanner] Analysis complete:", result);
+
+      const items: DetectedItem[] = result.items.map((item, index) => ({
+        id: `scan-${Date.now()}-${index}`,
+        name: item.name,
+        category: item.category,
+        confidence: item.confidence,
+        confirmed: item.confidence >= 0.7,
+        estimatedQuantity: item.estimatedQuantity,
+        suggestedStatus: item.suggestedStatus,
+      }));
+
+      setDetectedItems(items);
+      setOverallConfidence(result.overallConfidence);
+    } catch (error) {
+      console.error("[Scanner] Error:", error);
+    } finally {
+      setIsScanning(false);
+    }
+  }, [isScanning, analyzeMutation]);
+
+  const handleRetake = useCallback(() => {
+    setHasCaptured(false);
+    setCapturedImage(null);
+    setDetectedItems([]);
+    setOverallConfidence(0);
+  }, []);
+
+  const toggleItemConfirm = useCallback((itemId: string) => {
+    setDetectedItems((prev) =>
+      prev.map((item) =>
+        item.id === itemId ? { ...item, confirmed: !item.confirmed } : item
+      )
+    );
+  }, []);
+
+  const handleFinishScan = useCallback(async () => {
+    const confirmedItems = detectedItems.filter((item) => item.confirmed);
+    
+    console.log("[Scanner] Adding confirmed items to inventory:", confirmedItems.length);
+    
+    for (const item of confirmedItems) {
+      const stockPercentage = 
+        item.estimatedQuantity === "full" ? 100 :
+        item.estimatedQuantity === "half" ? 50 :
+        item.estimatedQuantity === "almost empty" ? 15 :
+        item.estimatedQuantity === "multiple" ? 100 : 75;
+
+      await addItem({
+        name: item.name,
+        image: PLACEHOLDER_IMAGES[item.category] || PLACEHOLDER_IMAGES["Other"],
+        category: item.category,
+        addedDate: "Added just now",
+        status: item.suggestedStatus || "good",
+        stockPercentage,
+        expiresIn: item.suggestedStatus === "expiring" ? "Soon" : undefined,
+      });
+    }
+
+    router.back();
+  }, [detectedItems, addItem, router]);
+
   const handleClose = () => {
     router.back();
   };
 
-  const handleFinishScan = () => {
-    router.back();
-  };
+  const confirmedCount = detectedItems.filter((item) => item.confirmed).length;
 
-  const confirmedCount = MOCK_DETECTED_ITEMS.filter((item) => item.confirmed).length;
+  if (!permission) {
+    return (
+      <View style={[styles.container, styles.centered]}>
+        <ActivityIndicator size="large" color={Colors.primary} />
+      </View>
+    );
+  }
+
+  if (!permission.granted) {
+    return (
+      <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
+        <Camera size={64} color={Colors.primary} />
+        <Text style={styles.permissionTitle}>Camera Access Required</Text>
+        <Text style={styles.permissionText}>
+          We need camera access to scan your pantry items
+        </Text>
+        <TouchableOpacity style={styles.permissionButton} onPress={requestPermission}>
+          <Text style={styles.permissionButtonText}>Grant Permission</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
-      <Image source={{ uri: PANTRY_BG }} style={styles.cameraBackground} />
+      {hasCaptured && capturedImage ? (
+        <Image source={{ uri: capturedImage }} style={styles.cameraBackground} />
+      ) : (
+        <CameraView
+          ref={cameraRef}
+          style={styles.cameraBackground}
+          facing="back"
+          enableTorch={flashOn}
+        />
+      )}
+      
       <View style={styles.overlay} />
-
-      {MOCK_DETECTED_ITEMS.map((item) => (
-        <View
-          key={item.id}
-          style={[
-            styles.boundingBox,
-            {
-              top: item.position.top,
-              left: item.position.left,
-              width: item.size.width,
-              height: item.size.height,
-              borderRadius: item.isRound ? item.size.width / 2 : 12,
-              borderColor: item.confirmed ? Colors.primary : "rgba(255,255,255,0.5)",
-              shadowColor: item.confirmed ? Colors.primary : "transparent",
-            },
-          ]}
-        >
-          <View
-            style={[
-              styles.itemLabel,
-              { backgroundColor: item.confirmed ? Colors.primary : "rgba(255,255,255,0.9)" },
-            ]}
-          >
-            {item.confirmed ? (
-              <Check size={10} color={Colors.backgroundDark} strokeWidth={3} />
-            ) : (
-              <Loader size={10} color={Colors.backgroundDark} strokeWidth={3} />
-            )}
-            <Text
-              style={[
-                styles.itemLabelText,
-                { color: Colors.backgroundDark },
-              ]}
-            >
-              {item.name.toUpperCase()}
-            </Text>
-          </View>
-        </View>
-      ))}
+      <View style={styles.vignetteOverlay} />
 
       <View style={[styles.topBar, { paddingTop: insets.top + 12 }]}>
         <TouchableOpacity
@@ -176,18 +255,16 @@ export default function ScannerScreen() {
         </TouchableOpacity>
 
         <View style={styles.scanningIndicator}>
-          <Text style={styles.scanningText}>LIVE SCANNING</Text>
-          <View style={styles.scanningDot} />
+          <Text style={styles.scanningText}>
+            {isScanning ? "ANALYZING..." : hasCaptured ? "SCAN COMPLETE" : "LIVE SCANNING"}
+          </Text>
+          <View style={[styles.scanningDot, isScanning && styles.scanningDotActive]} />
         </View>
 
-        <TouchableOpacity style={styles.topButton} activeOpacity={0.7}>
-          <HelpCircle size={22} color={Colors.white} />
+        <TouchableOpacity style={styles.topButton} activeOpacity={0.7} onPress={handleClose}>
+          <X size={22} color={Colors.white} />
         </TouchableOpacity>
       </View>
-
-      <TouchableOpacity style={[styles.closeButton, { top: insets.top + 12 }]} onPress={handleClose}>
-        <X size={20} color={Colors.white} />
-      </TouchableOpacity>
 
       <View style={styles.viewfinderContainer}>
         <View style={styles.viewfinder}>
@@ -196,19 +273,48 @@ export default function ScannerScreen() {
           <View style={[styles.corner, styles.cornerBottomLeft]} />
           <View style={[styles.corner, styles.cornerBottomRight]} />
 
-          <Animated.View
-            style={[
-              styles.scanLine,
-              { transform: [{ translateY: scanLineTranslate }] },
-            ]}
-          />
+          {!hasCaptured && (
+            <Animated.View
+              style={[
+                styles.scanLine,
+                { transform: [{ translateY: scanLineTranslate }] },
+              ]}
+            />
+          )}
         </View>
 
         <Animated.Text
           style={[styles.scanningTitle, { transform: [{ scale: pulseAnim }] }]}
         >
-          Scanning Pantry...
+          {isScanning 
+            ? "Analyzing with AI..." 
+            : hasCaptured 
+              ? `Found ${detectedItems.length} items` 
+              : "Point at your pantry"}
         </Animated.Text>
+
+        {!hasCaptured && !isScanning && (
+          <TouchableOpacity 
+            style={styles.captureButton} 
+            onPress={handleCapture}
+            activeOpacity={0.8}
+          >
+            <View style={styles.captureButtonInner}>
+              <Camera size={28} color={Colors.backgroundDark} />
+            </View>
+          </TouchableOpacity>
+        )}
+
+        {hasCaptured && !isScanning && (
+          <TouchableOpacity 
+            style={styles.retakeButton} 
+            onPress={handleRetake}
+            activeOpacity={0.8}
+          >
+            <RefreshCw size={18} color={Colors.white} />
+            <Text style={styles.retakeButtonText}>Retake</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       <View style={[styles.bottomTray, { paddingBottom: insets.bottom + 16 }]}>
@@ -216,64 +322,109 @@ export default function ScannerScreen() {
 
         <View style={styles.trayHeader}>
           <View>
-            <Text style={styles.trayTitle}>Detected Items</Text>
+            <Text style={styles.trayTitle}>
+              {isScanning ? "Scanning..." : detectedItems.length > 0 ? "Detected Items" : "Ready to Scan"}
+            </Text>
             <Text style={styles.traySubtitle}>
-              {MOCK_DETECTED_ITEMS.length} items identified automatically
+              {isScanning 
+                ? "AI is analyzing your pantry" 
+                : detectedItems.length > 0 
+                  ? `${detectedItems.length} items identified • Tap to toggle`
+                  : "Capture your pantry to detect items"}
             </Text>
           </View>
-          <View style={styles.confidenceBadge}>
-            <Text style={styles.confidenceText}>78% CONFIDENCE</Text>
-          </View>
+          {overallConfidence > 0 && (
+            <View style={styles.confidenceBadge}>
+              <Text style={styles.confidenceText}>
+                {Math.round(overallConfidence * 100)}% CONFIDENCE
+              </Text>
+            </View>
+          )}
         </View>
 
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.itemsList}
-        >
-          {MOCK_DETECTED_ITEMS.map((item) => (
-            <View
-              key={item.id}
-              style={[
-                styles.detectedItemCard,
-                {
-                  borderColor: item.confirmed
-                    ? `${Colors.primary}66`
-                    : "rgba(255,255,255,0.1)",
-                  opacity: item.confirmed ? 1 : 0.6,
-                },
-              ]}
-            >
-              <Image source={{ uri: item.image }} style={styles.detectedItemImage} />
-              <View style={styles.detectedItemGradient} />
-              <View
-                style={[
-                  styles.detectedItemCheck,
-                  {
-                    backgroundColor: item.confirmed
-                      ? Colors.primary
-                      : "rgba(255,255,255,0.2)",
-                  },
-                ]}
-              >
-                {item.confirmed ? (
-                  <Check size={12} color={Colors.backgroundDark} strokeWidth={3} />
-                ) : (
-                  <Loader size={12} color={Colors.white} strokeWidth={2} />
-                )}
+        {isScanning ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={Colors.primary} />
+            <Text style={styles.loadingText}>Analyzing image with Gemini AI...</Text>
+          </View>
+        ) : (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.itemsList}
+          >
+            {detectedItems.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Camera size={32} color={Colors.textSecondary} />
+                <Text style={styles.emptyStateText}>
+                  Tap the camera button to scan
+                </Text>
               </View>
-              <Text style={styles.detectedItemName}>{item.name}</Text>
-            </View>
-          ))}
-        </ScrollView>
+            ) : (
+              detectedItems.map((item) => (
+                <TouchableOpacity
+                  key={item.id}
+                  style={[
+                    styles.detectedItemCard,
+                    {
+                      borderColor: item.confirmed
+                        ? `${Colors.primary}66`
+                        : "rgba(255,255,255,0.1)",
+                      opacity: item.confirmed ? 1 : 0.6,
+                    },
+                  ]}
+                  onPress={() => toggleItemConfirm(item.id)}
+                  activeOpacity={0.7}
+                >
+                  <Image 
+                    source={{ uri: PLACEHOLDER_IMAGES[item.category] || PLACEHOLDER_IMAGES["Other"] }} 
+                    style={styles.detectedItemImage} 
+                  />
+                  <View style={styles.detectedItemGradient} />
+                  <View
+                    style={[
+                      styles.detectedItemCheck,
+                      {
+                        backgroundColor: item.confirmed
+                          ? Colors.primary
+                          : "rgba(255,255,255,0.2)",
+                      },
+                    ]}
+                  >
+                    {item.confirmed ? (
+                      <Check size={12} color={Colors.backgroundDark} strokeWidth={3} />
+                    ) : (
+                      <Loader size={12} color={Colors.white} strokeWidth={2} />
+                    )}
+                  </View>
+                  <View style={styles.confidenceIndicator}>
+                    <Text style={styles.confidenceIndicatorText}>
+                      {Math.round(item.confidence * 100)}%
+                    </Text>
+                  </View>
+                  <Text style={styles.detectedItemName} numberOfLines={2}>
+                    {item.name}
+                  </Text>
+                  <Text style={styles.detectedItemCategory}>{item.category}</Text>
+                </TouchableOpacity>
+              ))
+            )}
+          </ScrollView>
+        )}
 
         <TouchableOpacity
-          style={styles.finishButton}
+          style={[
+            styles.finishButton,
+            (detectedItems.length === 0 || confirmedCount === 0) && styles.finishButtonDisabled,
+          ]}
           onPress={handleFinishScan}
           activeOpacity={0.8}
+          disabled={detectedItems.length === 0 || confirmedCount === 0}
         >
           <CheckCheck size={22} color={Colors.backgroundDark} strokeWidth={2.5} />
-          <Text style={styles.finishButtonText}>Finish Scan</Text>
+          <Text style={styles.finishButtonText}>
+            Add {confirmedCount} Items to Pantry
+          </Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -285,17 +436,31 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.backgroundDark,
   },
+  centered: {
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 32,
+  },
   cameraBackground: {
     position: "absolute",
     width: SCREEN_WIDTH,
     height: SCREEN_HEIGHT,
-    resizeMode: "cover",
   },
   overlay: {
     position: "absolute",
     width: SCREEN_WIDTH,
     height: SCREEN_HEIGHT,
-    backgroundColor: "rgba(0,0,0,0.2)",
+    backgroundColor: "rgba(0,0,0,0.15)",
+  },
+  vignetteOverlay: {
+    position: "absolute",
+    width: SCREEN_WIDTH,
+    height: SCREEN_HEIGHT,
+    ...Platform.select({
+      web: {
+        background: "radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.4) 100%)",
+      } as any,
+    }),
   },
   topBar: {
     position: "absolute",
@@ -318,24 +483,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.cardGlassBorder,
   },
-  closeButton: {
-    position: "absolute",
-    right: 16,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 30,
-    display: "none",
-  },
   scanningIndicator: {
     alignItems: "center",
   },
   scanningText: {
     fontSize: 10,
-    fontWeight: "700",
+    fontWeight: "700" as const,
     color: Colors.primary,
     letterSpacing: 2,
     marginBottom: 6,
@@ -357,6 +510,17 @@ const styles = StyleSheet.create({
       },
       web: {
         boxShadow: `0 0 8px ${Colors.primary}`,
+      } as any,
+    }),
+  },
+  scanningDotActive: {
+    backgroundColor: "#FFD700",
+    ...Platform.select({
+      ios: {
+        shadowColor: "#FFD700",
+      },
+      web: {
+        boxShadow: "0 0 8px #FFD700",
       } as any,
     }),
   },
@@ -429,7 +593,7 @@ const styles = StyleSheet.create({
   scanningTitle: {
     marginTop: 32,
     fontSize: 22,
-    fontWeight: "700",
+    fontWeight: "700" as const,
     color: Colors.white,
     textAlign: "center",
     ...Platform.select({
@@ -440,33 +604,41 @@ const styles = StyleSheet.create({
       },
     }),
   },
-  boundingBox: {
-    position: "absolute",
-    borderWidth: 2,
-    zIndex: 10,
-    ...Platform.select({
-      ios: {
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.4,
-        shadowRadius: 15,
-      },
-    }),
+  captureButton: {
+    marginTop: 24,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: "rgba(255,255,255,0.2)",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 3,
+    borderColor: Colors.primary,
   },
-  itemLabel: {
-    position: "absolute",
-    top: -28,
-    left: 0,
+  captureButtonInner: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: Colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  retakeButton: {
+    marginTop: 24,
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 20,
-    gap: 4,
+    gap: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    backgroundColor: "rgba(255,255,255,0.15)",
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.2)",
   },
-  itemLabelText: {
-    fontSize: 9,
-    fontWeight: "700",
-    letterSpacing: 0.5,
+  retakeButtonText: {
+    fontSize: 14,
+    fontWeight: "600" as const,
+    color: Colors.white,
   },
   bottomTray: {
     backgroundColor: Colors.cardGlass,
@@ -505,7 +677,7 @@ const styles = StyleSheet.create({
   },
   trayTitle: {
     fontSize: 18,
-    fontWeight: "700",
+    fontWeight: "700" as const,
     color: Colors.white,
   },
   traySubtitle: {
@@ -523,8 +695,30 @@ const styles = StyleSheet.create({
   },
   confidenceText: {
     fontSize: 11,
-    fontWeight: "700",
+    fontWeight: "700" as const,
     color: Colors.primary,
+  },
+  loadingContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 40,
+    gap: 16,
+  },
+  loadingText: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+  },
+  emptyState: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 32,
+    paddingHorizontal: 48,
+    gap: 12,
+  },
+  emptyStateText: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    textAlign: "center",
   },
   itemsList: {
     paddingHorizontal: 16,
@@ -533,7 +727,7 @@ const styles = StyleSheet.create({
   },
   detectedItemCard: {
     width: 120,
-    height: 120,
+    height: 140,
     borderRadius: 16,
     overflow: "hidden",
     borderWidth: 1,
@@ -548,16 +742,17 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: 60,
-    backgroundColor: "transparent",
-    backgroundImage: "linear-gradient(to top, rgba(0,0,0,0.7), transparent)",
+    height: 80,
     ...Platform.select({
       ios: {
-        backgroundColor: "rgba(0,0,0,0.4)",
+        backgroundColor: "rgba(0,0,0,0.5)",
       },
       android: {
-        backgroundColor: "rgba(0,0,0,0.4)",
+        backgroundColor: "rgba(0,0,0,0.5)",
       },
+      web: {
+        background: "linear-gradient(to top, rgba(0,0,0,0.8), transparent)",
+      } as any,
     }),
   },
   detectedItemCheck: {
@@ -570,13 +765,35 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  confidenceIndicator: {
+    position: "absolute",
+    top: 8,
+    left: 8,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  confidenceIndicatorText: {
+    fontSize: 9,
+    fontWeight: "700" as const,
+    color: Colors.white,
+  },
   detectedItemName: {
     position: "absolute",
-    bottom: 10,
+    bottom: 22,
     left: 10,
-    fontSize: 12,
-    fontWeight: "700",
+    right: 10,
+    fontSize: 11,
+    fontWeight: "700" as const,
     color: Colors.white,
+  },
+  detectedItemCategory: {
+    position: "absolute",
+    bottom: 8,
+    left: 10,
+    fontSize: 9,
+    color: Colors.textSecondary,
   },
   finishButton: {
     flexDirection: "row",
@@ -603,9 +820,37 @@ const styles = StyleSheet.create({
       } as any,
     }),
   },
+  finishButtonDisabled: {
+    backgroundColor: Colors.textSecondary,
+    opacity: 0.5,
+  },
   finishButtonText: {
     fontSize: 16,
-    fontWeight: "700",
+    fontWeight: "700" as const,
+    color: Colors.backgroundDark,
+  },
+  permissionTitle: {
+    fontSize: 22,
+    fontWeight: "700" as const,
+    color: Colors.white,
+    marginTop: 24,
+    marginBottom: 8,
+  },
+  permissionText: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    textAlign: "center",
+    marginBottom: 24,
+  },
+  permissionButton: {
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 32,
+    paddingVertical: 14,
+    borderRadius: 24,
+  },
+  permissionButtonText: {
+    fontSize: 16,
+    fontWeight: "700" as const,
     color: Colors.backgroundDark,
   },
 });
