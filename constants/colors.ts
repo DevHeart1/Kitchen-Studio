@@ -3,6 +3,7 @@ export default {
   backgroundDark: "#102215",
   backgroundLight: "#f6f8f6",
   surfaceDark: "#1a3322",
+  cardDark: "#1a2e21",
   cardGlass: "rgba(25, 51, 32, 0.7)",
   cardGlassBorder: "rgba(255, 255, 255, 0.1)",
   cardGlassLight: "rgba(255, 255, 255, 0.05)",

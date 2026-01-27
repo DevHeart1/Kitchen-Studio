@@ -251,7 +251,7 @@ export default function KitchenScreen() {
         <View style={styles.section}>
           <View style={styles.sectionHeaderRow}>
             <Text style={styles.sectionTitle}>Inventory</Text>
-            <TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push("/inventory")}>
               <Text style={styles.manageText}>Manage</Text>
             </TouchableOpacity>
           </View>
