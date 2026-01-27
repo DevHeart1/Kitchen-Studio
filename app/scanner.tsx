@@ -18,6 +18,7 @@ import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import { Zap, Check, Loader, CheckCheck, X, Camera, RefreshCw, Scan } from "lucide-react-native";
 import Colors from "@/constants/colors";
 import { useInventory } from "@/contexts/InventoryContext";
+import { trpc } from "@/lib/trpc";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
@@ -406,7 +407,7 @@ export default function ScannerScreen() {
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   
   const { addItem } = useInventory();
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const analyzeMutation = trpc.pantryScan.analyzeImage.useMutation();
 
   useEffect(() => {
     const pulseAnimation = Animated.loop(
@@ -479,17 +480,14 @@ export default function ScannerScreen() {
       setCapturedImage(manipulated.uri);
       setHasCaptured(true);
 
-      // Mock scan result - backend disabled
-      console.log("[Scanner] Using mock data (backend disabled)");
-      
-      const mockItems = [
-        { name: "Olive Oil", category: "Oils & Spices", confidence: 0.92, estimatedQuantity: "half", suggestedStatus: "good" as const },
-        { name: "Pasta", category: "Grains & Pasta", confidence: 0.88, estimatedQuantity: "full", suggestedStatus: "good" as const },
-        { name: "Tomato Sauce", category: "Canned Goods", confidence: 0.85, estimatedQuantity: "multiple", suggestedStatus: "good" as const },
-        { name: "Garlic", category: "Produce", confidence: 0.78, estimatedQuantity: "almost empty", suggestedStatus: "low" as const },
-      ];
+      const result = await analyzeMutation.mutateAsync({
+        imageBase64: manipulated.base64,
+        mimeType: "image/jpeg",
+      });
 
-      const items: DetectedItem[] = mockItems.map((item, index) => ({
+      console.log("[Scanner] Gemini 2.0 Flash analysis complete:", result);
+
+      const items: DetectedItem[] = result.items.map((item, index) => ({
         id: `scan-${Date.now()}-${index}`,
         name: item.name,
         category: item.category,
@@ -500,13 +498,13 @@ export default function ScannerScreen() {
       }));
 
       setDetectedItems(items);
-      setOverallConfidence(0.86);
+      setOverallConfidence(result.overallConfidence);
     } catch (error) {
       console.error("[Scanner] Error:", error);
     } finally {
       setIsScanning(false);
     }
-  }, [isScanning]);
+  }, [isScanning, analyzeMutation]);
 
   const handleRetake = useCallback(() => {
     setHasCaptured(false);
