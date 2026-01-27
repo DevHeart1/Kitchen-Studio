@@ -468,8 +468,8 @@ export default function ScannerScreen() {
       // Resize and compress image to reduce payload size
       const manipulated = await manipulateAsync(
         photo.uri,
-        [{ resize: { width: 600 } }], // Reduced resolution for faster upload
-        { compress: 0.5, format: SaveFormat.JPEG, base64: true }
+        [{ resize: { width: 480 } }], // Reduced resolution for faster upload
+        { compress: 0.4, format: SaveFormat.JPEG, base64: true }
       );
 
       if (!manipulated.base64) {
@@ -621,7 +621,7 @@ export default function ScannerScreen() {
               {isScanning ? "ANALYZING" : hasCaptured ? "COMPLETE" : "SCANNING"}
             </Text>
           </View>
-          <Text style={styles.modelBadge}>GEMINI 1.5 FLASH</Text>
+          <Text style={styles.modelBadge}>GEMINI 3.0 FLASH</Text>
         </View>
 
         <TouchableOpacity style={styles.topButton} activeOpacity={0.7} onPress={handleClose}>
@@ -678,7 +678,7 @@ export default function ScannerScreen() {
             </Text>
             <Text style={styles.traySubtitle}>
               {isScanning 
-                ? "Gemini 1.5 Flash is analyzing" 
+                ? "Gemini 3.0 Flash is analyzing" 
                 : detectedItems.length > 0 
                   ? `${detectedItems.length} items • Tap to toggle`
                   : "Capture your pantry to begin"}
@@ -698,7 +698,7 @@ export default function ScannerScreen() {
             <View style={styles.loadingRing}>
               <ActivityIndicator size="large" color={Colors.primary} />
             </View>
-            <Text style={styles.loadingText}>Processing with Gemini 1.5 Flash...</Text>
+            <Text style={styles.loadingText}>Processing with Gemini 3.0 Flash...</Text>
           </View>
         ) : (
           <ScrollView

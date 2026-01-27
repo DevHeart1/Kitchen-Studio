@@ -81,8 +81,9 @@ export const pantryScanRouter = createTRPCRouter({
       try {
         console.log(`[PantryScan] Starting image analysis. Payload size: ${Math.round(input.imageBase64.length / 1024)}KB`);
 
-        const response = await ai.models.generateContent({
-          model: "gemini-1.5-flash", // Use 1.5 Flash for speed and reliability
+        // Use generateContentStream as per working example for this model
+        const responseStream = await ai.models.generateContentStream({
+          model: "gemini-3-flash-preview",
           contents: [
             {
               role: "user",
@@ -101,18 +102,29 @@ export const pantryScanRouter = createTRPCRouter({
           ],
           config: {
             responseMimeType: "application/json",
+            // @ts-ignore
+            thinkingConfig: {
+              // @ts-ignore
+              thinkingLevel: "MINIMAL",
+            },
+            // @ts-ignore
+            mediaResolution: "MEDIA_RESOLUTION_HIGH",
           },
         });
+
+        let text = "";
+        for await (const chunk of responseStream) {
+          if (chunk.text) {
+            text += chunk.text;
+          }
+        }
 
         const processingTime = Date.now() - startTime;
         console.log(`[PantryScan] Analysis completed in ${processingTime}ms`);
 
-        // Handle both property and function access for text
-        // @ts-ignore - SDK types might vary
-        const text = typeof response.text === 'function' ? response.text() : response.text;
         
         if (!text) {
-             console.error("[PantryScan] No text in response:", JSON.stringify(response, null, 2));
+             console.error("[PantryScan] No text in response stream");
              throw new Error("Empty response from AI model");
         }
 

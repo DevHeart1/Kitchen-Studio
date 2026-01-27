@@ -23,10 +23,10 @@ export const trpcClient = trpc.createClient({
     httpLink({
       url: `${getBaseUrl()}/api/trpc`,
       transformer: superjson,
-      // Custom fetch with longer timeout (60s) to handle AI processing time
+      // Custom fetch with longer timeout (120s) to handle AI processing time
       fetch: (url, options) => {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 60000);
+        const timeoutId = setTimeout(() => controller.abort(), 120000);
 
         return fetch(url, {
           ...options,
