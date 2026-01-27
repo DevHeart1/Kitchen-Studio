@@ -10,9 +10,13 @@ const getBaseUrl = () => {
   const url = process.env.EXPO_PUBLIC_RORK_API_BASE_URL;
 
   if (!url) {
-    throw new Error(
-      "Rork did not set EXPO_PUBLIC_RORK_API_BASE_URL, please use support",
+    if (typeof window !== "undefined") {
+      return "";
+    }
+    console.warn(
+      "Rork did not set EXPO_PUBLIC_RORK_API_BASE_URL, falling back to localhost:8081",
     );
+    return "http://localhost:8081";
   }
 
   return url;
