@@ -7,18 +7,32 @@ import {
   TouchableOpacity,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useRouter } from "expo-router";
 import Colors from "@/constants/colors";
 import Header from "@/components/Header";
 import LinkInput from "@/components/LinkInput";
 import SessionCard from "@/components/SessionCard";
 import RecentCookCard from "@/components/RecentCookCard";
 import { featuredSessions, recentCooks } from "@/mocks/sessions";
+import { RecentCook } from "@/types";
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
 
   const handleConvert = (url: string) => {
     console.log("Converting URL:", url);
+  };
+
+  const handleViewAllRecentCooks = () => {
+    router.push("/recent-cooks");
+  };
+
+  const handleCookPress = (cook: RecentCook) => {
+    router.push({
+      pathname: "/cook-session",
+      params: { id: cook.id },
+    });
   };
 
   return (
@@ -64,13 +78,18 @@ export default function HomeScreen() {
         </ScrollView>
 
         <View style={styles.recentSection}>
-          <Text style={styles.sectionTitle}>Recent Cooks</Text>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Recent Cooks</Text>
+            <TouchableOpacity onPress={handleViewAllRecentCooks}>
+              <Text style={styles.viewAllText}>View all</Text>
+            </TouchableOpacity>
+          </View>
           <View style={styles.recentList}>
-            {recentCooks.map((cook) => (
+            {recentCooks.slice(0, 2).map((cook) => (
               <RecentCookCard
                 key={cook.id}
                 cook={cook}
-                onPress={() => console.log("Cook pressed:", cook.id)}
+                onPress={() => handleCookPress(cook)}
               />
             ))}
           </View>
@@ -134,7 +153,7 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
   },
   recentList: {
-    marginTop: 16,
+    marginTop: 12,
     gap: 12,
   },
 });

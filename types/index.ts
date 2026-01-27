@@ -14,4 +14,23 @@ export interface RecentCook {
   image: string;
   progress: number;
   completedDate?: string;
+  currentStep?: number;
+  totalSteps?: number;
+  startedAt: string;
+  duration?: string;
+  chefName?: string;
+  chefAvatar?: string;
+  steps?: CookingStep[];
+  rating?: number;
+  notes?: string;
+}
+
+export interface CookingStep {
+  id: string;
+  title: string;
+  description: string;
+  duration?: string;
+  image?: string;
+  completed: boolean;
+  tip?: string;
 }
