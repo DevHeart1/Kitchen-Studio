@@ -6,7 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
-  Alert,
+  Modal,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -95,6 +95,7 @@ export default function RecipeScreen() {
   const insets = useSafeAreaInsets();
   const { saveRecipe, isRecipeSaved } = useSavedRecipes();
   const [isSaving, setIsSaving] = useState(false);
+  const [showSaveModal, setShowSaveModal] = useState(false);
 
   const readyCount = ingredients.filter((i) => i.status === "in_pantry").length;
   const totalCount = ingredients.length;
@@ -103,7 +104,7 @@ export default function RecipeScreen() {
 
   const handleSaveForLater = async () => {
     if (isSaved) {
-      Alert.alert("Already Saved", "This recipe is already in your saved recipes.");
+      setShowSaveModal(true);
       return;
     }
     
@@ -119,11 +120,7 @@ export default function RecipeScreen() {
     setIsSaving(false);
     
     if (success) {
-      Alert.alert(
-        "Recipe Saved!",
-        "You can find this recipe in your Kitchen under Saved Recipes.",
-        [{ text: "OK" }]
-      );
+      setShowSaveModal(true);
     }
   };
 
@@ -151,6 +148,35 @@ export default function RecipeScreen() {
 
   return (
     <View style={styles.container}>
+      <Modal
+        visible={showSaveModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowSaveModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalIconContainer}>
+              <BookmarkCheck size={32} color={Colors.primary} />
+            </View>
+            <Text style={styles.modalTitle}>
+              {isSaved ? "Already Saved" : "Recipe Saved!"}
+            </Text>
+            <Text style={styles.modalMessage}>
+              {isSaved
+                ? "This recipe is already in your saved recipes."
+                : "You can find this recipe in your Kitchen under Saved Recipes."}
+            </Text>
+            <TouchableOpacity
+              style={styles.modalButton}
+              onPress={() => setShowSaveModal(false)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.modalButtonText}>OK</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <TouchableOpacity
           style={styles.headerButton}
@@ -627,5 +653,58 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "500" as const,
     color: "#92c9a0",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
+  },
+  modalContent: {
+    backgroundColor: Colors.cardDark,
+    borderRadius: 24,
+    padding: 28,
+    width: "100%",
+    maxWidth: 320,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(43, 238, 91, 0.2)",
+  },
+  modalIconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: "rgba(43, 238, 91, 0.15)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "700" as const,
+    color: Colors.white,
+    marginBottom: 8,
+    textAlign: "center",
+  },
+  modalMessage: {
+    fontSize: 14,
+    color: "#92c9a0",
+    textAlign: "center",
+    lineHeight: 20,
+    marginBottom: 24,
+  },
+  modalButton: {
+    backgroundColor: Colors.primary,
+    paddingVertical: 14,
+    paddingHorizontal: 48,
+    borderRadius: 9999,
+    minWidth: 140,
+  },
+  modalButtonText: {
+    fontSize: 16,
+    fontWeight: "700" as const,
+    color: Colors.backgroundDark,
+    textAlign: "center",
   },
 });
