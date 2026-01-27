@@ -1258,8 +1258,8 @@ const styles = StyleSheet.create({
         backgroundColor: "rgba(0,0,0,0.5)",
       },
       web: {
-        background: "linear-gradient(to top, rgba(0,0,0,0.8), transparent)",
-      } as any,
+        backgroundColor: "rgba(0,0,0,0.5)",
+      },
     }),
   },
   detectedItemCheck: {
