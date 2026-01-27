@@ -1,9 +1,9 @@
 import React, { useMemo } from "react";
-import { View, Text, StyleSheet, Image, TouchableOpacity } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { useRouter } from "expo-router";
 import { Utensils, Bell } from "lucide-react-native";
 import Colors from "@/constants/colors";
-import { userProfile } from "@/mocks/sessions";
+
 import { notifications } from "@/mocks/notifications";
 
 export default function Header() {
@@ -33,9 +33,6 @@ export default function Header() {
               </Text>
             </View>
           )}
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.avatarButton}>
-          <Image source={{ uri: userProfile.avatar }} style={styles.avatar} />
         </TouchableOpacity>
       </View>
     </View>
@@ -101,16 +98,5 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: "700" as const,
   },
-  avatarButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    borderWidth: 2,
-    borderColor: Colors.primary + "33",
-    overflow: "hidden",
-  },
-  avatar: {
-    width: "100%",
-    height: "100%",
-  },
+
 });

@@ -165,19 +165,9 @@ export default function KitchenScreen() {
       >
         <View style={styles.header}>
           <Text style={styles.title}>My Kitchen</Text>
-          <View style={styles.headerRight}>
-            <TouchableOpacity style={styles.iconButton}>
-              <Settings size={20} color={Colors.white} />
-            </TouchableOpacity>
-            <View style={styles.avatarContainer}>
-              <Image
-                source={{
-                  uri: "https://lh3.googleusercontent.com/aida-public/AB6AXuC0Hhp4xPb80ReWCi9pu-7hjtJDxqcyCPfc7K6XxjIk7aCB9D9r0VT41struXYkzbuiYT954NfldWNWu8-Rb4omGyQBIBzHteHmtsnk2TCE6stdbRuY9wzcNLXEvciQTDSONpvG-nig7BlxlU9ZWqqI755pCcY4uboGcrgGOEzcHOccJgQw8CmspyDe-IdHT8zUitGh88hu-YKr83DI1lVTHKOzkXKg_h-9dktzdmSBGipgYc4dzBh7PqxWdjPgzNphKuN4K8lcQA",
-                }}
-                style={styles.avatar}
-              />
-            </View>
-          </View>
+          <TouchableOpacity style={styles.iconButton} onPress={() => router.push("/settings")}>
+            <Settings size={20} color={Colors.white} />
+          </TouchableOpacity>
         </View>
 
         <View style={styles.statsRow}>
@@ -453,11 +443,6 @@ const styles = StyleSheet.create({
     color: Colors.white,
     letterSpacing: -0.5,
   },
-  headerRight: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
   iconButton: {
     width: 40,
     height: 40,
@@ -465,18 +450,6 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255, 255, 255, 0.1)",
     alignItems: "center",
     justifyContent: "center",
-  },
-  avatarContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    borderWidth: 2,
-    borderColor: Colors.primary + "33",
-    overflow: "hidden",
-  },
-  avatar: {
-    width: "100%",
-    height: "100%",
   },
   statsRow: {
     flexDirection: "row",
