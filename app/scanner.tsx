@@ -451,7 +451,7 @@ export default function ScannerScreen() {
     if (!cameraRef.current || isScanning) return;
 
     setIsScanning(true);
-    console.log("[Scanner] Starting capture with Gemini 3.0 Pro Preview...");
+    console.log("[Scanner] Starting capture with Gemini 2.0 Flash...");
 
     try {
       const photo = await cameraRef.current.takePictureAsync({
@@ -463,7 +463,7 @@ export default function ScannerScreen() {
         throw new Error("Failed to capture image");
       }
 
-      console.log("[Scanner] Photo captured, analyzing with Gemini 3.0 Pro...");
+      console.log("[Scanner] Photo captured, analyzing with Gemini 2.0 Flash...");
       setCapturedImage(`data:image/jpeg;base64,${photo.base64}`);
       setHasCaptured(true);
 
@@ -472,7 +472,7 @@ export default function ScannerScreen() {
         mimeType: "image/jpeg",
       });
 
-      console.log("[Scanner] Gemini 3.0 Pro analysis complete:", result);
+      console.log("[Scanner] Gemini 2.0 Flash analysis complete:", result);
 
       const items: DetectedItem[] = result.items.map((item, index) => ({
         id: `scan-${Date.now()}-${index}`,
@@ -608,7 +608,7 @@ export default function ScannerScreen() {
               {isScanning ? "ANALYZING" : hasCaptured ? "COMPLETE" : "SCANNING"}
             </Text>
           </View>
-          <Text style={styles.modelBadge}>GEMINI 3.0 PRO</Text>
+          <Text style={styles.modelBadge}>GEMINI 2.0 FLASH</Text>
         </View>
 
         <TouchableOpacity style={styles.topButton} activeOpacity={0.7} onPress={handleClose}>
@@ -665,7 +665,7 @@ export default function ScannerScreen() {
             </Text>
             <Text style={styles.traySubtitle}>
               {isScanning 
-                ? "Gemini 3.0 Pro is analyzing" 
+                ? "Gemini 2.0 Flash is analyzing" 
                 : detectedItems.length > 0 
                   ? `${detectedItems.length} items • Tap to toggle`
                   : "Capture your pantry to begin"}
@@ -685,7 +685,7 @@ export default function ScannerScreen() {
             <View style={styles.loadingRing}>
               <ActivityIndicator size="large" color={Colors.primary} />
             </View>
-            <Text style={styles.loadingText}>Processing with Gemini 3.0 Pro...</Text>
+            <Text style={styles.loadingText}>Processing with Gemini 2.0 Flash...</Text>
           </View>
         ) : (
           <ScrollView
