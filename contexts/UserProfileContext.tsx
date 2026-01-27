@@ -108,6 +108,7 @@ const TITLES = [
 export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
   const [profile, setProfile] = useState<UserProfile>(DEFAULT_PROFILE);
   const [isLoading, setIsLoading] = useState(true);
+  const [pendingLevelUp, setPendingLevelUp] = useState<{ fromLevel: number; toLevel: number } | null>(null);
 
   useEffect(() => {
     loadProfile();
@@ -155,6 +156,7 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
   const addXP = useCallback(async (amount: number) => {
     const newXP = profile.stats.totalXP + amount;
     let newLevel = profile.level;
+    const previousLevel = profile.level;
     
     for (let i = LEVEL_THRESHOLDS.length - 1; i >= 0; i--) {
       if (newXP >= LEVEL_THRESHOLDS[i]) {
@@ -171,7 +173,14 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
       title: newTitle,
     });
 
+    if (newLevel > previousLevel) {
+      setPendingLevelUp({ fromLevel: previousLevel, toLevel: newLevel });
+      console.log(`LEVEL UP! From ${previousLevel} to ${newLevel}`);
+    }
+
     console.log(`Added ${amount} XP. New total: ${newXP}, Level: ${newLevel}`);
+    
+    return { leveledUp: newLevel > previousLevel, newLevel, previousLevel };
   }, [profile, updateProfile]);
 
   const incrementRecipesCompleted = useCallback(async () => {
@@ -242,6 +251,15 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
     };
   }, [profile]);
 
+  const acknowledgeLevelUp = useCallback(() => {
+    setPendingLevelUp(null);
+    console.log("Level up acknowledged");
+  }, []);
+
+  const checkForLevelUp = useCallback(() => {
+    return pendingLevelUp;
+  }, [pendingLevelUp]);
+
   const computedStats = useMemo(() => {
     const completedCooks = recentCooks.filter((c) => c.progress === 100);
     const inProgressCooks = recentCooks.filter((c) => c.progress < 100);
@@ -270,6 +288,9 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
     updateSettings,
     getXPProgress,
     computedStats,
+    pendingLevelUp,
+    acknowledgeLevelUp,
+    checkForLevelUp,
   }), [
     profile,
     isLoading,
@@ -286,5 +307,8 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
     updateSettings,
     getXPProgress,
     computedStats,
+    pendingLevelUp,
+    acknowledgeLevelUp,
+    checkForLevelUp,
   ]);
 });

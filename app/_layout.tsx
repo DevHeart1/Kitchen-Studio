@@ -131,6 +131,15 @@ function RootLayoutNav() {
           animation: "slide_from_right",
         }}
       />
+      <Stack.Screen
+        name="level-up"
+        options={{
+          headerShown: false,
+          presentation: "fullScreenModal",
+          animation: "fade",
+          gestureEnabled: false,
+        }}
+      />
     </Stack>
   );
 }

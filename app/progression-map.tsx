@@ -259,8 +259,20 @@ export default function ProgressionMapScreen() {
     if (Platform.OS !== "web") {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
-    await addXP(250);
+    const result = await addXP(250);
     console.log("Added 250 XP for testing");
+    
+    if (result && result.leveledUp) {
+      setTimeout(() => {
+        router.push({
+          pathname: "/level-up",
+          params: {
+            level: result.newLevel.toString(),
+            fromLevel: result.previousLevel.toString(),
+          },
+        });
+      }, 300);
+    }
   };
 
   const getProgressToNextRank = () => {
