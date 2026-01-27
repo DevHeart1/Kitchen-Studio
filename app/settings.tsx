@@ -10,7 +10,6 @@ import {
   Modal,
   Pressable,
   Switch,
-  Alert,
   Platform,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -53,6 +52,7 @@ export default function SettingsScreen() {
   const [editNameModal, setEditNameModal] = useState(false);
   const [editAvatarModal, setEditAvatarModal] = useState(false);
   const [logoutModal, setLogoutModal] = useState(false);
+  const [deleteAccountModal, setDeleteAccountModal] = useState(false);
   const [tempName, setTempName] = useState(profile.name);
 
   const handleSaveName = async () => {
@@ -74,20 +74,13 @@ export default function SettingsScreen() {
   };
 
   const handleDeleteAccount = () => {
-    Alert.alert(
-      "Delete Account",
-      "Are you sure you want to delete your account? This action cannot be undone.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: () => {
-            console.log("Account deletion requested");
-          },
-        },
-      ]
-    );
+    setDeleteAccountModal(true);
+  };
+
+  const confirmDeleteAccount = () => {
+    console.log("Account deletion requested");
+    setDeleteAccountModal(false);
+    router.replace("/");
   };
 
   const handleLogout = () => {
@@ -350,6 +343,34 @@ export default function SettingsScreen() {
                 onPress={confirmLogout}
               >
                 <Text style={styles.logoutButtonText}>Log Out</Text>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      <Modal visible={deleteAccountModal} transparent animationType="fade">
+        <Pressable style={styles.modalOverlay} onPress={() => setDeleteAccountModal(false)}>
+          <Pressable style={styles.logoutModalContent} onPress={() => {}}>
+            <View style={styles.logoutIconContainer}>
+              <Trash2 size={32} color="#ef4444" />
+            </View>
+            <Text style={styles.logoutTitle}>Delete Account</Text>
+            <Text style={styles.logoutMessage}>
+              Are you sure you want to delete your account? This action cannot be undone.
+            </Text>
+            <View style={styles.logoutButtonsContainer}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => setDeleteAccountModal(false)}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.logoutButton}
+                onPress={confirmDeleteAccount}
+              >
+                <Text style={styles.logoutButtonText}>Delete</Text>
               </TouchableOpacity>
             </View>
           </Pressable>
