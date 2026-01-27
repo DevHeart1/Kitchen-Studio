@@ -28,6 +28,7 @@ import {
   Heart,
   X,
   Trophy,
+  Map,
 } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
 import Colors from "@/constants/colors";
@@ -119,6 +120,13 @@ export default function ProfileScreen() {
     router.push("/settings");
   };
 
+  const handleProgressionMap = () => {
+    if (Platform.OS !== "web") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    router.push("/progression-map");
+  };
+
   const handleRecentCooks = () => {
     router.push("/recent-cooks");
   };
@@ -175,7 +183,11 @@ export default function ProfileScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.profileSection}>
-          <View style={styles.avatarContainer}>
+          <TouchableOpacity 
+            style={styles.avatarContainer}
+            onPress={handleProgressionMap}
+            activeOpacity={0.8}
+          >
             <View style={styles.avatarBorder}>
               <Image source={{ uri: profile.avatar }} style={styles.avatar} />
             </View>
@@ -183,19 +195,27 @@ export default function ProfileScreen() {
               <Star size={12} color={Colors.backgroundDark} fill={Colors.backgroundDark} />
               <Text style={styles.levelText}>LEVEL {profile.level}</Text>
             </View>
-          </View>
+          </TouchableOpacity>
           <Text style={styles.profileName}>{profile.name}</Text>
           <Text style={styles.profileTitle}>{profile.title.toUpperCase()}</Text>
           
-          <View style={styles.xpContainer}>
+          <TouchableOpacity 
+            style={styles.xpContainer}
+            onPress={handleProgressionMap}
+            activeOpacity={0.8}
+          >
             <View style={styles.xpHeader}>
               <Text style={styles.xpLabel}>XP Progress</Text>
-              <Text style={styles.xpValue}>{xpProgress.current}/{xpProgress.needed}</Text>
+              <View style={styles.xpRight}>
+                <Text style={styles.xpValue}>{xpProgress.current}/{xpProgress.needed}</Text>
+                <ChevronRight size={14} color={Colors.primary} />
+              </View>
             </View>
             <View style={styles.xpBar}>
               <View style={[styles.xpFill, { width: `${xpProgress.percent}%` }]} />
             </View>
-          </View>
+            <Text style={styles.xpHint}>Tap to view progression map</Text>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.statsSection}>
@@ -282,6 +302,23 @@ export default function ProfileScreen() {
         <View style={styles.quickActions}>
           <TouchableOpacity
             style={styles.quickActionCard}
+            onPress={handleProgressionMap}
+            activeOpacity={0.8}
+          >
+            <View style={[styles.quickActionIcon, { backgroundColor: "rgba(59, 130, 246, 0.2)" }]}>
+              <Map size={20} color="#3b82f6" />
+            </View>
+            <View style={styles.quickActionContent}>
+              <Text style={styles.quickActionTitle}>Chef Journey</Text>
+              <Text style={styles.quickActionSubtitle}>
+                Level {profile.level} • {profile.title}
+              </Text>
+            </View>
+            <ChevronRight size={20} color={Colors.textMuted} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.quickActionCard, { marginTop: 12 }]}
             onPress={handleRecentCooks}
             activeOpacity={0.8}
           >
@@ -443,6 +480,17 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "700" as const,
     color: Colors.primary,
+  },
+  xpRight: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    gap: 4,
+  },
+  xpHint: {
+    fontSize: 10,
+    color: Colors.textMuted,
+    textAlign: "center" as const,
+    marginTop: 8,
   },
   xpBar: {
     height: 6,
