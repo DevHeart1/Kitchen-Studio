@@ -15,7 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
-import { Zap, Check, Loader, CheckCheck, X, Camera, RefreshCw, Scan } from "lucide-react-native";
+import { Zap, Check, Loader, CheckCheck, X, Camera, RefreshCw, Scan, AlertCircle } from "lucide-react-native";
 import Colors from "@/constants/colors";
 import { useInventory } from "@/contexts/InventoryContext";
 import { trpc } from "@/lib/trpc";
@@ -448,11 +448,41 @@ export default function ScannerScreen() {
     };
   }, [pulseAnim, scanPulse]);
 
+  const [scanError, setScanError] = useState<string | null>(null);
+
+  const analyzeWithRetry = useCallback(async (imageBase64: string, mimeType: string, maxRetries = 3) => {
+    let lastError: Error | null = null;
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`[Scanner] Analysis attempt ${attempt}/${maxRetries}...`);
+        const result = await analyzeMutation.mutateAsync({ imageBase64, mimeType });
+        return result;
+      } catch (error: unknown) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+        const errorMsg = lastError.message.toLowerCase();
+        
+        const isRateLimited = errorMsg.includes('429') || errorMsg.includes('rate') || errorMsg.includes('too many');
+        const isNetworkError = errorMsg.includes('fetch') || errorMsg.includes('network');
+        
+        if ((isRateLimited || isNetworkError) && attempt < maxRetries) {
+          const delay = Math.min(2000 * Math.pow(2, attempt - 1), 8000);
+          console.log(`[Scanner] Rate limited or network error, retrying in ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        } else if (attempt === maxRetries) {
+          throw lastError;
+        }
+      }
+    }
+    throw lastError || new Error('Analysis failed');
+  }, [analyzeMutation]);
+
   const handleCapture = useCallback(async () => {
     if (!cameraRef.current || isScanning) return;
 
     setIsScanning(true);
-    console.log("[Scanner] Starting capture with Gemini 2.0 Flash...");
+    setScanError(null);
+    console.log("[Scanner] Starting capture...");
 
     try {
       const photo = await cameraRef.current.takePictureAsync({
@@ -465,10 +495,9 @@ export default function ScannerScreen() {
       }
 
       console.log("[Scanner] Processing image...");
-      // Resize and compress image to reduce payload size
       const manipulated = await manipulateAsync(
         photo.uri,
-        [{ resize: { width: 480 } }], // Reduced resolution for faster upload
+        [{ resize: { width: 480 } }],
         { compress: 0.4, format: SaveFormat.JPEG, base64: true }
       );
 
@@ -476,16 +505,13 @@ export default function ScannerScreen() {
         throw new Error("Failed to process image");
       }
 
-      console.log("[Scanner] Image processed, analyzing with Gemini...");
+      console.log("[Scanner] Image processed, analyzing...");
       setCapturedImage(manipulated.uri);
       setHasCaptured(true);
 
-      const result = await analyzeMutation.mutateAsync({
-        imageBase64: manipulated.base64,
-        mimeType: "image/jpeg",
-      });
+      const result = await analyzeWithRetry(manipulated.base64, "image/jpeg");
 
-      console.log("[Scanner] Gemini 2.0 Flash analysis complete:", result);
+      console.log("[Scanner] Analysis complete:", result);
 
       const items: DetectedItem[] = result.items.map((item, index) => ({
         id: `scan-${Date.now()}-${index}`,
@@ -499,12 +525,23 @@ export default function ScannerScreen() {
 
       setDetectedItems(items);
       setOverallConfidence(result.overallConfidence);
-    } catch (error) {
-      console.error("[Scanner] Error:", error);
+    } catch (error: unknown) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error("[Scanner] Error:", errorMsg);
+      
+      if (errorMsg.toLowerCase().includes('429') || errorMsg.toLowerCase().includes('rate')) {
+        setScanError("Server is busy. Please wait a moment and try again.");
+      } else if (errorMsg.toLowerCase().includes('fetch') || errorMsg.toLowerCase().includes('network')) {
+        setScanError("Connection error. Please check your internet and try again.");
+      } else {
+        setScanError("Failed to analyze image. Please try again.");
+      }
+      setHasCaptured(false);
+      setCapturedImage(null);
     } finally {
       setIsScanning(false);
     }
-  }, [isScanning, analyzeMutation]);
+  }, [isScanning, analyzeWithRetry]);
 
   const handleRetake = useCallback(() => {
     setHasCaptured(false);
@@ -618,10 +655,10 @@ export default function ScannerScreen() {
           <View style={styles.statusContainer}>
             <Animated.View style={[styles.statusDot, { opacity: scanPulseOpacity }]} />
             <Text style={styles.scanningText}>
-              {isScanning ? "ANALYZING" : hasCaptured ? "COMPLETE" : "SCANNING"}
+              {isScanning ? "ANALYZING" : hasCaptured ? "COMPLETE" : scanError ? "ERROR" : "SCANNING"}
             </Text>
           </View>
-          <Text style={styles.modelBadge}>GEMINI 2.0 FLASH</Text>
+          <Text style={styles.modelBadge}>AI VISION</Text>
         </View>
 
         <TouchableOpacity style={styles.topButton} activeOpacity={0.7} onPress={handleClose}>
@@ -708,10 +745,21 @@ export default function ScannerScreen() {
           >
             {detectedItems.length === 0 ? (
               <View style={styles.emptyState}>
-                <Scan size={32} color={Colors.textSecondary} />
-                <Text style={styles.emptyStateText}>
-                  Tap scan to detect items
-                </Text>
+                {scanError ? (
+                  <>
+                    <AlertCircle size={32} color="#FF6B6B" />
+                    <Text style={[styles.emptyStateText, { color: '#FF6B6B' }]}>
+                      {scanError}
+                    </Text>
+                  </>
+                ) : (
+                  <>
+                    <Scan size={32} color={Colors.textSecondary} />
+                    <Text style={styles.emptyStateText}>
+                      Tap scan to detect items
+                    </Text>
+                  </>
+                )}
               </View>
             ) : (
               detectedItems.map((item) => (
