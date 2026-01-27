@@ -8,6 +8,7 @@ import {
   ImageBackground,
   Modal,
   ScrollView,
+  Platform,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -128,12 +129,12 @@ export default function ARCookingScreen() {
   const [isTimerRunning, setIsTimerRunning] = useState(false);
   const [showCompletion, setShowCompletion] = useState(false);
   const [showInstructions, setShowInstructions] = useState(false);
-  
+
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const slideAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const feedbackAnim = useRef(new Animated.Value(0)).current;
-  
+
   const step = cookingSteps[currentStep];
   const progress = ((currentStep + 1) / cookingSteps.length) * 100;
 
@@ -193,7 +194,7 @@ export default function ARCookingScreen() {
 
   const handleNextStep = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    
+
     if (currentStep < cookingSteps.length - 1) {
       Animated.parallel([
         Animated.timing(fadeAnim, {
@@ -210,12 +211,12 @@ export default function ARCookingScreen() {
         setCurrentStep((prev) => prev + 1);
         setIsTimerRunning(false);
         setShowTimer(false);
-        
+
         const nextStep = cookingSteps[currentStep + 1];
         if (nextStep?.timerSeconds) {
           setTimerSeconds(nextStep.timerSeconds);
         }
-        
+
         slideAnim.setValue(50);
         Animated.parallel([
           Animated.timing(fadeAnim, {
@@ -297,7 +298,7 @@ export default function ARCookingScreen() {
             <Text style={styles.completionSubtitle}>
               Garlic Butter Pan-Seared Salmon
             </Text>
-            
+
             <View style={styles.statsContainer}>
               <View style={styles.statItem}>
                 <Text style={styles.statValue}>8</Text>
@@ -360,7 +361,7 @@ export default function ARCookingScreen() {
         resizeMode="cover"
       >
         <View style={styles.cameraOverlay} />
-        
+
         <View style={styles.uiLayer}>
           <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
             <View style={styles.glassPanel}>
@@ -494,7 +495,7 @@ export default function ARCookingScreen() {
               <TouchableOpacity
                 style={[
                   styles.toolButton,
-                  step.timerSeconds && styles.toolButtonActive,
+                  step.timerSeconds ? styles.toolButtonActive : undefined,
                 ]}
                 onPress={handleTimerPress}
               >
@@ -707,11 +708,18 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 16,
-    elevation: 8,
+    ...Platform.select({
+      web: {
+        boxShadow: "0px 8px 16px rgba(0, 0, 0, 0.3)",
+      },
+      default: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.3,
+        shadowRadius: 16,
+        elevation: 8,
+      },
+    }),
   },
   feedbackIcon: {
     width: 40,

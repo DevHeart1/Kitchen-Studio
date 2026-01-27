@@ -397,7 +397,7 @@ export default function ScannerScreen() {
   const cameraRef = useRef<CameraView>(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const scanPulse = useRef(new Animated.Value(0)).current;
-  
+
   const [permission, requestPermission] = useCameraPermissions();
   const [flashOn, setFlashOn] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
@@ -405,7 +405,7 @@ export default function ScannerScreen() {
   const [overallConfidence, setOverallConfidence] = useState(0);
   const [hasCaptured, setHasCaptured] = useState(false);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
-  
+
   const { addItem } = useInventory();
   const analyzeMutation = trpc.pantryScan.analyzeImage.useMutation();
 
@@ -452,7 +452,7 @@ export default function ScannerScreen() {
 
   const analyzeWithRetry = useCallback(async (imageBase64: string, mimeType: string, maxRetries = 3) => {
     let lastError: Error | null = null;
-    
+
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         console.log(`[Scanner] Analysis attempt ${attempt}/${maxRetries}...`);
@@ -461,10 +461,10 @@ export default function ScannerScreen() {
       } catch (error: unknown) {
         lastError = error instanceof Error ? error : new Error(String(error));
         const errorMsg = lastError.message.toLowerCase();
-        
+
         const isRateLimited = errorMsg.includes('429') || errorMsg.includes('rate') || errorMsg.includes('too many');
         const isNetworkError = errorMsg.includes('fetch') || errorMsg.includes('network');
-        
+
         if ((isRateLimited || isNetworkError) && attempt < maxRetries) {
           const delay = Math.min(2000 * Math.pow(2, attempt - 1), 8000);
           console.log(`[Scanner] Rate limited or network error, retrying in ${delay}ms...`);
@@ -528,7 +528,7 @@ export default function ScannerScreen() {
     } catch (error: unknown) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       console.error("[Scanner] Error:", errorMsg);
-      
+
       if (errorMsg.toLowerCase().includes('429') || errorMsg.toLowerCase().includes('rate')) {
         setScanError("Server is busy. Please wait a moment and try again.");
       } else if (errorMsg.toLowerCase().includes('fetch') || errorMsg.toLowerCase().includes('network')) {
@@ -560,15 +560,15 @@ export default function ScannerScreen() {
 
   const handleFinishScan = useCallback(async () => {
     const confirmedItems = detectedItems.filter((item) => item.confirmed);
-    
+
     console.log("[Scanner] Adding confirmed items to inventory:", confirmedItems.length);
-    
+
     for (const item of confirmedItems) {
-      const stockPercentage = 
+      const stockPercentage =
         item.estimatedQuantity === "full" ? 100 :
-        item.estimatedQuantity === "half" ? 50 :
-        item.estimatedQuantity === "almost empty" ? 15 :
-        item.estimatedQuantity === "multiple" ? 100 : 75;
+          item.estimatedQuantity === "half" ? 50 :
+            item.estimatedQuantity === "almost empty" ? 15 :
+              item.estimatedQuantity === "multiple" ? 100 : 75;
 
       await addItem({
         name: item.name,
@@ -630,7 +630,7 @@ export default function ScannerScreen() {
           enableTorch={flashOn}
         />
       )}
-      
+
       <View style={styles.overlay} />
       <CRTScanLines />
       <GridOverlay />
@@ -672,16 +672,16 @@ export default function ScannerScreen() {
         <Animated.Text
           style={[styles.scanningTitle, { transform: [{ scale: pulseAnim }] }]}
         >
-          {isScanning 
-            ? "AI Processing..." 
-            : hasCaptured 
-              ? `${detectedItems.length} Items Detected` 
+          {isScanning
+            ? "AI Processing..."
+            : hasCaptured
+              ? `${detectedItems.length} Items Detected`
               : "Aim at Pantry"}
         </Animated.Text>
 
         {!hasCaptured && !isScanning && (
-          <TouchableOpacity 
-            style={styles.captureButton} 
+          <TouchableOpacity
+            style={styles.captureButton}
             onPress={handleCapture}
             activeOpacity={0.8}
           >
@@ -694,8 +694,8 @@ export default function ScannerScreen() {
         )}
 
         {hasCaptured && !isScanning && (
-          <TouchableOpacity 
-            style={styles.retakeButton} 
+          <TouchableOpacity
+            style={styles.retakeButton}
             onPress={handleRetake}
             activeOpacity={0.8}
           >
@@ -714,9 +714,9 @@ export default function ScannerScreen() {
               {isScanning ? "Analyzing..." : detectedItems.length > 0 ? "Detected Items" : "Ready to Scan"}
             </Text>
             <Text style={styles.traySubtitle}>
-              {isScanning 
-                ? "Gemini 2.0 Flash is analyzing" 
-                : detectedItems.length > 0 
+              {isScanning
+                ? "Gemini 2.0 Flash is analyzing"
+                : detectedItems.length > 0
                   ? `${detectedItems.length} items • Tap to toggle`
                   : "Capture your pantry to begin"}
             </Text>
@@ -777,9 +777,10 @@ export default function ScannerScreen() {
                   onPress={() => toggleItemConfirm(item.id)}
                   activeOpacity={0.7}
                 >
-                  <Image 
-                    source={{ uri: PLACEHOLDER_IMAGES[item.category] || PLACEHOLDER_IMAGES["Other"] }} 
-                    style={styles.detectedItemImage} 
+                  <Image
+                    source={{ uri: PLACEHOLDER_IMAGES[item.category] || PLACEHOLDER_IMAGES["Other"] }}
+                    style={styles.detectedItemImage}
+                    resizeMode="cover"
                   />
                   <View style={styles.detectedItemGradient} />
                   <View
@@ -1303,7 +1304,6 @@ const styles = StyleSheet.create({
   detectedItemImage: {
     width: "100%",
     height: "100%",
-    resizeMode: "cover",
   },
   detectedItemGradient: {
     position: "absolute",

@@ -7,12 +7,13 @@ import type { AppRouter } from "@/backend/trpc/app-router";
 export const trpc = createTRPCReact<AppRouter>();
 
 const getBaseUrl = () => {
+  if (typeof window !== "undefined") {
+    return "";
+  }
+
   const url = process.env.EXPO_PUBLIC_RORK_API_BASE_URL;
 
   if (!url) {
-    if (typeof window !== "undefined") {
-      return "";
-    }
     console.warn(
       "Rork did not set EXPO_PUBLIC_RORK_API_BASE_URL, falling back to localhost:8081",
     );
