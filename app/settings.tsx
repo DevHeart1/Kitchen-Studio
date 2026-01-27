@@ -48,14 +48,11 @@ const AVATAR_OPTIONS = [
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { profile, updateName, updateAvatar } = useUserProfile();
+  const { profile, updateName, updateAvatar, updateSettings } = useUserProfile();
 
   const [editNameModal, setEditNameModal] = useState(false);
   const [editAvatarModal, setEditAvatarModal] = useState(false);
   const [tempName, setTempName] = useState(profile.name);
-  const [notifications, setNotifications] = useState(true);
-  const [darkMode, setDarkMode] = useState(true);
-  const [arTips, setArTips] = useState(true);
 
   const handleSaveName = async () => {
     if (tempName.trim()) {
@@ -194,10 +191,10 @@ export default function SettingsScreen() {
             "Recipe reminders & updates",
             undefined,
             <Switch
-              value={notifications}
-              onValueChange={setNotifications}
+              value={profile.settings.notifications}
+              onValueChange={(value) => updateSettings({ notifications: value })}
               trackColor={{ false: "#3e3e3e", true: Colors.primary + "60" }}
-              thumbColor={notifications ? Colors.primary : "#f4f3f4"}
+              thumbColor={profile.settings.notifications ? Colors.primary : "#f4f3f4"}
             />
           )}
           {renderSettingRow(
@@ -206,10 +203,10 @@ export default function SettingsScreen() {
             "Use dark theme",
             undefined,
             <Switch
-              value={darkMode}
-              onValueChange={setDarkMode}
+              value={profile.settings.darkMode}
+              onValueChange={(value) => updateSettings({ darkMode: value })}
               trackColor={{ false: "#3e3e3e", true: Colors.primary + "60" }}
-              thumbColor={darkMode ? Colors.primary : "#f4f3f4"}
+              thumbColor={profile.settings.darkMode ? Colors.primary : "#f4f3f4"}
             />
           )}
           {renderSettingRow(
@@ -218,10 +215,10 @@ export default function SettingsScreen() {
             "Show tips during AR sessions",
             undefined,
             <Switch
-              value={arTips}
-              onValueChange={setArTips}
+              value={profile.settings.arTips}
+              onValueChange={(value) => updateSettings({ arTips: value })}
               trackColor={{ false: "#3e3e3e", true: Colors.primary + "60" }}
-              thumbColor={arTips ? Colors.primary : "#f4f3f4"}
+              thumbColor={profile.settings.arTips ? Colors.primary : "#f4f3f4"}
             />
           )}
         </View>
@@ -232,19 +229,19 @@ export default function SettingsScreen() {
             <HelpCircle size={20} color={Colors.primary} />,
             "Help Center",
             "FAQs and tutorials",
-            () => console.log("Help center")
+            () => router.push("/help-center")
           )}
           {renderSettingRow(
             <MessageSquare size={20} color={Colors.primary} />,
             "Contact Support",
             "Get help from our team",
-            () => console.log("Contact support")
+            () => router.push("/contact-support")
           )}
           {renderSettingRow(
             <FileText size={20} color={Colors.primary} />,
             "Privacy Policy",
             undefined,
-            () => console.log("Privacy policy")
+            () => router.push("/privacy-policy")
           )}
         </View>
 
@@ -254,7 +251,7 @@ export default function SettingsScreen() {
             <Shield size={20} color={Colors.primary} />,
             "Privacy & Security",
             "Data and permissions",
-            () => console.log("Privacy settings")
+            () => router.push("/privacy-security")
           )}
           {renderSettingRow(
             <Trash2 size={20} color="#ef4444" />,

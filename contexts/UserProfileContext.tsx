@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import createContextHook from "@nkzw/create-context-hook";
 import { recentCooks } from "@/mocks/sessions";
@@ -18,6 +18,16 @@ export interface UserStats {
   totalXP: number;
 }
 
+export interface UserSettings {
+  notifications: boolean;
+  darkMode: boolean;
+  arTips: boolean;
+  emailNotifications: boolean;
+  pushNotifications: boolean;
+  dataSharing: boolean;
+  analytics: boolean;
+}
+
 export interface UserProfile {
   name: string;
   title: string;
@@ -26,6 +36,7 @@ export interface UserProfile {
   stats: UserStats;
   sharedRecipes: SharedRecipe[];
   unlockedBadgeIds: string[];
+  settings: UserSettings;
 }
 
 const STORAGE_KEY = "user_profile";
@@ -54,6 +65,16 @@ const DEFAULT_SHARED_RECIPES: SharedRecipe[] = [
   },
 ];
 
+const DEFAULT_SETTINGS: UserSettings = {
+  notifications: true,
+  darkMode: true,
+  arTips: true,
+  emailNotifications: true,
+  pushNotifications: true,
+  dataSharing: false,
+  analytics: true,
+};
+
 const DEFAULT_PROFILE: UserProfile = {
   name: "Alex Ramsey",
   title: "Sous Chef",
@@ -67,6 +88,7 @@ const DEFAULT_PROFILE: UserProfile = {
   },
   sharedRecipes: DEFAULT_SHARED_RECIPES,
   unlockedBadgeIds: ["1", "2", "3", "4", "5"],
+  settings: DEFAULT_SETTINGS,
 };
 
 const LEVEL_THRESHOLDS = [0, 500, 1200, 2000, 3000, 4500, 6500, 9000, 12000, 16000];
@@ -202,6 +224,12 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
     }
   }, [profile, updateProfile]);
 
+  const updateSettings = useCallback(async (updates: Partial<UserSettings>) => {
+    const newSettings = { ...profile.settings, ...updates };
+    await updateProfile({ settings: newSettings });
+    console.log("Settings updated:", updates);
+  }, [profile, updateProfile]);
+
   const getXPProgress = useCallback(() => {
     const currentLevelXP = LEVEL_THRESHOLDS[profile.level - 1] || 0;
     const nextLevelXP = LEVEL_THRESHOLDS[profile.level] || LEVEL_THRESHOLDS[LEVEL_THRESHOLDS.length - 1];
@@ -239,6 +267,7 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
     shareRecipe,
     removeSharedRecipe,
     unlockBadge,
+    updateSettings,
     getXPProgress,
     computedStats,
   }), [
@@ -254,6 +283,7 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
     shareRecipe,
     removeSharedRecipe,
     unlockBadge,
+    updateSettings,
     getXPProgress,
     computedStats,
   ]);
