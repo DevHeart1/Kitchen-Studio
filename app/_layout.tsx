@@ -6,7 +6,7 @@ import React, { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SavedRecipesProvider } from "@/contexts/SavedRecipesContext";
 import { InventoryProvider } from "@/contexts/InventoryContext";
-import { UserProfileProvider } from "@/contexts/UserProfileContext";
+import { UserProfileProvider, useUserProfile } from "@/contexts/UserProfileContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { trpc, trpcClient } from "@/lib/trpc";
 
@@ -16,23 +16,27 @@ SplashScreen.preventAutoHideAsync();
 const queryClient = new QueryClient();
 
 function useProtectedRoute() {
-  const { isAuthenticated, isLoading, isDemoMode } = useAuth();
+  const { isAuthenticated, isLoading: authLoading, isDemoMode } = useAuth();
+  const { hasCompletedOnboarding, isLoading: profileLoading } = useUserProfile();
   const segments = useSegments();
   const router = useRouter();
 
   useEffect(() => {
-    if (isLoading) return;
+    if (authLoading || profileLoading) return;
 
     const inAuthGroup = segments[0] === "(auth)";
+    const onOnboardingScreen = segments[1] === "onboarding" || segments[1] === "starter-pack";
 
     if (!isAuthenticated && !isDemoMode && !inAuthGroup) {
-      // User is not authenticated and not in demo mode, redirect to login
       router.replace("/(auth)/login");
     } else if ((isAuthenticated || isDemoMode) && inAuthGroup) {
-      // User is authenticated or in demo mode but on auth screen, redirect to app
-      router.replace("/(tabs)");
+      if (hasCompletedOnboarding === false && !onOnboardingScreen) {
+        router.replace("/(auth)/onboarding");
+      } else if (hasCompletedOnboarding === true && !onOnboardingScreen) {
+        router.replace("/(tabs)");
+      }
     }
-  }, [isAuthenticated, isLoading, isDemoMode, segments]);
+  }, [isAuthenticated, authLoading, profileLoading, isDemoMode, segments, hasCompletedOnboarding]);
 }
 
 function RootLayoutNav() {
