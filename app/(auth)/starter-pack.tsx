@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from "react";
+import React, { useRef, useEffect, useState } from "react";
 import {
     View,
     Text,
@@ -9,62 +9,23 @@ import {
     Dimensions,
     Platform,
     Animated,
+    ActivityIndicator,
 } from "react-native";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { LinearGradient } from "expo-linear-gradient";
-import { 
+import {
     Play,
     Clock,
     Flame,
     View as ViewIcon,
+    Sparkles,
 } from "lucide-react-native";
 import Colors from "@/constants/colors";
 import { useUserProfile } from "@/contexts/UserProfileContext";
+import { getStarterRecipes, StarterRecipe, UserPreferences } from "@/lib/starterRecipes";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-
-interface StarterRecipe {
-    id: string;
-    title: string;
-    image: string;
-    cookTime: string;
-    calories: number;
-    difficulty: "Beginner" | "Intermediate" | "Pro";
-    matchPercent?: number;
-    isARGuided: boolean;
-}
-
-const STARTER_RECIPES: StarterRecipe[] = [
-    {
-        id: "1",
-        title: "Rainbow Buddha Bowl",
-        image: "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=800&h=600&fit=crop",
-        cookTime: "25 min",
-        calories: 420,
-        difficulty: "Intermediate",
-        matchPercent: 98,
-        isARGuided: true,
-    },
-    {
-        id: "2",
-        title: "Supergreen Pesto Zoodles",
-        image: "https://images.unsplash.com/photo-1540420773420-3366772f4999?w=800&h=600&fit=crop",
-        cookTime: "15 min",
-        calories: 310,
-        difficulty: "Beginner",
-        isARGuided: true,
-    },
-    {
-        id: "3",
-        title: "Crispy Chickpea Wrap",
-        image: "https://images.unsplash.com/photo-1529059997568-3d847b1154f0?w=800&h=600&fit=crop",
-        cookTime: "20 min",
-        calories: 380,
-        difficulty: "Beginner",
-        isARGuided: true,
-    },
-];
 
 const DIETARY_LABELS: Record<string, string> = {
     "vegetarian": "Vegetarian",
@@ -84,11 +45,15 @@ const LEVEL_LABELS: Record<string, string> = {
 
 export default function StarterPackScreen() {
     const { profile } = useUserProfile();
+    const [recipes, setRecipes] = useState<StarterRecipe[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
     const pulseAnim = useRef(new Animated.Value(1)).current;
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const slideAnim = useRef(new Animated.Value(30)).current;
 
     useEffect(() => {
+        fetchRecipes();
+
         Animated.parallel([
             Animated.timing(fadeAnim, {
                 toValue: 1,
@@ -121,13 +86,31 @@ export default function StarterPackScreen() {
         return () => pulse.stop();
     }, []);
 
+    const fetchRecipes = async () => {
+        setIsLoading(true);
+        try {
+            const preferences: UserPreferences = {
+                cookingLevel: profile.cookingLevel || "intermediate",
+                dietaryPreferences: profile.dietaryPreferences || [],
+                primaryGoal: profile.primaryGoal || "eat-healthy",
+            };
+            console.log("[StarterPack] Fetching AI recipes with preferences:", preferences);
+            const result = await getStarterRecipes(preferences);
+            setRecipes(result);
+        } catch (error) {
+            console.error("[StarterPack] Error fetching recipes:", error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     const handleStartCooking = () => {
         console.log("[StarterPack] Starting first cook");
         router.replace("/(tabs)");
     };
 
     const handleRecipePress = (recipe: StarterRecipe) => {
-        console.log("[StarterPack] Recipe pressed:", recipe.title);
+        console.log("[StarterPack] Recipe pressed:", recipe.name);
         router.replace("/(tabs)");
     };
 
@@ -138,7 +121,7 @@ export default function StarterPackScreen() {
     return (
         <View style={styles.container}>
             <StatusBar style="light" />
-            
+
             <View style={styles.bgGlowTop} />
             <View style={styles.bgGlowBottom} />
 
@@ -146,7 +129,7 @@ export default function StarterPackScreen() {
                 contentContainerStyle={styles.scrollContent}
                 showsVerticalScrollIndicator={false}
             >
-                <Animated.View 
+                <Animated.View
                     style={[
                         styles.headerSection,
                         {
@@ -177,65 +160,75 @@ export default function StarterPackScreen() {
                     </Text>
                 </Animated.View>
 
-                <View style={styles.recipesContainer}>
-                    {STARTER_RECIPES.map((recipe, index) => (
-                        <TouchableOpacity
-                            key={recipe.id}
-                            style={[
-                                styles.recipeCard,
-                                index === 0 && styles.featuredCard,
-                                index > 0 && styles.secondaryCard,
-                            ]}
-                            onPress={() => handleRecipePress(recipe)}
-                            activeOpacity={0.9}
-                        >
-                            <Image
-                                source={{ uri: recipe.image }}
-                                style={styles.recipeImage}
-                                resizeMode="cover"
-                            />
-                            <LinearGradient
-                                colors={["transparent", "rgba(16,34,21,0.6)", "rgba(16,34,21,0.95)"]}
-                                style={styles.recipeGradient}
-                            />
+                {isLoading ? (
+                    <View style={styles.loadingContainer}>
+                        <Sparkles size={32} color={Colors.primary} />
+                        <ActivityIndicator size="large" color={Colors.primary} style={{ marginTop: 16 }} />
+                        <Text style={styles.loadingText}>
+                            AI is curating your perfect recipes...
+                        </Text>
+                    </View>
+                ) : (
+                    <View style={styles.recipesContainer}>
+                        {recipes.map((recipe, index) => (
+                            <TouchableOpacity
+                                key={recipe.id}
+                                style={[
+                                    styles.recipeCard,
+                                    index === 0 && styles.featuredCard,
+                                    index > 0 && styles.secondaryCard,
+                                ]}
+                                onPress={() => handleRecipePress(recipe)}
+                                activeOpacity={0.9}
+                            >
+                                <Image
+                                    source={{ uri: recipe.image }}
+                                    style={styles.recipeImage}
+                                    resizeMode="cover"
+                                />
+                                <LinearGradient
+                                    colors={["transparent", "rgba(16,34,21,0.6)", "rgba(16,34,21,0.95)"]}
+                                    style={styles.recipeGradient}
+                                />
 
-                            {recipe.isARGuided && (
-                                <View style={styles.arBadge}>
-                                    <ViewIcon size={14} color={Colors.primary} />
-                                    <Text style={styles.arBadgeText}>AR Guided</Text>
-                                </View>
-                            )}
+                                {recipe.isArGuided && (
+                                    <View style={styles.arBadge}>
+                                        <ViewIcon size={14} color={Colors.primary} />
+                                        <Text style={styles.arBadgeText}>AR Guided</Text>
+                                    </View>
+                                )}
 
-                            <View style={styles.recipeContent}>
-                                <View style={styles.tagRow}>
-                                    {recipe.matchPercent && (
-                                        <View style={styles.matchTag}>
-                                            <Text style={styles.matchTagText}>{recipe.matchPercent}% Match</Text>
+                                <View style={styles.recipeContent}>
+                                    <View style={styles.tagRow}>
+                                        {recipe.matchPercentage && (
+                                            <View style={styles.matchTag}>
+                                                <Text style={styles.matchTagText}>{recipe.matchPercentage}% Match</Text>
+                                            </View>
+                                        )}
+                                        <View style={styles.difficultyTag}>
+                                            <Text style={styles.difficultyTagText}>{recipe.difficulty}</Text>
                                         </View>
-                                    )}
-                                    <View style={styles.difficultyTag}>
-                                        <Text style={styles.difficultyTagText}>{recipe.difficulty}</Text>
+                                    </View>
+
+                                    <Text style={[styles.recipeTitle, index === 0 && styles.featuredTitle]}>
+                                        {recipe.name}
+                                    </Text>
+
+                                    <View style={styles.metaRow}>
+                                        <View style={styles.metaItem}>
+                                            <Clock size={index === 0 ? 18 : 16} color={Colors.primary} />
+                                            <Text style={styles.metaText}>{recipe.cookTime} min</Text>
+                                        </View>
+                                        <View style={styles.metaItem}>
+                                            <Flame size={index === 0 ? 18 : 16} color={Colors.primary} />
+                                            <Text style={styles.metaText}>{recipe.calories} kcal</Text>
+                                        </View>
                                     </View>
                                 </View>
-
-                                <Text style={[styles.recipeTitle, index === 0 && styles.featuredTitle]}>
-                                    {recipe.title}
-                                </Text>
-
-                                <View style={styles.metaRow}>
-                                    <View style={styles.metaItem}>
-                                        <Clock size={index === 0 ? 18 : 16} color={Colors.primary} />
-                                        <Text style={styles.metaText}>{recipe.cookTime}</Text>
-                                    </View>
-                                    <View style={styles.metaItem}>
-                                        <Flame size={index === 0 ? 18 : 16} color={Colors.primary} />
-                                        <Text style={styles.metaText}>{recipe.calories} kcal</Text>
-                                    </View>
-                                </View>
-                            </View>
-                        </TouchableOpacity>
-                    ))}
-                </View>
+                            </TouchableOpacity>
+                        ))}
+                    </View>
+                )}
             </ScrollView>
 
             <View style={styles.footer}>
@@ -373,6 +366,18 @@ const styles = StyleSheet.create({
     highlightText: {
         color: Colors.white,
         fontWeight: "600",
+    },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: "center",
+        alignItems: "center",
+        paddingVertical: 80,
+    },
+    loadingText: {
+        marginTop: 16,
+        fontSize: 14,
+        color: Colors.textSecondary,
+        textAlign: "center",
     },
     recipesContainer: {
         gap: 20,
