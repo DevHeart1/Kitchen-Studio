@@ -1,5 +1,7 @@
+// @ts-nocheck
 // Supabase Edge Function: Get AI-Powered Starter Recipes
 // Uses Gemini 3 Flash Preview to generate personalized recipe recommendations
+// Note: This file runs in Deno runtime, not Node.js
 
 import { GoogleGenAI } from "npm:@google/genai@^1.0.0";
 
