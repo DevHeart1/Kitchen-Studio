@@ -25,7 +25,9 @@
       "package": "app.rork.kitchen_studio"
     },
     "web": {
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/favicon.png",
+      "output": "server",
+      "bundler": "metro"
     },
     "plugins": [
       [
