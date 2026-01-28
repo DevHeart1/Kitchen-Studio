@@ -11,6 +11,7 @@ export default function AuthLayout() {
             <Stack.Screen name="login" />
             <Stack.Screen name="sign-up" />
             <Stack.Screen name="onboarding" />
+            <Stack.Screen name="preferences" />
             <Stack.Screen name="starter-pack" />
         </Stack>
     );
