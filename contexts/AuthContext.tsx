@@ -4,7 +4,7 @@ import { Session, User } from "@supabase/supabase-js";
 import createContextHook from "@nkzw/create-context-hook";
 import { supabase } from "@/lib/supabase";
 import * as WebBrowser from "expo-web-browser";
-import * as AuthSession from "expo-auth-session";
+import * as Linking from "expo-linking";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -112,9 +112,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         }
 
         try {
-            const redirectUrl = AuthSession.makeRedirectUri({
-                path: "auth/callback",
-            });
+            const redirectUrl = Linking.createURL("auth/callback");
 
             console.log("[Auth] Google OAuth redirect URL:", redirectUrl);
 
@@ -165,9 +163,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         }
 
         try {
-            const redirectUrl = AuthSession.makeRedirectUri({
-                path: "auth/callback",
-            });
+            const redirectUrl = Linking.createURL("auth/callback");
 
             console.log("[Auth] Apple OAuth redirect URL:", redirectUrl);
 
