@@ -1,17 +1,18 @@
 // template
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack, useRouter, useSegments } from "expo-router";
-import * as SplashScreen from "expo-splash-screen";
+import * as ExpoSplashScreen from "expo-splash-screen";
 import React, { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SavedRecipesProvider } from "@/contexts/SavedRecipesContext";
 import { InventoryProvider } from "@/contexts/InventoryContext";
 import { UserProfileProvider, useUserProfile } from "@/contexts/UserProfileContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import SplashScreen from "@/components/SplashScreen";
 import { trpc, trpcClient } from "@/lib/trpc";
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
-SplashScreen.preventAutoHideAsync();
+ExpoSplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient();
 
@@ -40,7 +41,14 @@ function useProtectedRoute() {
 }
 
 function RootLayoutNav() {
+  const { isLoading: authLoading } = useAuth();
+  const { isLoading: profileLoading } = useUserProfile();
+  
   useProtectedRoute();
+
+  if (authLoading || profileLoading) {
+    return <SplashScreen />;
+  }
 
   return (
     <Stack screenOptions={{ headerBackTitle: "Back" }}>
@@ -187,7 +195,7 @@ function AppProviders({ children }: { children: React.ReactNode }) {
 
 export default function RootLayout() {
   useEffect(() => {
-    SplashScreen.hideAsync();
+    ExpoSplashScreen.hideAsync();
   }, []);
 
   return (
