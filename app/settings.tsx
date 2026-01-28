@@ -34,6 +34,7 @@ import {
 import * as Haptics from "expo-haptics";
 import Colors from "@/constants/colors";
 import { useUserProfile } from "@/contexts/UserProfileContext";
+import { useAuth } from "@/contexts/AuthContext";
 
 const AVATAR_OPTIONS = [
   "https://images.unsplash.com/photo-1566753323558-f4e0952af115?w=300&h=300&fit=crop&crop=face",
@@ -48,6 +49,7 @@ export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { profile, updateName, updateAvatar, updateSettings } = useUserProfile();
+  const { signOut } = useAuth();
 
   const [editNameModal, setEditNameModal] = useState(false);
   const [editAvatarModal, setEditAvatarModal] = useState(false);
@@ -77,20 +79,23 @@ export default function SettingsScreen() {
     setDeleteAccountModal(true);
   };
 
-  const confirmDeleteAccount = () => {
+  const confirmDeleteAccount = async () => {
+    // In a real app, you'd call a Supabase function to delete the user
+    await signOut();
     console.log("Account deletion requested");
     setDeleteAccountModal(false);
-    router.replace("/");
+    router.replace("/(auth)/login");
   };
 
   const handleLogout = () => {
     setLogoutModal(true);
   };
 
-  const confirmLogout = () => {
+  const confirmLogout = async () => {
+    await signOut();
     console.log("User logged out");
     setLogoutModal(false);
-    router.replace("/");
+    router.replace("/(auth)/login");
   };
 
   const renderSettingRow = (
@@ -263,7 +268,7 @@ export default function SettingsScreen() {
 
       <Modal visible={editNameModal} transparent animationType="fade">
         <Pressable style={styles.modalOverlay} onPress={() => setEditNameModal(false)}>
-          <Pressable style={styles.modalContent} onPress={() => {}}>
+          <Pressable style={styles.modalContent} onPress={() => { }}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Edit Name</Text>
               <TouchableOpacity onPress={() => setEditNameModal(false)}>
@@ -293,7 +298,7 @@ export default function SettingsScreen() {
 
       <Modal visible={editAvatarModal} transparent animationType="fade">
         <Pressable style={styles.modalOverlay} onPress={() => setEditAvatarModal(false)}>
-          <Pressable style={styles.avatarModalContent} onPress={() => {}}>
+          <Pressable style={styles.avatarModalContent} onPress={() => { }}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Choose Avatar</Text>
               <TouchableOpacity onPress={() => setEditAvatarModal(false)}>
@@ -325,7 +330,7 @@ export default function SettingsScreen() {
 
       <Modal visible={logoutModal} transparent animationType="fade">
         <Pressable style={styles.modalOverlay} onPress={() => setLogoutModal(false)}>
-          <Pressable style={styles.logoutModalContent} onPress={() => {}}>
+          <Pressable style={styles.logoutModalContent} onPress={() => { }}>
             <View style={styles.logoutIconContainer}>
               <LogOut size={32} color="#ef4444" />
             </View>
@@ -351,7 +356,7 @@ export default function SettingsScreen() {
 
       <Modal visible={deleteAccountModal} transparent animationType="fade">
         <Pressable style={styles.modalOverlay} onPress={() => setDeleteAccountModal(false)}>
-          <Pressable style={styles.logoutModalContent} onPress={() => {}}>
+          <Pressable style={styles.logoutModalContent} onPress={() => { }}>
             <View style={styles.logoutIconContainer}>
               <Trash2 size={32} color="#ef4444" />
             </View>
