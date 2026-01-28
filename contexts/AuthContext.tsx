@@ -85,7 +85,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         async (email: string, password: string) => {
             if (isDemoMode) {
                 console.log("[Auth] Demo mode - sign in simulated");
-                return { error: null };
+                return { error: null, needsEmailConfirmation: false };
             }
 
             const { data, error } = await supabase.auth.signInWithPassword({
@@ -96,18 +96,45 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
             if (error) {
                 console.error("[Auth] Sign in error:", error.message);
                 
+                const isEmailNotConfirmed = error.message.includes("Email not confirmed");
+                
                 // Provide more helpful error messages
                 let userFriendlyMessage = error.message;
                 if (error.message === "Invalid login credentials") {
                     userFriendlyMessage = "Invalid email or password. Please check your credentials or create an account if you haven't signed up yet.";
-                } else if (error.message.includes("Email not confirmed")) {
+                } else if (isEmailNotConfirmed) {
                     userFriendlyMessage = "Please check your email and click the confirmation link before signing in.";
                 }
                 
-                return { data, error: { ...error, message: userFriendlyMessage } };
+                return { 
+                    data, 
+                    error: { ...error, message: userFriendlyMessage },
+                    needsEmailConfirmation: isEmailNotConfirmed
+                };
             }
 
-            return { data, error };
+            return { data, error, needsEmailConfirmation: false };
+        },
+        [isDemoMode]
+    );
+
+    const resendConfirmationEmail = useCallback(
+        async (email: string) => {
+            if (isDemoMode) {
+                console.log("[Auth] Demo mode - resend confirmation simulated");
+                return { error: null };
+            }
+
+            const { error } = await supabase.auth.resend({
+                type: "signup",
+                email,
+            });
+
+            if (error) {
+                console.error("[Auth] Resend confirmation error:", error.message);
+            }
+
+            return { error };
         },
         [isDemoMode]
     );
@@ -253,6 +280,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
             signOut,
             signInWithGoogle,
             signInWithApple,
+            resendConfirmationEmail,
             getUserId,
         }),
         [
@@ -266,6 +294,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
             signOut,
             signInWithGoogle,
             signInWithApple,
+            resendConfirmationEmail,
             getUserId,
         ]
     );

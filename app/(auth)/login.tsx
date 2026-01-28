@@ -26,13 +26,15 @@ const { width, height } = Dimensions.get("window");
 const BACKGROUND_IMAGE = "https://lh3.googleusercontent.com/aida-public/AB6AXuAzVXoa0ajnxy0VYAcQxOE-9mPMvXX5rNIwC2q3AjMNqotiBXTZTDGLt785UEPyNq00NhtCzGCGtzl_9pedZJd5-c0uCb5im3nLTc4SOOMS5rQfILzGyM-K6XXglbaYcg4XaOGPojaq8pL-w_4LdrM0lJ8jn85kkSU3-gdBKy9qlBeToRZFQXja7ey49GGYVEhM2mJ2aGTH6BZslvxUGCWRi6MwVVsWQeXKDzIjWIbl4Ez0tb5tcr2x5Ib8YbepLL36Rtx3BZOflw";
 
 export default function LoginScreen() {
-    const { signIn, signInWithGoogle, signInWithApple, isLoading, isDemoMode } = useAuth();
+    const { signIn, signInWithGoogle, signInWithApple, resendConfirmationEmail, isLoading, isDemoMode } = useAuth();
     const [showEmailModal, setShowEmailModal] = useState(false);
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [showPassword, setShowPassword] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+    const [showConfirmationMessage, setShowConfirmationMessage] = useState(false);
+    const [isResending, setIsResending] = useState(false);
 
     const validateForm = () => {
         const newErrors: { email?: string; password?: string } = {};
@@ -57,11 +59,16 @@ export default function LoginScreen() {
         if (!validateForm()) return;
 
         setIsSubmitting(true);
+        setShowConfirmationMessage(false);
         try {
-            const { error } = await signIn(email, password);
+            const { error, needsEmailConfirmation } = await signIn(email, password);
 
             if (error) {
-                Alert.alert("Login Failed", error.message || "Invalid credentials");
+                if (needsEmailConfirmation) {
+                    setShowConfirmationMessage(true);
+                } else {
+                    Alert.alert("Login Failed", error.message || "Invalid credentials");
+                }
             } else {
                 setShowEmailModal(false);
                 router.replace("/(tabs)");
@@ -70,6 +77,30 @@ export default function LoginScreen() {
             Alert.alert("Error", "An unexpected error occurred");
         } finally {
             setIsSubmitting(false);
+        }
+    };
+
+    const handleResendConfirmation = async () => {
+        if (!email.trim()) {
+            Alert.alert("Error", "Please enter your email address");
+            return;
+        }
+
+        setIsResending(true);
+        try {
+            const { error } = await resendConfirmationEmail(email);
+            if (error) {
+                Alert.alert("Error", error.message || "Failed to resend confirmation email");
+            } else {
+                Alert.alert(
+                    "Email Sent",
+                    "A new confirmation email has been sent. Please check your inbox and spam folder."
+                );
+            }
+        } catch (error) {
+            Alert.alert("Error", "An unexpected error occurred");
+        } finally {
+            setIsResending(false);
         }
     };
 
@@ -278,6 +309,25 @@ export default function LoginScreen() {
                                 </View>
                                 {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
                             </View>
+
+                            {showConfirmationMessage && (
+                                <View style={styles.confirmationBanner}>
+                                    <Text style={styles.confirmationText}>
+                                        Please confirm your email before signing in. Check your inbox and spam folder.
+                                    </Text>
+                                    <TouchableOpacity
+                                        onPress={handleResendConfirmation}
+                                        disabled={isResending}
+                                        style={styles.resendButton}
+                                    >
+                                        {isResending ? (
+                                            <ActivityIndicator size="small" color={Colors.primary} />
+                                        ) : (
+                                            <Text style={styles.resendText}>Resend confirmation email</Text>
+                                        )}
+                                    </TouchableOpacity>
+                                </View>
+                            )}
 
                             <TouchableOpacity style={styles.forgotButton}>
                                 <Text style={styles.forgotText}>Forgot password?</Text>
@@ -628,5 +678,28 @@ const styles = StyleSheet.create({
         fontSize: 17,
         fontWeight: "600",
         color: Colors.backgroundDark,
+    },
+    confirmationBanner: {
+        backgroundColor: "rgba(43, 238, 91, 0.1)",
+        borderWidth: 1,
+        borderColor: "rgba(43, 238, 91, 0.3)",
+        borderRadius: 12,
+        padding: 16,
+        marginBottom: 16,
+    },
+    confirmationText: {
+        color: Colors.white,
+        fontSize: 14,
+        lineHeight: 20,
+        marginBottom: 12,
+    },
+    resendButton: {
+        alignSelf: "flex-start",
+        minHeight: 24,
+    },
+    resendText: {
+        color: Colors.primary,
+        fontSize: 14,
+        fontWeight: "600",
     },
 });
