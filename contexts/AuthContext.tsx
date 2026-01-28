@@ -66,9 +66,17 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
 
             if (error) {
                 console.error("[Auth] Sign up error:", error.message);
+                return { data, error };
             }
 
-            return { data, error };
+            // Check if email confirmation is required
+            const needsEmailConfirmation = data?.user && !data?.session;
+            
+            return { 
+                data, 
+                error,
+                needsEmailConfirmation 
+            };
         },
         [isDemoMode]
     );
@@ -87,6 +95,16 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
 
             if (error) {
                 console.error("[Auth] Sign in error:", error.message);
+                
+                // Provide more helpful error messages
+                let userFriendlyMessage = error.message;
+                if (error.message === "Invalid login credentials") {
+                    userFriendlyMessage = "Invalid email or password. Please check your credentials or create an account if you haven't signed up yet.";
+                } else if (error.message.includes("Email not confirmed")) {
+                    userFriendlyMessage = "Please check your email and click the confirmation link before signing in.";
+                }
+                
+                return { data, error: { ...error, message: userFriendlyMessage } };
             }
 
             return { data, error };
