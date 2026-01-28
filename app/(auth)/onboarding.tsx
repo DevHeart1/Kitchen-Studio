@@ -375,12 +375,16 @@ const WelcomeSlide = ({ onNext, onSkip, currentStep, totalSteps, slideWidth }: S
 );
 
 const CoreInnovationSlide = ({ onNext, onSkip, currentStep, totalSteps, slideWidth }: SlideProps) => (
-    <View style={[styles.slide, { width: slideWidth, backgroundColor: Colors.backgroundLight }]}>
+    <View style={[styles.slide, { width: slideWidth }]}>
+        <LinearGradient
+            colors={["#102215", "#0a160d"]}
+            style={StyleSheet.absoluteFill}
+        />
         <View style={styles.slideContent}>
             <View style={styles.header}>
                 <StepIndicator currentStep={currentStep} totalSteps={totalSteps} />
                 <TouchableOpacity onPress={onSkip} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                    <Text style={styles.skipTextDark}>Skip</Text>
+                    <Text style={styles.skipText}>Skip</Text>
                 </TouchableOpacity>
             </View>
 
@@ -410,15 +414,15 @@ const CoreInnovationSlide = ({ onNext, onSkip, currentStep, totalSteps, slideWid
                 </View>
 
                 <View style={styles.textSection}>
-                    <Text style={styles.sectionTitleDark}>
+                    <Text style={styles.centerTitle}>
                         Cook Hands-Free with{"\n"}
                         <Text style={styles.highlight}>Real-Time Guidance</Text>
                     </Text>
 
                     <View style={styles.featureList}>
-                        <FeatureItem icon={<Eye size={14} color={Colors.primary} />} text="AI watches your cooking" />
-                        <FeatureItem icon={<Lightbulb size={14} color={Colors.primary} />} text="Real-time tips" />
-                        <FeatureItem icon={<Mic size={14} color={Colors.primary} />} text="Voice & visual guidance" />
+                        <FeatureItem icon={<Eye size={14} color={Colors.primary} />} text="AI watches your cooking" dark={false} />
+                        <FeatureItem icon={<Lightbulb size={14} color={Colors.primary} />} text="Real-time tips" dark={false} />
+                        <FeatureItem icon={<Mic size={14} color={Colors.primary} />} text="Voice & visual guidance" dark={false} />
                     </View>
                 </View>
             </View>
@@ -430,10 +434,10 @@ const CoreInnovationSlide = ({ onNext, onSkip, currentStep, totalSteps, slideWid
     </View>
 );
 
-const FeatureItem = ({ icon, text }: { icon: React.ReactNode, text: string }) => (
+const FeatureItem = ({ icon, text, dark = true }: { icon: React.ReactNode, text: string, dark?: boolean }) => (
     <View style={styles.featureItem}>
         <View style={styles.featureIcon}>{icon}</View>
-        <Text style={styles.featureText}>{text}</Text>
+        <Text style={[styles.featureText, !dark && styles.featureTextLight]}>{text}</Text>
     </View>
 );
 
@@ -828,8 +832,8 @@ const styles = StyleSheet.create({
         height: Math.min(360, SCREEN_HEIGHT * 0.4),
         borderRadius: 24,
         borderWidth: 8,
-        borderColor: '#1e293b',
-        backgroundColor: '#0f172a',
+        borderColor: '#1e3a2a',
+        backgroundColor: '#0a1a10',
         overflow: 'hidden',
         position: 'relative',
         transform: [{ rotate: '-6deg' }],
@@ -927,6 +931,9 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: '#475569',
         fontWeight: '500' as const,
+    },
+    featureTextLight: {
+        color: '#cbd5e1',
     },
     topTextCenter: {
         alignItems: 'center',
