@@ -46,9 +46,10 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     }, []);
 
     const signUp = useCallback(
-        async (email: string, password: string, name?: string) => {
+        async (email: string, password: string, name?: string, cookingInterests?: string[]) => {
             if (isDemoMode) {
                 console.log("[Auth] Demo mode - sign up simulated");
+                console.log("[Auth] Cooking interests:", cookingInterests);
                 return { error: null };
             }
 
@@ -56,7 +57,10 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
                 email,
                 password,
                 options: {
-                    data: { name: name || email.split("@")[0] },
+                    data: { 
+                        name: name || email.split("@")[0],
+                        cooking_interests: cookingInterests || [],
+                    },
                 },
             });
 
