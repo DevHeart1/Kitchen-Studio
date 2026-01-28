@@ -94,7 +94,7 @@ export default function OnboardingScreen() {
                 primaryGoal,
             });
             console.log("[Onboarding] Preferences saved:", { cookingLevel, dietaryPreferences, primaryGoal });
-            router.replace("/(tabs)");
+            router.replace("/(auth)/starter-pack");
         } catch (error) {
             console.error("[Onboarding] Error saving preferences:", error);
         } finally {
