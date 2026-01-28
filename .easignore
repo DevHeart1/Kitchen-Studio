@@ -40,3 +40,7 @@ yarn-error.*
 .rork
 rork-eslint.config.js
 .git/
+
+# Supabase (Backend/Dev only, not needed for App Build)
+supabase/
+backend/
