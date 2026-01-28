@@ -43,7 +43,7 @@ function useProtectedRoute() {
 
 function RootLayoutNav() {
   const { isLoading: authLoading, isAuthenticated, isDemoMode } = useAuth();
-  const { isLoading: profileLoading, hasCompletedOnboarding } = useUserProfile();
+  const { isLoading: profileLoading, hasCompletedOnboarding, activeCookingSession } = useUserProfile();
   const [showWelcomeBack, setShowWelcomeBack] = useState(true);
   
   useProtectedRoute();
@@ -53,8 +53,10 @@ function RootLayoutNav() {
   }
 
   const isReturningUser = (isAuthenticated || isDemoMode) && hasCompletedOnboarding === true;
+  const hasActiveCooking = activeCookingSession !== null;
 
-  if (showWelcomeBack && isReturningUser) {
+  // Only show WelcomeBackSplash if returning user AND has an active cooking session
+  if (showWelcomeBack && isReturningUser && hasActiveCooking) {
     return (
       <WelcomeBackSplash 
         onContinue={() => setShowWelcomeBack(false)} 

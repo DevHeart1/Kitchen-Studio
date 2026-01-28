@@ -503,6 +503,11 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
     };
   }, []);
 
+  // Get the first active cooking session (progress < 100)
+  const activeCookingSession = useMemo(() => {
+    return recentCooks.find((c) => c.progress < 100) || null;
+  }, []);
+
   return useMemo(() => ({
     profile,
     isLoading,
@@ -525,6 +530,7 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
     hasCompletedOnboarding,
     completeOnboarding,
     checkOnboardingStatus,
+    activeCookingSession,
   }), [
     profile,
     isLoading,
@@ -547,5 +553,6 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
     hasCompletedOnboarding,
     completeOnboarding,
     checkOnboardingStatus,
+    activeCookingSession,
   ]);
 });
