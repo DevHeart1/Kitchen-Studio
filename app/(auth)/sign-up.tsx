@@ -22,29 +22,9 @@ import {
     EyeOff, 
     User, 
     ArrowRight,
-    Sparkles,
-    Zap,
-    Leaf,
 } from "lucide-react-native";
 import Colors from "@/constants/colors";
 import { useAuth } from "@/contexts/AuthContext";
-
-interface CookingInterest {
-    id: string;
-    label: string;
-    icon?: React.ReactNode;
-}
-
-const COOKING_INTERESTS: CookingInterest[] = [
-    { id: "quick-meals", label: "Quick Meals", icon: <Zap size={14} color={Colors.backgroundDark} /> },
-    { id: "baking", label: "Baking" },
-    { id: "healthy", label: "Healthy", icon: <Leaf size={14} color={Colors.backgroundDark} /> },
-    { id: "vegan", label: "Vegan" },
-    { id: "asian-fusion", label: "Asian Fusion" },
-    { id: "pastries", label: "Pastries" },
-    { id: "italian", label: "Italian" },
-    { id: "grilling", label: "Grilling" },
-];
 
 export default function SignUpScreen() {
     const { signUp, isLoading } = useAuth();
@@ -52,7 +32,6 @@ export default function SignUpScreen() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [showPassword, setShowPassword] = useState(false);
-    const [selectedInterests, setSelectedInterests] = useState<string[]>(["quick-meals", "healthy"]);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [focusedInput, setFocusedInput] = useState<string | null>(null);
     const [errors, setErrors] = useState<{
@@ -86,20 +65,12 @@ export default function SignUpScreen() {
         return Object.keys(newErrors).length === 0;
     };
 
-    const toggleInterest = (interestId: string) => {
-        setSelectedInterests((prev) =>
-            prev.includes(interestId)
-                ? prev.filter((id) => id !== interestId)
-                : [...prev, interestId]
-        );
-    };
-
     const handleSignUp = async () => {
         if (!validateForm()) return;
 
         setIsSubmitting(true);
         try {
-            const { error } = await signUp(email, password, name, selectedInterests);
+            const { error } = await signUp(email, password, name);
 
             if (error) {
                 Alert.alert("Sign Up Failed", error.message || "Could not create account");
@@ -268,41 +239,6 @@ export default function SignUpScreen() {
                                 </TouchableOpacity>
                             </View>
                             {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
-                        </View>
-                    </View>
-
-                    <View style={styles.interestsSection}>
-                        <View style={styles.interestsHeader}>
-                            <Sparkles size={20} color={Colors.primary} />
-                            <Text style={styles.interestsTitle}>Cooking Interests</Text>
-                        </View>
-                        <View style={styles.interestsContainer}>
-                            {COOKING_INTERESTS.map((interest) => {
-                                const isSelected = selectedInterests.includes(interest.id);
-                                return (
-                                    <TouchableOpacity
-                                        key={interest.id}
-                                        style={[
-                                            styles.interestChip,
-                                            isSelected && styles.interestChipSelected,
-                                        ]}
-                                        onPress={() => toggleInterest(interest.id)}
-                                        activeOpacity={0.7}
-                                    >
-                                        {isSelected && interest.icon && (
-                                            <View style={styles.chipIcon}>{interest.icon}</View>
-                                        )}
-                                        <Text
-                                            style={[
-                                                styles.interestChipText,
-                                                isSelected && styles.interestChipTextSelected,
-                                            ]}
-                                        >
-                                            {interest.label}
-                                        </Text>
-                                    </TouchableOpacity>
-                                );
-                            })}
                         </View>
                     </View>
                 </ScrollView>
@@ -490,66 +426,6 @@ const styles = StyleSheet.create({
         color: Colors.red,
         fontSize: 12,
         marginLeft: 4,
-    },
-    interestsSection: {
-        marginBottom: 24,
-    },
-    interestsHeader: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 8,
-        marginBottom: 16,
-    },
-    interestsTitle: {
-        fontSize: 18,
-        fontWeight: "700",
-        color: Colors.white,
-    },
-    interestsContainer: {
-        flexDirection: "row",
-        flexWrap: "wrap",
-        gap: 12,
-    },
-    interestChip: {
-        paddingHorizontal: 20,
-        paddingVertical: 12,
-        borderRadius: 24,
-        backgroundColor: "rgba(255,255,255,0.05)",
-        borderWidth: 1,
-        borderColor: "rgba(255,255,255,0.1)",
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 6,
-    },
-    interestChipSelected: {
-        backgroundColor: Colors.primary,
-        borderColor: Colors.primary,
-        ...Platform.select({
-            ios: {
-                shadowColor: Colors.primary,
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.3,
-                shadowRadius: 8,
-            },
-            web: {
-                boxShadow: `0 4px 16px ${Colors.primary}40`,
-            } as any,
-            android: {
-                elevation: 4,
-            },
-        }),
-    },
-    chipIcon: {
-        marginRight: 2,
-    },
-    interestChipText: {
-        fontSize: 14,
-        fontWeight: "500",
-        color: Colors.textSecondary,
-    },
-    interestChipTextSelected: {
-        color: Colors.backgroundDark,
-        fontWeight: "700",
     },
     footer: {
         paddingHorizontal: 24,

@@ -18,6 +18,8 @@ import {
     Leaf,
     PiggyBank,
     GraduationCap,
+    Sparkles,
+    Zap,
 } from "lucide-react-native";
 import Colors from "@/constants/colors";
 import { useUserProfile } from "@/contexts/UserProfileContext";
@@ -70,11 +72,29 @@ const COOKING_GOALS: GoalOption[] = [
     },
 ];
 
+interface CookingInterest {
+    id: string;
+    label: string;
+    hasIcon?: boolean;
+}
+
+const COOKING_INTERESTS: CookingInterest[] = [
+    { id: "quick-meals", label: "Quick Meals", hasIcon: true },
+    { id: "baking", label: "Baking" },
+    { id: "healthy", label: "Healthy", hasIcon: true },
+    { id: "vegan", label: "Vegan" },
+    { id: "asian-fusion", label: "Asian Fusion" },
+    { id: "pastries", label: "Pastries" },
+    { id: "italian", label: "Italian" },
+    { id: "grilling", label: "Grilling" },
+];
+
 export default function OnboardingScreen() {
-    const { updateProfile } = useUserProfile();
+    const { updateProfile, completeOnboarding } = useUserProfile();
     const [cookingLevel, setCookingLevel] = useState<CookingLevel>("intermediate");
     const [dietaryPreferences, setDietaryPreferences] = useState<DietaryPreference[]>(["vegan", "gluten-free"]);
     const [primaryGoal, setPrimaryGoal] = useState<CookingGoal>("eat-healthy");
+    const [selectedInterests, setSelectedInterests] = useState<string[]>(["quick-meals", "healthy"]);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const toggleDietaryPreference = (preference: DietaryPreference) => {
@@ -85,6 +105,14 @@ export default function OnboardingScreen() {
         );
     };
 
+    const toggleInterest = (interestId: string) => {
+        setSelectedInterests((prev) =>
+            prev.includes(interestId)
+                ? prev.filter((id) => id !== interestId)
+                : [...prev, interestId]
+        );
+    };
+
     const handleContinue = async () => {
         setIsSubmitting(true);
         try {
@@ -92,8 +120,10 @@ export default function OnboardingScreen() {
                 cookingLevel,
                 dietaryPreferences,
                 primaryGoal,
+                cookingInterests: selectedInterests,
             });
-            console.log("[Onboarding] Preferences saved:", { cookingLevel, dietaryPreferences, primaryGoal });
+            await completeOnboarding();
+            console.log("[Onboarding] Preferences saved:", { cookingLevel, dietaryPreferences, primaryGoal, selectedInterests });
             router.replace("/(auth)/starter-pack");
         } catch (error) {
             console.error("[Onboarding] Error saving preferences:", error);
@@ -232,6 +262,44 @@ export default function OnboardingScreen() {
                                             {goal.subLabel}
                                         </Text>
                                         {isSelected && <View style={styles.goalIndicator} />}
+                                    </TouchableOpacity>
+                                );
+                            })}
+                        </View>
+                    </View>
+
+                    <View style={styles.section}>
+                        <View style={styles.interestsHeader}>
+                            <Sparkles size={20} color={Colors.primary} />
+                            <Text style={styles.interestsTitle}>Cooking Interests</Text>
+                        </View>
+                        <View style={styles.interestsContainer}>
+                            {COOKING_INTERESTS.map((interest) => {
+                                const isSelected = selectedInterests.includes(interest.id);
+                                return (
+                                    <TouchableOpacity
+                                        key={interest.id}
+                                        style={[
+                                            styles.interestChip,
+                                            isSelected && styles.interestChipSelected,
+                                        ]}
+                                        onPress={() => toggleInterest(interest.id)}
+                                        activeOpacity={0.7}
+                                    >
+                                        {isSelected && interest.hasIcon && interest.id === "quick-meals" && (
+                                            <Zap size={14} color={Colors.backgroundDark} style={styles.chipIcon} />
+                                        )}
+                                        {isSelected && interest.hasIcon && interest.id === "healthy" && (
+                                            <Leaf size={14} color={Colors.backgroundDark} style={styles.chipIcon} />
+                                        )}
+                                        <Text
+                                            style={[
+                                                styles.interestChipText,
+                                                isSelected && styles.interestChipTextSelected,
+                                            ]}
+                                        >
+                                            {interest.label}
+                                        </Text>
                                     </TouchableOpacity>
                                 );
                             })}
@@ -571,5 +639,61 @@ const styles = StyleSheet.create({
         fontSize: 17,
         fontWeight: "700",
         color: Colors.backgroundDark,
+    },
+    interestsHeader: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 8,
+        marginBottom: 12,
+    },
+    interestsTitle: {
+        fontSize: 16,
+        fontWeight: "700",
+        color: Colors.white,
+    },
+    interestsContainer: {
+        flexDirection: "row",
+        flexWrap: "wrap",
+        gap: 12,
+    },
+    interestChip: {
+        paddingHorizontal: 20,
+        paddingVertical: 12,
+        borderRadius: 24,
+        backgroundColor: "rgba(255,255,255,0.05)",
+        borderWidth: 1,
+        borderColor: "rgba(255,255,255,0.1)",
+        flexDirection: "row",
+        alignItems: "center",
+    },
+    interestChipSelected: {
+        backgroundColor: Colors.primary,
+        borderColor: Colors.primary,
+        ...Platform.select({
+            ios: {
+                shadowColor: Colors.primary,
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.3,
+                shadowRadius: 8,
+            },
+            web: {
+                boxShadow: `0 4px 16px ${Colors.primary}40`,
+            } as any,
+            android: {
+                elevation: 4,
+            },
+        }),
+    },
+    chipIcon: {
+        marginRight: 6,
+    },
+    interestChipText: {
+        fontSize: 14,
+        fontWeight: "500",
+        color: Colors.textSecondary,
+    },
+    interestChipTextSelected: {
+        color: Colors.backgroundDark,
+        fontWeight: "700",
     },
 });

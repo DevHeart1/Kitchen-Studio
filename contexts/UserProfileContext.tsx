@@ -158,6 +158,7 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
   const [profile, setProfile] = useState<UserProfile>(DEFAULT_PROFILE);
   const [isLoading, setIsLoading] = useState(true);
   const [pendingLevelUp, setPendingLevelUp] = useState<{ fromLevel: number; toLevel: number } | null>(null);
+  const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState<boolean | null>(null);
   const useSupabase = isSupabaseConfigured();
 
   useEffect(() => {
@@ -187,9 +188,11 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
 
         if (profileData) {
           setProfile(dbToFrontend(profileData, recipesData || []));
+          setHasCompletedOnboarding((profileData as any).onboarding_completed === true);
         } else {
-          // No profile in Supabase, create one
+          // No profile in Supabase, new user
           setProfile(DEFAULT_PROFILE);
+          setHasCompletedOnboarding(false);
         }
       } else {
         await loadFromAsyncStorage();
@@ -208,11 +211,14 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
       if (stored) {
         const parsed = JSON.parse(stored);
         setProfile({ ...DEFAULT_PROFILE, ...parsed });
+        setHasCompletedOnboarding(parsed.onboardingCompleted === true);
       } else {
         await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_PROFILE));
+        setHasCompletedOnboarding(false);
       }
     } catch (error) {
       console.log("Error loading from AsyncStorage:", error);
+      setHasCompletedOnboarding(false);
     }
   };
 
@@ -432,6 +438,59 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
     return pendingLevelUp;
   }, [pendingLevelUp]);
 
+  const completeOnboarding = useCallback(async () => {
+    setHasCompletedOnboarding(true);
+    try {
+      if (useSupabase) {
+        await supabase
+          .from("user_profiles")
+          .upsert({
+            user_id: DEMO_USER_ID,
+            onboarding_completed: true,
+          });
+      } else {
+        const stored = await AsyncStorage.getItem(STORAGE_KEY);
+        const parsed = stored ? JSON.parse(stored) : DEFAULT_PROFILE;
+        await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({ ...parsed, onboardingCompleted: true }));
+      }
+      console.log("[Profile] Onboarding marked as complete");
+    } catch (error) {
+      console.error("[Profile] Error completing onboarding:", error);
+    }
+  }, [useSupabase]);
+
+  const checkOnboardingStatus = useCallback(async (): Promise<boolean> => {
+    if (hasCompletedOnboarding !== null) {
+      return hasCompletedOnboarding;
+    }
+    
+    try {
+      if (useSupabase) {
+        const { data } = await supabase
+          .from("user_profiles")
+          .select("onboarding_completed")
+          .single();
+        
+        const completed = data?.onboarding_completed === true;
+        setHasCompletedOnboarding(completed);
+        return completed;
+      } else {
+        const stored = await AsyncStorage.getItem(STORAGE_KEY);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          const completed = parsed.onboardingCompleted === true;
+          setHasCompletedOnboarding(completed);
+          return completed;
+        }
+        setHasCompletedOnboarding(false);
+        return false;
+      }
+    } catch (error) {
+      console.error("[Profile] Error checking onboarding status:", error);
+      return false;
+    }
+  }, [useSupabase, hasCompletedOnboarding]);
+
   const computedStats = useMemo(() => {
     const completedCooks = recentCooks.filter((c) => c.progress === 100);
     const inProgressCooks = recentCooks.filter((c) => c.progress < 100);
@@ -463,6 +522,9 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
     pendingLevelUp,
     acknowledgeLevelUp,
     checkForLevelUp,
+    hasCompletedOnboarding,
+    completeOnboarding,
+    checkOnboardingStatus,
   }), [
     profile,
     isLoading,
@@ -482,5 +544,8 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
     pendingLevelUp,
     acknowledgeLevelUp,
     checkForLevelUp,
+    hasCompletedOnboarding,
+    completeOnboarding,
+    checkOnboardingStatus,
   ]);
 });

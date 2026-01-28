@@ -20,6 +20,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { UtensilsCrossed, Mail, Lock, Eye, EyeOff, X, Music } from "lucide-react-native";
 import Colors from "@/constants/colors";
 import { useAuth } from "@/contexts/AuthContext";
+import { useUserProfile } from "@/contexts/UserProfileContext";
 
 const { width, height } = Dimensions.get("window");
 
@@ -27,6 +28,7 @@ const BACKGROUND_IMAGE = "https://lh3.googleusercontent.com/aida-public/AB6AXuAz
 
 export default function LoginScreen() {
     const { signIn, signInWithGoogle, signInWithApple, resendConfirmationEmail, isLoading, isDemoMode } = useAuth();
+    const { checkOnboardingStatus } = useUserProfile();
     const [showEmailModal, setShowEmailModal] = useState(false);
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
@@ -71,7 +73,12 @@ export default function LoginScreen() {
                 }
             } else {
                 setShowEmailModal(false);
-                router.replace("/(tabs)");
+                const hasOnboarded = await checkOnboardingStatus();
+                if (hasOnboarded) {
+                    router.replace("/(tabs)");
+                } else {
+                    router.replace("/(auth)/onboarding");
+                }
             }
         } catch (error) {
             Alert.alert("Error", "An unexpected error occurred");
@@ -111,7 +118,12 @@ export default function LoginScreen() {
             if (error) {
                 Alert.alert("Google Sign In Failed", error.message || "Could not sign in with Google");
             } else {
-                router.replace("/(tabs)");
+                const hasOnboarded = await checkOnboardingStatus();
+                if (hasOnboarded) {
+                    router.replace("/(tabs)");
+                } else {
+                    router.replace("/(auth)/onboarding");
+                }
             }
         } catch (error) {
             console.error("[Login] Google sign in error:", error);
@@ -126,7 +138,12 @@ export default function LoginScreen() {
             if (error) {
                 Alert.alert("Apple Sign In Failed", error.message || "Could not sign in with Apple");
             } else {
-                router.replace("/(tabs)");
+                const hasOnboarded = await checkOnboardingStatus();
+                if (hasOnboarded) {
+                    router.replace("/(tabs)");
+                } else {
+                    router.replace("/(auth)/onboarding");
+                }
             }
         } catch (error) {
             console.error("[Login] Apple sign in error:", error);
