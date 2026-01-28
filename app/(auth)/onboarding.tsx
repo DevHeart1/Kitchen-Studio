@@ -1,18 +1,19 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
     View,
     Text,
     TouchableOpacity,
     StyleSheet,
     Dimensions,
-    FlatList,
     Animated,
     Image,
+    PanResponder,
     Platform,
 } from "react-native";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { LinearGradient } from "expo-linear-gradient";
+import { GLView } from "expo-gl";
 import {
     Sparkles,
     ArrowRight,
@@ -32,13 +33,13 @@ import {
     Circle,
     MenuSquare,
     Globe,
-    Star,
     Check,
     ArrowLeft,
 } from "lucide-react-native";
 import Colors from "@/constants/colors";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
+const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.25;
 
 const SLIDES = [
     { id: "1", type: "welcome" },
@@ -48,119 +49,310 @@ const SLIDES = [
     { id: "5", type: "user_type" },
 ];
 
+interface ShaderBackgroundProps {
+    style?: any;
+}
+
+const ShaderBackground: React.FC<ShaderBackgroundProps> = ({ style }) => {
+    const timeRef = useRef(0);
+    const glRef = useRef<any>(null);
+    const rafRef = useRef<number | null>(null);
+
+    const onContextCreate = useCallback((gl: any) => {
+        glRef.current = gl;
+        
+        gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+        
+        const vertShader = gl.createShader(gl.VERTEX_SHADER);
+        gl.shaderSource(vertShader, `
+            attribute vec2 position;
+            varying vec2 vUv;
+            void main() {
+                vUv = position * 0.5 + 0.5;
+                gl_Position = vec4(position, 0.0, 1.0);
+            }
+        `);
+        gl.compileShader(vertShader);
+
+        const fragShader = gl.createShader(gl.FRAGMENT_SHADER);
+        gl.shaderSource(fragShader, `
+            precision highp float;
+            varying vec2 vUv;
+            uniform float uTime;
+            uniform vec2 uResolution;
+            
+            vec3 palette(float t) {
+                vec3 a = vec3(0.063, 0.133, 0.082);
+                vec3 b = vec3(0.169, 0.933, 0.357);
+                vec3 c = vec3(0.5, 0.5, 0.5);
+                vec3 d = vec3(0.0, 0.333, 0.167);
+                return a + b * cos(6.28318 * (c * t + d));
+            }
+            
+            void main() {
+                vec2 uv = vUv;
+                vec2 uv0 = uv;
+                vec3 finalColor = vec3(0.0);
+                
+                for (float i = 0.0; i < 3.0; i++) {
+                    uv = fract(uv * 1.5) - 0.5;
+                    
+                    float d = length(uv) * exp(-length(uv0));
+                    
+                    vec3 col = palette(length(uv0) + i * 0.4 + uTime * 0.15);
+                    
+                    d = sin(d * 8.0 + uTime * 0.3) / 8.0;
+                    d = abs(d);
+                    d = pow(0.01 / d, 1.2);
+                    
+                    finalColor += col * d * 0.15;
+                }
+                
+                vec3 darkGreen = vec3(0.063, 0.133, 0.082);
+                finalColor = mix(darkGreen, finalColor, 0.4);
+                
+                gl_FragColor = vec4(finalColor, 1.0);
+            }
+        `);
+        gl.compileShader(fragShader);
+
+        const program = gl.createProgram();
+        gl.attachShader(program, vertShader);
+        gl.attachShader(program, fragShader);
+        gl.linkProgram(program);
+        gl.useProgram(program);
+
+        const vertices = new Float32Array([
+            -1, -1,
+            1, -1,
+            -1, 1,
+            1, 1,
+        ]);
+
+        const buffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+        gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+
+        const positionLocation = gl.getAttribLocation(program, "position");
+        gl.enableVertexAttribArray(positionLocation);
+        gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+
+        const timeLocation = gl.getUniformLocation(program, "uTime");
+        const resolutionLocation = gl.getUniformLocation(program, "uResolution");
+
+        const render = () => {
+            if (!glRef.current) return;
+            
+            timeRef.current += 0.016;
+            gl.uniform1f(timeLocation, timeRef.current);
+            gl.uniform2f(resolutionLocation, gl.drawingBufferWidth, gl.drawingBufferHeight);
+            
+            gl.clear(gl.COLOR_BUFFER_BIT);
+            gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+            gl.flush();
+            gl.endFrameEXP();
+            
+            rafRef.current = requestAnimationFrame(render);
+        };
+        
+        render();
+    }, []);
+
+    useEffect(() => {
+        return () => {
+            if (rafRef.current) {
+                cancelAnimationFrame(rafRef.current);
+            }
+            glRef.current = null;
+        };
+    }, []);
+
+    if (Platform.OS === 'web') {
+        return (
+            <LinearGradient
+                colors={["#102215", "#0a160d", "#051008"]}
+                style={[StyleSheet.absoluteFill, style]}
+            />
+        );
+    }
+
+    return (
+        <GLView
+            style={[StyleSheet.absoluteFill, style]}
+            onContextCreate={onContextCreate}
+        />
+    );
+};
+
+const StepIndicator = ({ currentStep, totalSteps }: { currentStep: number; totalSteps: number }) => (
+    <View style={styles.stepperContainer}>
+        {Array.from({ length: totalSteps }).map((_, index) => (
+            <View
+                key={index}
+                style={[
+                    styles.stepDot,
+                    index === currentStep && styles.stepDotActive,
+                    index < currentStep && styles.stepDotCompleted,
+                ]}
+            />
+        ))}
+    </View>
+);
+
 export default function OnboardingScreen() {
-    const flatListRef = useRef<FlatList>(null);
     const [currentSlide, setCurrentSlide] = useState(0);
-    const scrollX = useRef(new Animated.Value(0)).current;
+    const translateX = useRef(new Animated.Value(0)).current;
+    const [dimensions, setDimensions] = useState({ width: SCREEN_WIDTH, height: SCREEN_HEIGHT });
 
-    const handleNext = () => {
+    useEffect(() => {
+        const subscription = Dimensions.addEventListener('change', ({ window }) => {
+            setDimensions({ width: window.width, height: window.height });
+        });
+        return () => subscription?.remove();
+    }, []);
+
+    const goToSlide = useCallback((index: number) => {
+        if (index >= 0 && index < SLIDES.length) {
+            Animated.spring(translateX, {
+                toValue: -index * dimensions.width,
+                useNativeDriver: true,
+                tension: 50,
+                friction: 12,
+            }).start();
+            setCurrentSlide(index);
+        }
+    }, [translateX, dimensions.width]);
+
+    const handleNext = useCallback(() => {
         if (currentSlide < SLIDES.length - 1) {
-            flatListRef.current?.scrollToIndex({
-                index: currentSlide + 1,
-                animated: true,
-            });
+            goToSlide(currentSlide + 1);
         } else {
             router.replace("/(auth)/login");
         }
-    };
+    }, [currentSlide, goToSlide]);
 
-    const handleSkip = () => {
-        router.replace("/(auth)/login");
-    };
-
-    const handleBack = () => {
+    const handleBack = useCallback(() => {
         if (currentSlide > 0) {
-            flatListRef.current?.scrollToIndex({
-                index: currentSlide - 1,
-                animated: true,
-            });
+            goToSlide(currentSlide - 1);
         }
-    };
+    }, [currentSlide, goToSlide]);
 
-    const handleUserTypeSelect = (type: 'cook' | 'creator') => {
-        if (type === 'cook') {
-            router.replace("/(auth)/login");
-        } else {
-            // Future: navigate to creator flow
-            console.log("Selected Creator flow");
-            router.replace("/(auth)/login");
+    const handleSkip = useCallback(() => {
+        router.replace("/(auth)/login");
+    }, []);
+
+    const handleUserTypeSelect = useCallback((type: 'cook' | 'creator') => {
+        router.replace("/(auth)/login");
+    }, []);
+
+    const panResponder = useRef(
+        PanResponder.create({
+            onStartShouldSetPanResponder: () => true,
+            onMoveShouldSetPanResponder: (_, gestureState) => {
+                return Math.abs(gestureState.dx) > 10;
+            },
+            onPanResponderMove: (_, gestureState) => {
+                const newTranslateX = -currentSlide * dimensions.width + gestureState.dx;
+                translateX.setValue(newTranslateX);
+            },
+            onPanResponderRelease: (_, gestureState) => {
+                const { dx, vx } = gestureState;
+                
+                if (dx < -SWIPE_THRESHOLD || (dx < 0 && vx < -0.5)) {
+                    if (currentSlide < SLIDES.length - 1) {
+                        goToSlide(currentSlide + 1);
+                    } else {
+                        goToSlide(currentSlide);
+                    }
+                } else if (dx > SWIPE_THRESHOLD || (dx > 0 && vx > 0.5)) {
+                    if (currentSlide > 0) {
+                        goToSlide(currentSlide - 1);
+                    } else {
+                        goToSlide(currentSlide);
+                    }
+                } else {
+                    goToSlide(currentSlide);
+                }
+            },
+        })
+    ).current;
+
+    useEffect(() => {
+        panResponder.panHandlers.onMoveShouldSetPanResponder = (_, gestureState) => {
+            return Math.abs(gestureState.dx) > 10;
+        };
+    }, [currentSlide, dimensions.width]);
+
+    const renderSlide = (slide: typeof SLIDES[0], index: number) => {
+        const slideWidth = dimensions.width;
+        
+        switch (slide.type) {
+            case "welcome":
+                return <WelcomeSlide key={slide.id} onNext={handleNext} onSkip={handleSkip} currentStep={index} totalSteps={SLIDES.length} slideWidth={slideWidth} />;
+            case "core_innovation":
+                return <CoreInnovationSlide key={slide.id} onNext={handleNext} onSkip={handleSkip} currentStep={index} totalSteps={SLIDES.length} slideWidth={slideWidth} />;
+            case "creator_alignment":
+                return <CreatorAlignmentSlide key={slide.id} onNext={handleNext} onSkip={handleSkip} currentStep={index} totalSteps={SLIDES.length} slideWidth={slideWidth} />;
+            case "video_magic":
+                return <VideoMagicSlide key={slide.id} onNext={handleNext} onSkip={handleSkip} currentStep={index} totalSteps={SLIDES.length} slideWidth={slideWidth} />;
+            case "user_type":
+                return <UserTypeSlide key={slide.id} onSelect={handleUserTypeSelect} onBack={handleBack} onSkip={handleSkip} currentStep={index} totalSteps={SLIDES.length} slideWidth={slideWidth} />;
+            default:
+                return <View key={slide.id} />;
         }
     };
 
     return (
         <View style={styles.container}>
             <StatusBar style="light" />
-
-            {/* Background with gradients handled in individual slides or globally */}
-            <View style={styles.backgroundContainer}>
-                <LinearGradient
-                    colors={["#102215", "#0a160d"]}
-                    style={StyleSheet.absoluteFill}
-                />
+            <ShaderBackground />
+            
+            <View style={styles.slidesWrapper} {...panResponder.panHandlers}>
+                <Animated.View
+                    style={[
+                        styles.slidesContainer,
+                        {
+                            transform: [{ translateX }],
+                            width: dimensions.width * SLIDES.length,
+                        },
+                    ]}
+                >
+                    {SLIDES.map((slide, index) => renderSlide(slide, index))}
+                </Animated.View>
             </View>
-
-            <FlatList
-                ref={flatListRef}
-                data={SLIDES}
-                horizontal
-                pagingEnabled
-                showsHorizontalScrollIndicator={false}
-                scrollEventThrottle={16}
-                scrollEnabled={false} // Disable manual scrolling for strictly controlled flow if desired, leveraging buttons
-                onScroll={Animated.event(
-                    [{ nativeEvent: { contentOffset: { x: scrollX } } }],
-                    { useNativeDriver: false }
-                )}
-                onMomentumScrollEnd={(event) => {
-                    const index = Math.round(
-                        event.nativeEvent.contentOffset.x / SCREEN_WIDTH
-                    );
-                    setCurrentSlide(index);
-                }}
-                renderItem={({ item, index }) => {
-                    switch (item.type) {
-                        case "welcome": return <WelcomeSlide onNext={handleNext} />;
-                        case "core_innovation": return <CoreInnovationSlide onNext={handleNext} onSkip={handleSkip} />;
-                        case "creator_alignment": return <CreatorAlignmentSlide onNext={handleNext} onSkip={handleSkip} />;
-                        case "video_magic": return <VideoMagicSlide onNext={handleNext} onSkip={handleSkip} />;
-                        case "user_type": return <UserTypeSlide onSelect={handleUserTypeSelect} onBack={handleBack} onSkip={handleSkip} />;
-                        default: return <View />;
-                    }
-                }}
-                keyExtractor={(item) => item.id}
-            />
         </View>
     );
 }
 
-// --- Slide Components ---
+interface SlideProps {
+    onNext?: () => void;
+    onSkip: () => void;
+    currentStep: number;
+    totalSteps: number;
+    slideWidth: number;
+}
 
-// 1. Welcome Hook
-const WelcomeSlide = ({ onNext }: { onNext: () => void }) => (
-    <View style={styles.slide}>
+const WelcomeSlide = ({ onNext, onSkip, currentStep, totalSteps, slideWidth }: SlideProps) => (
+    <View style={[styles.slide, { width: slideWidth }]}>
         <Image
             source={{ uri: "https://lh3.googleusercontent.com/aida-public/AB6AXuCyJcC6w6Y8aCmB7VEJCLSgj55KpiBWUHp6R8YqtzvydJUXhAMYewxGZEYh-P9h-LwyZiJHs8O1vXgQwqWdp2HtQTNPWaIwUQbgzbNJOUV-eAgVS8ribKmzuat_gOusrWD5UZnm8cMLafkxyiA7njADlLZe_KJfH6tgP-IefV7JvQu0_dtNBjvh-FzZkbyEyXaio8HT8iVnyhW79C6rJy1UC5hp55SCg3BhdHEkYw5eDtpf_Q4GQlhK_AYn4OjnT9mmjQpHtepcdg" }}
-            style={[StyleSheet.absoluteFill, { opacity: 0.6 }]}
+            style={[StyleSheet.absoluteFill, { opacity: 0.5 }]}
             resizeMode="cover"
         />
         <LinearGradient
-            colors={["transparent", "#102215"]}
+            colors={["transparent", "rgba(16,34,21,0.8)", "#102215"]}
             style={StyleSheet.absoluteFill}
         />
 
         <View style={styles.slideContent}>
             <View style={styles.header}>
-                <View style={styles.progressRow}>
-                    <View style={[styles.progressDot, styles.progressActive]} />
-                    <View style={styles.progressDot} />
-                    <View style={styles.progressDot} />
-                    <View style={styles.progressDot} />
-                    <View style={styles.progressDot} />
-                </View>
-                <TouchableOpacity onPress={onNext}>
+                <StepIndicator currentStep={currentStep} totalSteps={totalSteps} />
+                <TouchableOpacity onPress={onSkip} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                     <Text style={styles.skipText}>Skip</Text>
                 </TouchableOpacity>
             </View>
+
+            <View style={styles.flexSpacer} />
 
             <View style={styles.bottomContent}>
                 <View style={styles.aiBadge}>
@@ -181,33 +373,24 @@ const WelcomeSlide = ({ onNext }: { onNext: () => void }) => (
                     <Text style={styles.primaryButtonText}>See How It Works</Text>
                     <ArrowRight size={20} color={Colors.backgroundDark} />
                 </TouchableOpacity>
+                
+                <Text style={styles.swipeHint}>Swipe to navigate</Text>
             </View>
         </View>
     </View>
 );
 
-// 2. Core Innovation
-const CoreInnovationSlide = ({ onNext, onSkip }: { onNext: () => void, onSkip: () => void }) => (
-    <View style={[styles.slide, { backgroundColor: Colors.backgroundLight }]}>
-        {/* Simulate light mode / mixed mode */}
-        <View style={{ ...StyleSheet.absoluteFillObject, backgroundColor: '#f6f8f6' }} />
-
+const CoreInnovationSlide = ({ onNext, onSkip, currentStep, totalSteps, slideWidth }: SlideProps) => (
+    <View style={[styles.slide, { width: slideWidth, backgroundColor: Colors.backgroundLight }]}>
         <View style={styles.slideContent}>
             <View style={styles.header}>
-                <View style={styles.progressRow}>
-                    <View style={styles.progressDotDark} />
-                    <View style={[styles.progressDotActive, { width: 32 }]} />
-                    <View style={styles.progressDotDark} />
-                    <View style={styles.progressDotDark} />
-                    <View style={styles.progressDotDark} />
-                </View>
-                <TouchableOpacity onPress={onSkip}>
+                <StepIndicator currentStep={currentStep} totalSteps={totalSteps} />
+                <TouchableOpacity onPress={onSkip} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                     <Text style={styles.skipTextDark}>Skip</Text>
                 </TouchableOpacity>
             </View>
 
             <View style={styles.centeredContent}>
-                {/* Simulation of Phone AR */}
                 <View style={styles.phoneMockup}>
                     <LinearGradient
                         colors={["rgba(43,238,91,0.15)", "transparent"]}
@@ -247,7 +430,7 @@ const CoreInnovationSlide = ({ onNext, onSkip }: { onNext: () => void, onSkip: (
             </View>
 
             <TouchableOpacity style={styles.primaryButton} onPress={onNext} activeOpacity={0.9}>
-                <Text style={styles.primaryButtonText}>That’s Powerful</Text>
+                <Text style={styles.primaryButtonText}>That's Powerful</Text>
             </TouchableOpacity>
         </View>
     </View>
@@ -260,19 +443,16 @@ const FeatureItem = ({ icon, text }: { icon: React.ReactNode, text: string }) =>
     </View>
 );
 
-// 3. Creator Alignment
-const CreatorAlignmentSlide = ({ onNext, onSkip }: { onNext: () => void, onSkip: () => void }) => (
-    <View style={styles.slide}>
+const CreatorAlignmentSlide = ({ onNext, onSkip, currentStep, totalSteps, slideWidth }: SlideProps) => (
+    <View style={[styles.slide, { width: slideWidth }]}>
+        <LinearGradient
+            colors={["#102215", "#0a160d"]}
+            style={StyleSheet.absoluteFill}
+        />
         <View style={styles.slideContent}>
             <View style={styles.header}>
-                <View style={styles.progressRow}>
-                    <View style={styles.progressDot} />
-                    <View style={styles.progressDot} />
-                    <View style={[styles.progressDotActive, { width: 32 }]} />
-                    <View style={styles.progressDot} />
-                    <View style={styles.progressDot} />
-                </View>
-                <TouchableOpacity onPress={onSkip}>
+                <StepIndicator currentStep={currentStep} totalSteps={totalSteps} />
+                <TouchableOpacity onPress={onSkip} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                     <Text style={styles.skipText}>Skip</Text>
                 </TouchableOpacity>
             </View>
@@ -287,20 +467,17 @@ const CreatorAlignmentSlide = ({ onNext, onSkip }: { onNext: () => void, onSkip:
                     <Text style={styles.highlight}>chefs & creators</Text>
                 </Text>
                 <Text style={styles.centerSubtitle}>
-                    Step-by-step guidance with AI-assisted cooking sessions from the world’s best creators.
+                    Step-by-step guidance with AI-assisted cooking sessions from the world's best creators.
                 </Text>
             </View>
 
             <View style={styles.cardsStack}>
-                {/* Card 1 */}
                 <View style={[styles.stackCard, styles.card1]}>
                     <Image source={{ uri: "https://lh3.googleusercontent.com/aida-public/AB6AXuAfBYnEG4tJD-HApng8Ia42tteRGkL0T4N039sMTEpjL_11dInr3NDCz7u_EWIbYIpWOCdsq0dkAw-ZK87tpqTKRrZl_ej337JQ_xsSnrfCprr1h_cur4ujP7huiWrQYKMNVSba7DaOR0y-fvz2-mxWstBqSS1lknq3PkEjOPoRe5kwcCSCAaialYwrp47WXKEglniuMbh6xGBnNkA-J2_h0arQT9H-fPYU4fvPcPg0DzjZliead1Z0fkAqI9qEuV0Cufw0QQyw7Q" }} style={styles.stackImage} />
                 </View>
-                {/* Card 2 */}
                 <View style={[styles.stackCard, styles.card2]}>
                     <Image source={{ uri: "https://lh3.googleusercontent.com/aida-public/AB6AXuAzVXoa0ajnxy0VYAcQxOE-9mPMvXX5rNIwC2q3AjMNqotiBXTZTDGLt785UEPyNq00NhtCzGCGtzl_9pedZJd5-c0uCb5im3nLTc4SOOMS5rQfILzGyM-K6XXglbaYcg4XaOGPojaq8pL-w_4LdrM0lJ8jn85kkSU3-gdBKy9qlBeToRZFQXja7ey49GGYVEhM2mJ2aGTH6BZslvxUGCWRi6MwVVsWQeXKDzIjWIbl4Ez0tb5tcr2x5Ib8YbepLL36Rtx3BZOflw" }} style={styles.stackImage} />
                 </View>
-                {/* Card 3 (Main) */}
                 <View style={[styles.stackCard, styles.card3]}>
                     <Image source={{ uri: "https://lh3.googleusercontent.com/aida-public/AB6AXuCyJcC6w6Y8aCmB7VEJCLSgj55KpiBWUHp6R8YqtzvydJUXhAMYewxGZEYh-P9h-LwyZiJHs8O1vXgQwqWdp2HtQTNPWaIwUQbgzbNJOUV-eAgVS8ribKmzuat_gOusrWD5UZnm8cMLafkxyiA7njADlLZe_KJfH6tgP-IefV7JvQu0_dtNBjvh-FzZkbyEyXaio8HT8iVnyhW79C6rJy1UC5hp55SCg3BhdHEkYw5eDtpf_Q4GQlhK_AYn4OjnT9mmjQpHtepcdg" }} style={styles.stackImage} />
                     <LinearGradient colors={["transparent", "rgba(0,0,0,0.9)"]} style={StyleSheet.absoluteFill} />
@@ -344,19 +521,16 @@ const CreatorAlignmentSlide = ({ onNext, onSkip }: { onNext: () => void, onSkip:
     </View>
 );
 
-// 4. Video Magic
-const VideoMagicSlide = ({ onNext, onSkip }: { onNext: () => void, onSkip: () => void }) => (
-    <View style={styles.slide}>
+const VideoMagicSlide = ({ onNext, onSkip, currentStep, totalSteps, slideWidth }: SlideProps) => (
+    <View style={[styles.slide, { width: slideWidth }]}>
+        <LinearGradient
+            colors={["#102215", "#0a160d"]}
+            style={StyleSheet.absoluteFill}
+        />
         <View style={styles.slideContent}>
             <View style={styles.header}>
-                <View style={styles.progressRow}>
-                    <View style={[styles.progressDotActive, { backgroundColor: Colors.primary }]} />
-                    <View style={[styles.progressDotActive, { backgroundColor: Colors.primary }]} />
-                    <View style={[styles.progressDotActive, { backgroundColor: Colors.primary }]} />
-                    <View style={[styles.progressDotActive, { width: 32 }]} />
-                    <View style={styles.progressDot} />
-                </View>
-                <TouchableOpacity onPress={onSkip}>
+                <StepIndicator currentStep={currentStep} totalSteps={totalSteps} />
+                <TouchableOpacity onPress={onSkip} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                     <Text style={styles.skipText}>Skip</Text>
                 </TouchableOpacity>
             </View>
@@ -410,7 +584,7 @@ const VideoMagicSlide = ({ onNext, onSkip }: { onNext: () => void, onSkip: () =>
                 </View>
             </View>
 
-            <View style={styles.centeredContent}>
+            <View style={styles.bottomTextSection}>
                 <View style={styles.verifiedBadge}>
                     <Globe size={14} color={Colors.primary} />
                     <Text style={styles.verifiedText}>Works with public videos</Text>
@@ -425,32 +599,34 @@ const VideoMagicSlide = ({ onNext, onSkip }: { onNext: () => void, onSkip: () =>
             </View>
 
             <TouchableOpacity style={styles.primaryButton} onPress={onNext} activeOpacity={0.9}>
-                <Text style={styles.primaryButtonText}>That’s Magic</Text>
+                <Text style={styles.primaryButtonText}>That's Magic</Text>
                 <Sparkles size={18} color={Colors.backgroundDark} fill={Colors.backgroundDark} />
             </TouchableOpacity>
         </View>
     </View>
 );
 
-// 5. User Type Selection
-const UserTypeSlide = ({ onSelect, onBack, onSkip }: { onSelect: (type: 'cook' | 'creator') => void, onBack: () => void, onSkip: () => void }) => {
+interface UserTypeSlideProps extends SlideProps {
+    onSelect: (type: 'cook' | 'creator') => void;
+    onBack: () => void;
+}
+
+const UserTypeSlide = ({ onSelect, onBack, onSkip, currentStep, totalSteps, slideWidth }: UserTypeSlideProps) => {
     const [selected, setSelected] = useState<'cook' | 'creator'>('cook');
 
     return (
-        <View style={styles.slide}>
+        <View style={[styles.slide, { width: slideWidth }]}>
+            <LinearGradient
+                colors={["#102215", "#0a160d"]}
+                style={StyleSheet.absoluteFill}
+            />
             <View style={styles.slideContent}>
                 <View style={styles.header}>
                     <TouchableOpacity onPress={onBack} style={styles.iconBtn}>
                         <ArrowLeft size={24} color="#cbd5e1" />
                     </TouchableOpacity>
-                    <View style={styles.progressRow}>
-                        <View style={[styles.progressDotActive, { backgroundColor: Colors.primary + '4D' }]} />
-                        <View style={[styles.progressDotActive, { backgroundColor: Colors.primary + '4D' }]} />
-                        <View style={[styles.progressDotActive, { backgroundColor: Colors.primary + '4D' }]} />
-                        <View style={[styles.progressDotActive, { backgroundColor: Colors.primary + '4D' }]} />
-                        <View style={[styles.progressDotActive, { width: 32 }]} />
-                    </View>
-                    <TouchableOpacity onPress={onSkip}>
+                    <StepIndicator currentStep={currentStep} totalSteps={totalSteps} />
+                    <TouchableOpacity onPress={onSkip} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                         <Text style={styles.skipText}>Skip</Text>
                     </TouchableOpacity>
                 </View>
@@ -466,7 +642,6 @@ const UserTypeSlide = ({ onSelect, onBack, onSkip }: { onSelect: (type: 'cook' |
                 </View>
 
                 <View style={styles.optionsContainer}>
-                    {/* Home Cook Option */}
                     <TouchableOpacity
                         style={[styles.optionCard, selected === 'cook' && styles.optionCardSelected]}
                         onPress={() => setSelected('cook')}
@@ -482,7 +657,6 @@ const UserTypeSlide = ({ onSelect, onBack, onSkip }: { onSelect: (type: 'cook' |
                         {selected === 'cook' && <View style={styles.checkCircle}><Check size={16} color="#102215" strokeWidth={3} /></View>}
                     </TouchableOpacity>
 
-                    {/* Creator Option */}
                     <TouchableOpacity
                         style={[styles.optionCard, selected === 'creator' && styles.optionCardSelectedCreator]}
                         onPress={() => setSelected('creator')}
@@ -499,7 +673,7 @@ const UserTypeSlide = ({ onSelect, onBack, onSkip }: { onSelect: (type: 'cook' |
                     </TouchableOpacity>
                 </View>
 
-                <View style={{ flex: 1 }} />
+                <View style={styles.flexSpacer} />
 
                 <TouchableOpacity
                     style={[styles.primaryButton, selected === 'creator' && { backgroundColor: '#c084fc', shadowColor: '#c084fc' }]}
@@ -518,73 +692,75 @@ const UserTypeSlide = ({ onSelect, onBack, onSkip }: { onSelect: (type: 'cook' |
     );
 };
 
-
 const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: "#102215",
     },
-    backgroundContainer: {
-        ...StyleSheet.absoluteFillObject,
+    slidesWrapper: {
+        flex: 1,
+        overflow: 'hidden',
+    },
+    slidesContainer: {
+        flex: 1,
+        flexDirection: 'row',
     },
     slide: {
-        width: SCREEN_WIDTH,
-        height: "100%", // Explicit height
+        flex: 1,
         overflow: "hidden",
     },
     slideContent: {
         flex: 1,
-        padding: 24,
-        justifyContent: "space-between",
-        paddingTop: 60,
-        paddingBottom: 40,
+        paddingHorizontal: 24,
+        paddingTop: Platform.OS === 'ios' ? 60 : 48,
+        paddingBottom: Platform.OS === 'ios' ? 40 : 32,
     },
     header: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 20,
+        marginBottom: 24,
+        minHeight: 40,
     },
-    progressRow: {
+    stepperContainer: {
         flexDirection: 'row',
-        gap: 6,
+        gap: 8,
         alignItems: 'center',
+        flex: 1,
+        justifyContent: 'center',
     },
-    progressDot: {
+    stepDot: {
         width: 8,
-        height: 6,
-        borderRadius: 3,
+        height: 8,
+        borderRadius: 4,
         backgroundColor: 'rgba(255,255,255,0.2)',
     },
-    progressDotDark: {
-        width: 8,
-        height: 6,
-        borderRadius: 3,
-        backgroundColor: 'rgba(0,0,0,0.1)',
-    },
-    progressActive: {
+    stepDotActive: {
         width: 32,
         backgroundColor: Colors.primary,
     },
-    progressDotActive: {
-        width: 8,
-        height: 6,
-        borderRadius: 3,
-        backgroundColor: Colors.primary,
+    stepDotCompleted: {
+        backgroundColor: Colors.primary + '80',
     },
     skipText: {
         color: 'rgba(255,255,255,0.5)',
         fontSize: 14,
-        fontWeight: '600',
+        fontWeight: '600' as const,
+        minWidth: 40,
+        textAlign: 'right' as const,
     },
     skipTextDark: {
         color: 'rgba(0,0,0,0.4)',
         fontSize: 14,
-        fontWeight: '600',
+        fontWeight: '600' as const,
+        minWidth: 40,
+        textAlign: 'right' as const,
+    },
+    flexSpacer: {
+        flex: 1,
     },
     bottomContent: {
         gap: 20,
-        marginTop: 'auto',
     },
     aiBadge: {
         flexDirection: 'row',
@@ -597,19 +773,18 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: 'rgba(255,255,255,0.1)',
         alignSelf: 'flex-start',
-        backdropFilter: 'blur(10px)',
     },
     aiBadgeText: {
         color: 'white',
-        fontWeight: 'bold',
+        fontWeight: 'bold' as const,
         fontSize: 10,
         letterSpacing: 1,
     },
     title: {
-        fontSize: 42, // Scaled down slightly for mobile safety, original was 5xl
-        fontWeight: 'bold',
+        fontSize: Math.min(40, SCREEN_WIDTH * 0.1),
+        fontWeight: 'bold' as const,
         color: 'white',
-        lineHeight: 48,
+        lineHeight: Math.min(48, SCREEN_WIDTH * 0.12),
     },
     highlight: {
         color: Colors.primary,
@@ -640,9 +815,14 @@ const styles = StyleSheet.create({
     primaryButtonText: {
         color: "#102215",
         fontSize: 18,
-        fontWeight: 'bold',
+        fontWeight: 'bold' as const,
     },
-    // Slide 2 specific
+    swipeHint: {
+        textAlign: 'center' as const,
+        color: 'rgba(255,255,255,0.3)',
+        fontSize: 12,
+        marginTop: 8,
+    },
     centeredContent: {
         flex: 1,
         alignItems: 'center',
@@ -650,8 +830,8 @@ const styles = StyleSheet.create({
         gap: 24,
     },
     phoneMockup: {
-        width: 200,
-        height: 400,
+        width: Math.min(180, SCREEN_WIDTH * 0.45),
+        height: Math.min(360, SCREEN_HEIGHT * 0.4),
         borderRadius: 24,
         borderWidth: 8,
         borderColor: '#1e293b',
@@ -677,7 +857,7 @@ const styles = StyleSheet.create({
     arTagTopLeft: {
         position: 'absolute',
         top: 40,
-        left: 16,
+        left: 12,
         backgroundColor: 'rgba(255,255,255,0.1)',
         padding: 6,
         borderRadius: 8,
@@ -690,7 +870,7 @@ const styles = StyleSheet.create({
     arTagTopRight: {
         position: 'absolute',
         top: 80,
-        right: 12,
+        right: 8,
         backgroundColor: 'rgba(255,255,255,0.1)',
         padding: 6,
         borderRadius: 8,
@@ -702,18 +882,18 @@ const styles = StyleSheet.create({
     },
     arTagText: {
         color: 'white',
-        fontSize: 10,
-        fontWeight: 'bold',
+        fontSize: 8,
+        fontWeight: 'bold' as const,
     },
     arDot: {
-        width: 8,
-        height: 8,
-        borderRadius: 4,
+        width: 6,
+        height: 6,
+        borderRadius: 3,
         backgroundColor: Colors.primary,
     },
     centerFocus: {
-        width: 60,
-        height: 60,
+        width: 50,
+        height: 50,
         borderWidth: 2,
         borderColor: 'rgba(43,238,91,0.3)',
         borderRadius: 12,
@@ -725,11 +905,11 @@ const styles = StyleSheet.create({
         gap: 16,
     },
     sectionTitleDark: {
-        fontSize: 28,
-        fontWeight: 'bold',
+        fontSize: Math.min(26, SCREEN_WIDTH * 0.065),
+        fontWeight: 'bold' as const,
         color: '#0f172a',
-        textAlign: 'center',
-        lineHeight: 34,
+        textAlign: 'center' as const,
+        lineHeight: Math.min(32, SCREEN_WIDTH * 0.08),
     },
     featureList: {
         gap: 12,
@@ -750,15 +930,14 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     featureText: {
-        fontSize: 16,
+        fontSize: 14,
         color: '#475569',
-        fontWeight: '500',
+        fontWeight: '500' as const,
     },
-    // Slide 3 specific
     topTextCenter: {
         alignItems: 'center',
-        marginTop: 20,
-        marginBottom: 20,
+        marginTop: 8,
+        marginBottom: 16,
     },
     verifiedBadge: {
         flexDirection: 'row',
@@ -775,32 +954,33 @@ const styles = StyleSheet.create({
     verifiedText: {
         color: Colors.primary,
         fontSize: 12,
-        fontWeight: 'bold',
+        fontWeight: 'bold' as const,
     },
     centerTitle: {
-        fontSize: 32,
-        fontWeight: 'bold',
+        fontSize: Math.min(30, SCREEN_WIDTH * 0.075),
+        fontWeight: 'bold' as const,
         color: 'white',
-        textAlign: 'center',
-        lineHeight: 38,
+        textAlign: 'center' as const,
+        lineHeight: Math.min(36, SCREEN_WIDTH * 0.09),
         marginBottom: 8,
     },
     centerSubtitle: {
         fontSize: 14,
         color: '#94a3b8',
-        textAlign: 'center',
+        textAlign: 'center' as const,
         maxWidth: 280,
     },
     cardsStack: {
-        height: 380,
+        flex: 1,
+        maxHeight: 340,
         width: '100%',
         alignItems: 'center',
         justifyContent: 'center',
         position: 'relative',
     },
     stackCard: {
-        width: 260,
-        height: 340,
+        width: Math.min(240, SCREEN_WIDTH * 0.6),
+        height: Math.min(300, SCREEN_HEIGHT * 0.35),
         borderRadius: 24,
         position: 'absolute',
         backgroundColor: '#1e293b',
@@ -836,14 +1016,14 @@ const styles = StyleSheet.create({
         bottom: 0,
         left: 0,
         width: '100%',
-        padding: 16,
-        paddingBottom: 20,
+        padding: 14,
+        paddingBottom: 16,
     },
     cardTags: {
         position: 'absolute',
-        top: 16,
-        left: 16,
-        gap: 8,
+        top: 12,
+        left: 12,
+        gap: 6,
     },
     tagLive: {
         backgroundColor: '#ef4444',
@@ -860,7 +1040,7 @@ const styles = StyleSheet.create({
         borderRadius: 3,
         backgroundColor: 'white',
     },
-    tagLiveText: { color: 'white', fontSize: 10, fontWeight: 'bold' },
+    tagLiveText: { color: 'white', fontSize: 10, fontWeight: 'bold' as const },
     tagSession: {
         backgroundColor: 'rgba(0,0,0,0.6)',
         flexDirection: 'row',
@@ -872,31 +1052,31 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: 'rgba(255,255,255,0.2)',
     },
-    tagSessionText: { color: 'white', fontSize: 10, fontWeight: 'bold' },
+    tagSessionText: { color: 'white', fontSize: 10, fontWeight: 'bold' as const },
     cardTitle: {
         color: 'white',
-        fontSize: 22,
-        fontWeight: 'bold',
-        marginBottom: 12,
-        lineHeight: 26,
+        fontSize: 18,
+        fontWeight: 'bold' as const,
+        marginBottom: 10,
+        lineHeight: 22,
     },
     cardCreator: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingTop: 12,
+        paddingTop: 10,
         borderTopWidth: 1,
         borderTopColor: 'rgba(255,255,255,0.1)',
     },
     creatorAvatar: {
-        width: 40,
-        height: 40,
-        marginRight: 10,
+        width: 36,
+        height: 36,
+        marginRight: 8,
     },
     avatarImg: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
+        width: 36,
+        height: 36,
+        borderRadius: 18,
         borderWidth: 2,
         borderColor: '#102215',
     },
@@ -908,37 +1088,37 @@ const styles = StyleSheet.create({
         borderRadius: 6,
         padding: 1,
     },
-    creatorName: { color: 'white', fontSize: 13, fontWeight: 'bold' },
+    creatorName: { color: 'white', fontSize: 12, fontWeight: 'bold' as const },
     creatorStats: { color: '#cbd5e1', fontSize: 10 },
     playBtnSmall: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
+        width: 28,
+        height: 28,
+        borderRadius: 14,
         backgroundColor: 'white',
         alignItems: 'center',
         justifyContent: 'center',
     },
     footerNote: {
-        textAlign: 'center',
+        textAlign: 'center' as const,
         color: '#64748b',
         fontSize: 12,
-        fontWeight: '500',
+        fontWeight: '500' as const,
         marginTop: 16,
     },
-    // Slide 4
     magicContainer: {
-        height: 360,
+        flex: 1,
+        maxHeight: 320,
         width: '100%',
         alignItems: 'center',
         justifyContent: 'center',
         position: 'relative',
-        marginTop: 20,
+        marginVertical: 16,
     },
     magicIcon: {
         position: 'absolute',
-        width: 64,
-        height: 64,
-        borderRadius: 32,
+        width: 56,
+        height: 56,
+        borderRadius: 28,
         backgroundColor: Colors.primary,
         alignItems: 'center',
         justifyContent: 'center',
@@ -949,33 +1129,33 @@ const styles = StyleSheet.create({
         shadowRadius: 20,
     },
     magicCard: {
-        width: 200,
-        height: 240,
+        width: Math.min(180, SCREEN_WIDTH * 0.45),
+        height: Math.min(220, SCREEN_HEIGHT * 0.26),
         backgroundColor: 'rgba(255,255,255,0.05)',
         borderRadius: 24,
         position: 'absolute',
         top: 0,
-        left: 20,
+        left: 16,
         transform: [{ rotate: '-6deg' }],
         borderWidth: 1,
         borderColor: 'rgba(255,255,255,0.1)',
-        padding: 16,
+        padding: 14,
         zIndex: 5,
     },
-    magicCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 },
-    linkIconBg: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#1e293b', alignItems: 'center', justifyContent: 'center' },
+    magicCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
+    linkIconBg: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#1e293b', alignItems: 'center', justifyContent: 'center' },
     placeholderLine: { flex: 1, height: 8, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 4 },
-    videoPreview: { width: '100%', height: 120, backgroundColor: '#0f172a', borderRadius: 16, alignItems: 'center', justifyContent: "center", marginBottom: 12 },
+    videoPreview: { width: '100%', height: 100, backgroundColor: '#0f172a', borderRadius: 16, alignItems: 'center', justifyContent: "center", marginBottom: 10 },
     linkPreview: { flexDirection: 'row', gap: 6, padding: 8, backgroundColor: 'rgba(0,0,0,0.4)', borderRadius: 8 },
     linkText: { color: '#94a3b8', fontSize: 10 },
     recipeCard: {
-        width: 220,
-        height: 260,
+        width: Math.min(200, SCREEN_WIDTH * 0.5),
+        height: Math.min(240, SCREEN_HEIGHT * 0.28),
         backgroundColor: 'white',
         borderRadius: 24,
         position: 'absolute',
         bottom: 0,
-        right: 20,
+        right: 16,
         transform: [{ rotate: '6deg' }],
         zIndex: 15,
         shadowColor: '#000',
@@ -984,20 +1164,20 @@ const styles = StyleSheet.create({
         shadowRadius: 20,
         overflow: 'hidden',
     },
-    recipeImage: { width: '100%', height: 140 },
-    recipeNameOverlay: { position: 'absolute', top: 110, left: 12, color: 'white', fontWeight: 'bold', fontSize: 14 },
-    recipeContent: { padding: 12, gap: 8 },
-    ingredientRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    ingName: { flex: 1, fontSize: 12, fontWeight: '600', color: '#0f172a' },
-    ingQty: { fontSize: 10, color: '#64748b' },
+    recipeImage: { width: '100%', height: 120 },
+    recipeNameOverlay: { position: 'absolute', top: 95, left: 12, color: 'white', fontWeight: 'bold' as const, fontSize: 13 },
+    recipeContent: { padding: 10, gap: 6 },
+    ingredientRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    ingName: { flex: 1, fontSize: 11, fontWeight: '600' as const, color: '#0f172a' },
+    ingQty: { fontSize: 9, color: '#64748b' },
     stepBadge: {
         position: 'absolute',
-        right: -8,
-        top: -8,
+        right: -6,
+        top: -6,
         backgroundColor: Colors.primary,
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 16,
+        paddingHorizontal: 10,
+        paddingVertical: 5,
+        borderRadius: 14,
         flexDirection: 'row',
         alignItems: 'center',
         gap: 4,
@@ -1006,11 +1186,14 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.2,
         shadowRadius: 8,
     },
-    stepBadgeText: { fontSize: 10, fontWeight: 'bold', color: '#102215' },
-    // Slide 5
+    stepBadgeText: { fontSize: 9, fontWeight: 'bold' as const, color: '#102215' },
+    bottomTextSection: {
+        alignItems: 'center',
+        marginBottom: 16,
+    },
     topTextLeft: {
-        marginTop: 10,
-        marginBottom: 30,
+        marginTop: 8,
+        marginBottom: 24,
     },
     iconBtn: {
         width: 40,
@@ -1021,16 +1204,15 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     optionsContainer: {
-        gap: 20,
-        marginBottom: 30,
+        gap: 16,
     },
     optionCard: {
         backgroundColor: 'rgba(255,255,255,0.05)',
         borderRadius: 24,
-        padding: 24,
+        padding: 20,
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 20,
+        gap: 16,
         borderWidth: 1,
         borderColor: 'rgba(255,255,255,0.08)',
     },
@@ -1051,9 +1233,9 @@ const styles = StyleSheet.create({
         shadowRadius: 20,
     },
     optionIcon: {
-        width: 64,
-        height: 64,
-        borderRadius: 16,
+        width: 56,
+        height: 56,
+        borderRadius: 14,
         backgroundColor: 'rgba(43,238,91,0.05)',
         alignItems: 'center',
         justifyContent: 'center',
@@ -1069,12 +1251,12 @@ const styles = StyleSheet.create({
         borderColor: '#c084fc',
     },
     optionText: { flex: 1 },
-    optionTitle: { color: 'white', fontSize: 20, fontWeight: 'bold', marginBottom: 4 },
-    optionDesc: { color: '#94a3b8', fontSize: 13, lineHeight: 18 },
+    optionTitle: { color: 'white', fontSize: 18, fontWeight: 'bold' as const, marginBottom: 4 },
+    optionDesc: { color: '#94a3b8', fontSize: 12, lineHeight: 16 },
     checkCircle: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
+        width: 28,
+        height: 28,
+        borderRadius: 14,
         backgroundColor: Colors.primary,
         alignItems: 'center',
         justifyContent: 'center',
