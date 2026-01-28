@@ -29,6 +29,10 @@ export interface UserSettings {
   analytics: boolean;
 }
 
+export type CookingLevel = "beginner" | "intermediate" | "pro";
+export type DietaryPreference = "vegetarian" | "vegan" | "keto" | "halal" | "gluten-free" | "dairy-free" | "nut-free";
+export type CookingGoal = "eat-healthy" | "save-money" | "learn-new";
+
 export interface UserProfile {
   name: string;
   title: string;
@@ -38,6 +42,10 @@ export interface UserProfile {
   sharedRecipes: SharedRecipe[];
   unlockedBadgeIds: string[];
   settings: UserSettings;
+  cookingLevel?: CookingLevel;
+  dietaryPreferences?: DietaryPreference[];
+  primaryGoal?: CookingGoal;
+  cookingInterests?: string[];
 }
 
 const STORAGE_KEY = "user_profile";

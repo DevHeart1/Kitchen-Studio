@@ -104,11 +104,7 @@ export default function SignUpScreen() {
             if (error) {
                 Alert.alert("Sign Up Failed", error.message || "Could not create account");
             } else {
-                Alert.alert(
-                    "Account Created",
-                    "Please check your email to verify your account, then sign in.",
-                    [{ text: "OK", onPress: () => router.replace("/(auth)/login") }]
-                );
+                router.replace("/(auth)/onboarding");
             }
         } catch (error) {
             Alert.alert("Error", "An unexpected error occurred");
