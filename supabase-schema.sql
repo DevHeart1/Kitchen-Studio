@@ -35,6 +35,12 @@ CREATE TABLE IF NOT EXISTS user_profiles (
   total_xp INTEGER DEFAULT 0,
   unlocked_badge_ids TEXT[] DEFAULT '{}',
   settings JSONB DEFAULT '{"notifications": true, "darkMode": true, "arTips": true, "emailNotifications": true, "pushNotifications": true, "dataSharing": false, "analytics": true}',
+  -- User onboarding preferences
+  cooking_level TEXT CHECK (cooking_level IN ('beginner', 'intermediate', 'pro')) DEFAULT 'beginner',
+  dietary_preferences TEXT[] DEFAULT '{}',
+  primary_goal TEXT CHECK (primary_goal IN ('eat-healthy', 'save-money', 'learn-new')),
+  cooking_interests TEXT[] DEFAULT '{}',
+  onboarding_completed BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );

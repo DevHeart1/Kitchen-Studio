@@ -148,6 +148,10 @@ const dbToFrontend = (
     ...DEFAULT_SETTINGS,
     ...dbProfile.settings,
   },
+  cookingLevel: (dbProfile as any).cooking_level,
+  dietaryPreferences: (dbProfile as any).dietary_preferences,
+  primaryGoal: (dbProfile as any).primary_goal,
+  cookingInterests: (dbProfile as any).cooking_interests,
 });
 
 export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
@@ -229,6 +233,11 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
             total_xp: updated.stats.totalXP,
             unlocked_badge_ids: updated.unlockedBadgeIds,
             settings: updated.settings,
+            cooking_level: updated.cookingLevel || 'beginner',
+            dietary_preferences: updated.dietaryPreferences || [],
+            primary_goal: updated.primaryGoal,
+            cooking_interests: updated.cookingInterests || [],
+            onboarding_completed: true,
           });
 
         if (error) {
