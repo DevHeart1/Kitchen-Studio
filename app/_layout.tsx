@@ -2,13 +2,14 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack, useRouter, useSegments } from "expo-router";
 import * as ExpoSplashScreen from "expo-splash-screen";
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SavedRecipesProvider } from "@/contexts/SavedRecipesContext";
 import { InventoryProvider } from "@/contexts/InventoryContext";
 import { UserProfileProvider, useUserProfile } from "@/contexts/UserProfileContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import SplashScreen from "@/components/SplashScreen";
+import WelcomeBackSplash from "@/components/WelcomeBackSplash";
 import { trpc, trpcClient } from "@/lib/trpc";
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
@@ -41,13 +42,24 @@ function useProtectedRoute() {
 }
 
 function RootLayoutNav() {
-  const { isLoading: authLoading } = useAuth();
-  const { isLoading: profileLoading } = useUserProfile();
+  const { isLoading: authLoading, isAuthenticated, isDemoMode } = useAuth();
+  const { isLoading: profileLoading, hasCompletedOnboarding } = useUserProfile();
+  const [showWelcomeBack, setShowWelcomeBack] = useState(true);
   
   useProtectedRoute();
 
   if (authLoading || profileLoading) {
     return <SplashScreen />;
+  }
+
+  const isReturningUser = (isAuthenticated || isDemoMode) && hasCompletedOnboarding === true;
+
+  if (showWelcomeBack && isReturningUser) {
+    return (
+      <WelcomeBackSplash 
+        onContinue={() => setShowWelcomeBack(false)} 
+      />
+    );
   }
 
   return (
