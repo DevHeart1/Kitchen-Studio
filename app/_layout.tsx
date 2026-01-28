@@ -27,15 +27,24 @@ function useProtectedRoute() {
     if (authLoading || profileLoading) return;
 
     const inAuthGroup = segments[0] === "(auth)";
-    const onOnboardingScreen = segments[1] === "onboarding" || segments[1] === "starter-pack";
+    const inTabs = segments[0] === "(tabs)";
+    const onOnboardingScreen = segments[1] === "onboarding";
+    const onAuthScreen = segments[1] === "login" || segments[1] === "sign-up";
+    const onPreferencesScreen = segments[1] === "preferences" || segments[1] === "starter-pack";
 
-    if (!isAuthenticated && !isDemoMode && !inAuthGroup) {
-      router.replace("/(auth)/login");
-    } else if ((isAuthenticated || isDemoMode) && inAuthGroup) {
-      if (hasCompletedOnboarding === false && !onOnboardingScreen) {
+    if (!isAuthenticated && !isDemoMode) {
+      if (!inAuthGroup) {
         router.replace("/(auth)/onboarding");
-      } else if (hasCompletedOnboarding === true && !onOnboardingScreen) {
-        router.replace("/(tabs)");
+      }
+    } else if (isAuthenticated || isDemoMode) {
+      if (hasCompletedOnboarding === false) {
+        if (!onPreferencesScreen) {
+          router.replace("/(auth)/preferences");
+        }
+      } else if (hasCompletedOnboarding === true) {
+        if (inAuthGroup) {
+          router.replace("/(tabs)");
+        }
       }
     }
   }, [isAuthenticated, authLoading, profileLoading, isDemoMode, segments, hasCompletedOnboarding]);

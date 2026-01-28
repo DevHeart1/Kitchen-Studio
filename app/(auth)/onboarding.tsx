@@ -60,12 +60,12 @@ export default function OnboardingScreen() {
                 animated: true,
             });
         } else {
-            router.replace("/(auth)/preferences");
+            router.replace("/(auth)/login");
         }
     };
 
     const handleSkip = () => {
-        router.replace("/(auth)/preferences");
+        router.replace("/(auth)/login");
     };
 
     const handleBack = () => {
@@ -79,11 +79,11 @@ export default function OnboardingScreen() {
 
     const handleUserTypeSelect = (type: 'cook' | 'creator') => {
         if (type === 'cook') {
-            router.replace("/(auth)/preferences");
+            router.replace("/(auth)/login");
         } else {
             // Future: navigate to creator flow
             console.log("Selected Creator flow");
-            router.replace("/(auth)/preferences");
+            router.replace("/(auth)/login");
         }
     };
 
