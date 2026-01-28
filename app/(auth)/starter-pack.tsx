@@ -20,6 +20,8 @@ import {
     Flame,
     View as ViewIcon,
     Sparkles,
+    AlertCircle,
+    RefreshCw,
 } from "lucide-react-native";
 import Colors from "@/constants/colors";
 import { useUserProfile } from "@/contexts/UserProfileContext";
@@ -47,6 +49,7 @@ export default function StarterPackScreen() {
     const { profile } = useUserProfile();
     const [recipes, setRecipes] = useState<StarterRecipe[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
     const pulseAnim = useRef(new Animated.Value(1)).current;
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const slideAnim = useRef(new Animated.Value(30)).current;
@@ -88,6 +91,7 @@ export default function StarterPackScreen() {
 
     const fetchRecipes = async () => {
         setIsLoading(true);
+        setError(null);
         try {
             const preferences: UserPreferences = {
                 cookingLevel: profile.cookingLevel || "intermediate",
@@ -96,9 +100,16 @@ export default function StarterPackScreen() {
             };
             console.log("[StarterPack] Fetching AI recipes with preferences:", preferences);
             const result = await getStarterRecipes(preferences);
-            setRecipes(result);
-        } catch (error) {
-            console.error("[StarterPack] Error fetching recipes:", error);
+
+            if (result.error) {
+                setError(result.error);
+                setRecipes([]);
+            } else {
+                setRecipes(result.recipes);
+            }
+        } catch (err) {
+            console.error("[StarterPack] Error fetching recipes:", err);
+            setError("An unexpected error occurred. Please try again.");
         } finally {
             setIsLoading(false);
         }
@@ -167,6 +178,20 @@ export default function StarterPackScreen() {
                         <Text style={styles.loadingText}>
                             AI is curating your perfect recipes...
                         </Text>
+                    </View>
+                ) : error ? (
+                    <View style={styles.errorContainer}>
+                        <AlertCircle size={48} color={Colors.primary} />
+                        <Text style={styles.errorTitle}>Oops! Something went wrong</Text>
+                        <Text style={styles.errorText}>{error}</Text>
+                        <TouchableOpacity
+                            style={styles.retryButton}
+                            onPress={fetchRecipes}
+                            activeOpacity={0.8}
+                        >
+                            <RefreshCw size={18} color={Colors.backgroundDark} />
+                            <Text style={styles.retryButtonText}>Try Again</Text>
+                        </TouchableOpacity>
                     </View>
                 ) : (
                     <View style={styles.recipesContainer}>
@@ -378,6 +403,42 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: Colors.textSecondary,
         textAlign: "center",
+    },
+    errorContainer: {
+        flex: 1,
+        justifyContent: "center",
+        alignItems: "center",
+        paddingVertical: 80,
+        paddingHorizontal: 24,
+    },
+    errorTitle: {
+        marginTop: 16,
+        fontSize: 20,
+        fontWeight: "700",
+        color: Colors.white,
+        textAlign: "center",
+    },
+    errorText: {
+        marginTop: 8,
+        fontSize: 14,
+        color: Colors.textSecondary,
+        textAlign: "center",
+        lineHeight: 20,
+    },
+    retryButton: {
+        marginTop: 24,
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 8,
+        backgroundColor: Colors.primary,
+        paddingHorizontal: 24,
+        paddingVertical: 14,
+        borderRadius: 16,
+    },
+    retryButtonText: {
+        fontSize: 16,
+        fontWeight: "700",
+        color: Colors.backgroundDark,
     },
     recipesContainer: {
         gap: 20,

@@ -141,49 +141,18 @@ Make recipes appealing, practical, and perfectly matched to the user's preferenc
     } catch (error) {
         console.error("Error generating recipes:", error);
 
-        // Return fallback recipes on error
-        const fallbackRecipes: StarterRecipe[] = [
-            {
-                id: "fallback-1",
-                name: "Rainbow Buddha Bowl",
-                description: "A colorful, nutrient-packed bowl with fresh vegetables and wholesome grains.",
-                image: "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=800&h=600&fit=crop",
-                cookTime: 25,
-                calories: 420,
-                difficulty: "Intermediate",
-                matchPercentage: 98,
-                isArGuided: true,
-                tags: ["Healthy", "Colorful"],
-            },
-            {
-                id: "fallback-2",
-                name: "Supergreen Pesto Zoodles",
-                description: "Zucchini noodles tossed in a vibrant homemade basil pesto.",
-                image: "https://images.unsplash.com/photo-1473093295043-cdd812d0e601?w=800&h=600&fit=crop",
-                cookTime: 15,
-                calories: 310,
-                difficulty: "Beginner",
-                matchPercentage: 92,
-                isArGuided: true,
-                tags: ["Low-Carb", "Quick"],
-            },
-            {
-                id: "fallback-3",
-                name: "Crispy Chickpea Wrap",
-                description: "Crunchy spiced chickpeas wrapped with fresh avocado and greens.",
-                image: "https://images.unsplash.com/photo-1529006557810-274b9b2fc783?w=800&h=600&fit=crop",
-                cookTime: 20,
-                calories: 380,
-                difficulty: "Beginner",
-                matchPercentage: 88,
-                isArGuided: true,
-                tags: ["Protein", "Fresh"],
-            },
-        ];
+        const errorMessage = error instanceof Error ? error.message : "Failed to generate recipes";
 
         return new Response(
-            JSON.stringify({ recipes: fallbackRecipes, success: true, fallback: true }),
-            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            JSON.stringify({
+                recipes: [],
+                success: false,
+                error: errorMessage
+            }),
+            {
+                status: 500,
+                headers: { ...corsHeaders, "Content-Type": "application/json" }
+            }
         );
     }
 });
