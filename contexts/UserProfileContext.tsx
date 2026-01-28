@@ -508,7 +508,7 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
     return recentCooks.find((c) => c.progress < 100) || null;
   }, []);
 
-  return useMemo(() => ({
+  return {
     profile,
     isLoading,
     updateProfile,
@@ -531,28 +531,5 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
     completeOnboarding,
     checkOnboardingStatus,
     activeCookingSession,
-  }), [
-    profile,
-    isLoading,
-    updateProfile,
-    updateName,
-    updateAvatar,
-    addXP,
-    incrementRecipesCompleted,
-    updateAccuracy,
-    addCookTime,
-    shareRecipe,
-    removeSharedRecipe,
-    unlockBadge,
-    updateSettings,
-    getXPProgress,
-    computedStats,
-    pendingLevelUp,
-    acknowledgeLevelUp,
-    checkForLevelUp,
-    hasCompletedOnboarding,
-    completeOnboarding,
-    checkOnboardingStatus,
-    activeCookingSession,
-  ]);
+  };
 });
