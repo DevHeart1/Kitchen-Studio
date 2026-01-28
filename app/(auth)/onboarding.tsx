@@ -1265,5 +1265,5 @@ const styles = StyleSheet.create({
         borderColor: Colors.primary,
     },
     highlighTextWhite: { color: Colors.primary },
-    highlighTextCreator: { color: '#c084fc' },
+    highlighTextCreator: { color: '#ef4444' },
 });
