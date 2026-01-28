@@ -30,7 +30,7 @@ interface GoalOption {
     id: CookingGoal;
     label: string;
     subLabel: string;
-    icon: React.ReactNode;
+    Icon: React.ComponentType<{ size: number; color: string }>;
 }
 
 const COOKING_LEVELS: { id: CookingLevel; label: string }[] = [
@@ -54,19 +54,19 @@ const COOKING_GOALS: GoalOption[] = [
         id: "eat-healthy", 
         label: "Eat", 
         subLabel: "Healthy",
-        icon: <Leaf size={28} color={Colors.backgroundDark} />,
+        Icon: Leaf,
     },
     { 
         id: "save-money", 
         label: "Save", 
         subLabel: "Money",
-        icon: <PiggyBank size={28} color="rgba(255,255,255,0.5)" />,
+        Icon: PiggyBank,
     },
     { 
         id: "learn-new", 
         label: "Learn", 
         subLabel: "New",
-        icon: <GraduationCap size={28} color="rgba(255,255,255,0.5)" />,
+        Icon: GraduationCap,
     },
 ];
 
@@ -210,13 +210,10 @@ export default function OnboardingScreen() {
                                         activeOpacity={0.7}
                                     >
                                         <View style={styles.goalIconContainer}>
-                                            {isSelected ? (
-                                                React.cloneElement(goal.icon as React.ReactElement, {
-                                                    color: Colors.backgroundDark,
-                                                })
-                                            ) : (
-                                                goal.icon
-                                            )}
+                                            <goal.Icon 
+                                                size={28} 
+                                                color={isSelected ? Colors.backgroundDark : "rgba(255,255,255,0.5)"} 
+                                            />
                                         </View>
                                         <Text
                                             style={[
