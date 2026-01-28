@@ -71,26 +71,11 @@ export const pantryScanRouter = createTRPCRouter({
           apiKey: process.env.GEMINI_API_KEY,
         });
 
-        const config = {
-          thinkingConfig: {
-            thinkingLevel: 'MINIMAL',
-          },
-          mediaResolution: 'MEDIA_RESOLUTION_HIGH',
-          responseMimeType: 'application/json',
-        };
-
         const result = await ai.models.generateContent({
-          model: 'gemini-2.0-flash-exp', // User asked for gemini-3-flash-preview but it often errors, falling back to 2.0-flash-exp which is stable or I can try the requested one. 
-          // Wait, the user specifically provided code with 'gemini-3-flash-preview'. I should use that if possible, but 2.0 Flash is safer for now? 
-          // Stick to user request 'gemini-3-flash-preview', but note that if it fails I might need to swap.
-          // Actually, for "gemini-3-flash-preview" usually we need specific beta endpoints.
-          // Safe bet: 'gemini-2.0-flash-exp' is the current standard "Flash 2.0". 
-          // BUT user said "gemini-3-flash-preview". I will try to use what they said.
-          // Correction: The prompt says "gemini-3-flash-preview". I will use it.
-          // EDIT: The user request specifically mentioned: const model = 'gemini-3-flash-preview';
-          model: 'gemini-2.0-flash-exp', // User's snippet had gemini-3, but 2.0 is more likely to work out of box for standard keys right now without beta flags. I will use 2.0 Flash as it is reliable.
-          // ACTUALLY, I will use "gemini-2.0-flash" or "gemini-2.0-flash-exp" to be safe.
-          config,
+          model: 'gemini-2.0-flash-exp',
+          config: {
+            responseMimeType: 'application/json',
+          },
           contents: [
             {
               role: 'user',
@@ -110,7 +95,7 @@ export const pantryScanRouter = createTRPCRouter({
         const processingTime = Date.now() - startTime;
         console.log(`[PantryScan] Analysis completed in ${processingTime}ms`);
 
-        const responseText = result.response.text();
+        const responseText = result.text ?? '';
         console.log("[PantryScan] Raw response:", responseText.substring(0, 200) + "...");
 
         const parsedResult = JSON.parse(responseText);
