@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import createContextHook from "@nkzw/create-context-hook";
 import { recentCooks } from "@/mocks/sessions";
+import { supabase, DbUserProfile, DbSharedRecipe } from "@/lib/supabase";
 
 export interface SharedRecipe {
   id: string;
@@ -40,6 +41,7 @@ export interface UserProfile {
 }
 
 const STORAGE_KEY = "user_profile";
+const DEMO_USER_ID = "demo-user-00000000-0000-0000-0000-000000000000";
 
 const DEFAULT_SHARED_RECIPES: SharedRecipe[] = [
   {
@@ -105,16 +107,90 @@ const TITLES = [
   "Legendary Chef",
 ];
 
+// Check if Supabase is configured
+const isSupabaseConfigured = (): boolean => {
+  const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
+  return !!url && !url.includes("your-project");
+};
+
+// Convert DB profile to frontend profile
+const dbToFrontend = (
+  dbProfile: DbUserProfile,
+  sharedRecipes: DbSharedRecipe[]
+): UserProfile => ({
+  name: dbProfile.name,
+  title: dbProfile.title,
+  level: dbProfile.level,
+  avatar: dbProfile.avatar || DEFAULT_PROFILE.avatar,
+  stats: {
+    cookTime: dbProfile.cook_time,
+    accuracy: dbProfile.accuracy,
+    recipesCompleted: dbProfile.recipes_completed,
+    totalXP: dbProfile.total_xp,
+  },
+  sharedRecipes: sharedRecipes.map((r) => ({
+    id: r.id,
+    title: r.title,
+    image: r.image || "",
+    likes: r.likes,
+    createdAt: r.created_at,
+  })),
+  unlockedBadgeIds: dbProfile.unlocked_badge_ids,
+  settings: {
+    ...DEFAULT_SETTINGS,
+    ...dbProfile.settings,
+  },
+});
+
 export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
   const [profile, setProfile] = useState<UserProfile>(DEFAULT_PROFILE);
   const [isLoading, setIsLoading] = useState(true);
   const [pendingLevelUp, setPendingLevelUp] = useState<{ fromLevel: number; toLevel: number } | null>(null);
+  const useSupabase = isSupabaseConfigured();
 
   useEffect(() => {
     loadProfile();
   }, []);
 
   const loadProfile = async () => {
+    try {
+      if (useSupabase) {
+        // Load profile from Supabase
+        const { data: profileData, error: profileError } = await supabase
+          .from("user_profiles")
+          .select("*")
+          .single();
+
+        if (profileError && profileError.code !== "PGRST116") {
+          console.error("[Profile] Supabase error:", profileError.message);
+          await loadFromAsyncStorage();
+          return;
+        }
+
+        // Load shared recipes
+        const { data: recipesData } = await supabase
+          .from("shared_recipes")
+          .select("*")
+          .order("created_at", { ascending: false });
+
+        if (profileData) {
+          setProfile(dbToFrontend(profileData, recipesData || []));
+        } else {
+          // No profile in Supabase, create one
+          setProfile(DEFAULT_PROFILE);
+        }
+      } else {
+        await loadFromAsyncStorage();
+      }
+    } catch (error) {
+      console.log("Error loading profile:", error);
+      await loadFromAsyncStorage();
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const loadFromAsyncStorage = async () => {
     try {
       const stored = await AsyncStorage.getItem(STORAGE_KEY);
       if (stored) {
@@ -124,16 +200,38 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
         await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_PROFILE));
       }
     } catch (error) {
-      console.log("Error loading profile:", error);
-    } finally {
-      setIsLoading(false);
+      console.log("Error loading from AsyncStorage:", error);
     }
   };
 
   const saveProfile = async (updated: UserProfile) => {
     try {
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-      console.log("Profile saved successfully");
+      if (useSupabase) {
+        const { error } = await supabase
+          .from("user_profiles")
+          .upsert({
+            user_id: DEMO_USER_ID,
+            name: updated.name,
+            title: updated.title,
+            level: updated.level,
+            avatar: updated.avatar,
+            cook_time: updated.stats.cookTime,
+            accuracy: updated.stats.accuracy,
+            recipes_completed: updated.stats.recipesCompleted,
+            total_xp: updated.stats.totalXP,
+            unlocked_badge_ids: updated.unlockedBadgeIds,
+            settings: updated.settings,
+          });
+
+        if (error) {
+          console.error("[Profile] Save error:", error.message);
+        } else {
+          console.log("Profile saved to Supabase");
+        }
+      } else {
+        await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+        console.log("Profile saved to AsyncStorage");
+      }
     } catch (error) {
       console.log("Error saving profile:", error);
     }
@@ -143,7 +241,7 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
     const updated = { ...profile, ...updates };
     setProfile(updated);
     await saveProfile(updated);
-  }, [profile]);
+  }, [profile, useSupabase]);
 
   const updateName = useCallback(async (name: string) => {
     await updateProfile({ name });
@@ -157,7 +255,7 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
     const newXP = profile.stats.totalXP + amount;
     let newLevel = profile.level;
     const previousLevel = profile.level;
-    
+
     for (let i = LEVEL_THRESHOLDS.length - 1; i >= 0; i--) {
       if (newXP >= LEVEL_THRESHOLDS[i]) {
         newLevel = i + 1;
@@ -166,7 +264,7 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
     }
 
     const newTitle = TITLES[Math.min(newLevel - 1, TITLES.length - 1)];
-    
+
     await updateProfile({
       stats: { ...profile.stats, totalXP: newXP },
       level: newLevel,
@@ -179,7 +277,7 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
     }
 
     console.log(`Added ${amount} XP. New total: ${newXP}, Level: ${newLevel}`);
-    
+
     return { leveledUp: newLevel > previousLevel, newLevel, previousLevel };
   }, [profile, updateProfile]);
 
@@ -208,22 +306,79 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
   }, [profile, updateProfile]);
 
   const shareRecipe = useCallback(async (recipe: Omit<SharedRecipe, "id" | "createdAt" | "likes">) => {
-    const newRecipe: SharedRecipe = {
-      ...recipe,
-      id: Date.now().toString(),
-      likes: 0,
-      createdAt: new Date().toISOString(),
-    };
-    
-    const updatedRecipes = [newRecipe, ...profile.sharedRecipes];
-    await updateProfile({ sharedRecipes: updatedRecipes });
-    return newRecipe;
-  }, [profile, updateProfile]);
+    try {
+      if (useSupabase) {
+        const { data, error } = await supabase
+          .from("shared_recipes")
+          .insert({
+            user_id: DEMO_USER_ID,
+            title: recipe.title,
+            image: recipe.image,
+          })
+          .select()
+          .single();
+
+        if (error) {
+          console.error("[Profile] Share recipe error:", error.message);
+          return null;
+        }
+
+        const newRecipe: SharedRecipe = {
+          id: data.id,
+          title: data.title,
+          image: data.image || "",
+          likes: data.likes,
+          createdAt: data.created_at,
+        };
+
+        setProfile((prev) => ({
+          ...prev,
+          sharedRecipes: [newRecipe, ...prev.sharedRecipes],
+        }));
+
+        return newRecipe;
+      } else {
+        const newRecipe: SharedRecipe = {
+          ...recipe,
+          id: Date.now().toString(),
+          likes: 0,
+          createdAt: new Date().toISOString(),
+        };
+
+        const updatedRecipes = [newRecipe, ...profile.sharedRecipes];
+        await updateProfile({ sharedRecipes: updatedRecipes });
+        return newRecipe;
+      }
+    } catch (error) {
+      console.log("Error sharing recipe:", error);
+      return null;
+    }
+  }, [profile, updateProfile, useSupabase]);
 
   const removeSharedRecipe = useCallback(async (recipeId: string) => {
-    const updatedRecipes = profile.sharedRecipes.filter((r) => r.id !== recipeId);
-    await updateProfile({ sharedRecipes: updatedRecipes });
-  }, [profile, updateProfile]);
+    try {
+      if (useSupabase) {
+        const { error } = await supabase
+          .from("shared_recipes")
+          .delete()
+          .eq("id", recipeId);
+
+        if (error) {
+          console.error("[Profile] Delete recipe error:", error.message);
+          return;
+        }
+      }
+
+      const updatedRecipes = profile.sharedRecipes.filter((r) => r.id !== recipeId);
+      setProfile((prev) => ({ ...prev, sharedRecipes: updatedRecipes }));
+
+      if (!useSupabase) {
+        await saveProfile({ ...profile, sharedRecipes: updatedRecipes });
+      }
+    } catch (error) {
+      console.log("Error removing recipe:", error);
+    }
+  }, [profile, useSupabase]);
 
   const unlockBadge = useCallback(async (badgeId: string) => {
     if (!profile.unlockedBadgeIds.includes(badgeId)) {
@@ -263,7 +418,7 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
   const computedStats = useMemo(() => {
     const completedCooks = recentCooks.filter((c) => c.progress === 100);
     const inProgressCooks = recentCooks.filter((c) => c.progress < 100);
-    
+
     return {
       totalCooks: recentCooks.length,
       completedCooks: completedCooks.length,
