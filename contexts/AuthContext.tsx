@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { Platform } from "react-native";
 import { Session, User } from "@supabase/supabase-js";
 import createContextHook from "@nkzw/create-context-hook";
