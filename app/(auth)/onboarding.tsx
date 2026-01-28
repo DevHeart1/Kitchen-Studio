@@ -277,12 +277,6 @@ export default function OnboardingScreen() {
         })
     ).current;
 
-    useEffect(() => {
-        panResponder.panHandlers.onMoveShouldSetPanResponder = (_, gestureState) => {
-            return Math.abs(gestureState.dx) > 10;
-        };
-    }, [currentSlide, dimensions.width]);
-
     const renderSlide = (slide: typeof SLIDES[0], index: number) => {
         const slideWidth = dimensions.width;
         
