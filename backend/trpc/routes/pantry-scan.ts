@@ -72,9 +72,12 @@ export const pantryScanRouter = createTRPCRouter({
         });
 
         const result = await ai.models.generateContent({
-          model: 'gemini-2.0-flash-exp',
+          model: 'gemini-3-flash-preview',
           config: {
             responseMimeType: 'application/json',
+            thinkingConfig: {
+              thinkingLevel: 'HIGH' as any,
+            },
           },
           contents: [
             {
