@@ -17,7 +17,7 @@ import {
 import { router, Link } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { LinearGradient } from "expo-linear-gradient";
-import { UtensilsCrossed, Mail, Lock, Eye, EyeOff, X, Music } from "lucide-react-native";
+import { UtensilsCrossed, Mail, Lock, Eye, EyeOff, X, Music, CheckCircle, AlertCircle } from "lucide-react-native";
 import Colors from "@/constants/colors";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserProfile } from "@/contexts/UserProfileContext";
@@ -37,6 +37,23 @@ export default function LoginScreen() {
     const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
     const [showConfirmationMessage, setShowConfirmationMessage] = useState(false);
     const [isResending, setIsResending] = useState(false);
+    const [customAlert, setCustomAlert] = useState<{
+        visible: boolean;
+        title: string;
+        message: string;
+        type: 'success' | 'error' | 'info';
+        onClose?: () => void;
+    }>({ visible: false, title: '', message: '', type: 'info' });
+
+    const showCustomAlert = (title: string, message: string, type: 'success' | 'error' | 'info' = 'info', onClose?: () => void) => {
+        setCustomAlert({ visible: true, title, message, type, onClose });
+    };
+
+    const hideCustomAlert = () => {
+        const callback = customAlert.onClose;
+        setCustomAlert({ visible: false, title: '', message: '', type: 'info' });
+        if (callback) callback();
+    };
 
     const validateForm = () => {
         const newErrors: { email?: string; password?: string } = {};
@@ -69,7 +86,7 @@ export default function LoginScreen() {
                 if (needsEmailConfirmation) {
                     setShowConfirmationMessage(true);
                 } else {
-                    Alert.alert("Login Failed", error.message || "Invalid credentials");
+                    showCustomAlert("Login Failed", error.message || "Invalid credentials", 'error');
                 }
             } else {
                 setShowEmailModal(false);
@@ -81,7 +98,7 @@ export default function LoginScreen() {
                 }
             }
         } catch (error) {
-            Alert.alert("Error", "An unexpected error occurred");
+            showCustomAlert("Error", "An unexpected error occurred", 'error');
         } finally {
             setIsSubmitting(false);
         }
@@ -89,7 +106,7 @@ export default function LoginScreen() {
 
     const handleResendConfirmation = async () => {
         if (!email.trim()) {
-            Alert.alert("Error", "Please enter your email address");
+            showCustomAlert("Error", "Please enter your email address", 'error');
             return;
         }
 
@@ -97,15 +114,16 @@ export default function LoginScreen() {
         try {
             const { error } = await resendConfirmationEmail(email);
             if (error) {
-                Alert.alert("Error", error.message || "Failed to resend confirmation email");
+                showCustomAlert("Error", error.message || "Failed to resend confirmation email", 'error');
             } else {
-                Alert.alert(
+                showCustomAlert(
                     "Email Sent",
-                    "A new confirmation email has been sent. Please check your inbox and spam folder."
+                    "A new confirmation email has been sent. Please check your inbox and spam folder.",
+                    'success'
                 );
             }
         } catch (error) {
-            Alert.alert("Error", "An unexpected error occurred");
+            showCustomAlert("Error", "An unexpected error occurred", 'error');
         } finally {
             setIsResending(false);
         }
@@ -116,7 +134,7 @@ export default function LoginScreen() {
             console.log("[Login] Starting Google sign in...");
             const { error } = await signInWithGoogle();
             if (error) {
-                Alert.alert("Google Sign In Failed", error.message || "Could not sign in with Google");
+                showCustomAlert("Google Sign In Failed", error.message || "Could not sign in with Google", 'error');
             } else {
                 const hasOnboarded = await checkOnboardingStatus();
                 if (hasOnboarded) {
@@ -127,7 +145,7 @@ export default function LoginScreen() {
             }
         } catch (error) {
             console.error("[Login] Google sign in error:", error);
-            Alert.alert("Error", "An unexpected error occurred");
+            showCustomAlert("Error", "An unexpected error occurred", 'error');
         }
     };
 
@@ -136,7 +154,7 @@ export default function LoginScreen() {
             console.log("[Login] Starting Apple sign in...");
             const { error } = await signInWithApple();
             if (error) {
-                Alert.alert("Apple Sign In Failed", error.message || "Could not sign in with Apple");
+                showCustomAlert("Apple Sign In Failed", error.message || "Could not sign in with Apple", 'error');
             } else {
                 const hasOnboarded = await checkOnboardingStatus();
                 if (hasOnboarded) {
@@ -147,15 +165,15 @@ export default function LoginScreen() {
             }
         } catch (error) {
             console.error("[Login] Apple sign in error:", error);
-            Alert.alert("Error", "An unexpected error occurred");
+            showCustomAlert("Error", "An unexpected error occurred", 'error');
         }
     };
 
     const handleTikTokSignIn = async () => {
-        Alert.alert(
+        showCustomAlert(
             "Coming Soon",
             "TikTok sign in will be available soon!",
-            [{ text: "OK" }]
+            'info'
         );
     };
 
@@ -370,6 +388,45 @@ export default function LoginScreen() {
                             </TouchableOpacity>
                         </View>
                     </KeyboardAvoidingView>
+                </View>
+            </Modal>
+
+            <Modal
+                visible={customAlert.visible}
+                animationType="fade"
+                transparent={true}
+                onRequestClose={hideCustomAlert}
+            >
+                <View style={styles.alertOverlay}>
+                    <View style={styles.alertContainer}>
+                        <View style={[
+                            styles.alertIconContainer,
+                            customAlert.type === 'success' && styles.alertIconSuccess,
+                            customAlert.type === 'error' && styles.alertIconError,
+                            customAlert.type === 'info' && styles.alertIconInfo,
+                        ]}>
+                            {customAlert.type === 'success' && <CheckCircle size={28} color={Colors.primary} />}
+                            {customAlert.type === 'error' && <AlertCircle size={28} color={Colors.red} />}
+                            {customAlert.type === 'info' && <Mail size={28} color={Colors.primary} />}
+                        </View>
+                        <Text style={styles.alertTitle}>{customAlert.title}</Text>
+                        <Text style={styles.alertMessage}>{customAlert.message}</Text>
+                        <TouchableOpacity
+                            style={[
+                                styles.alertButton,
+                                customAlert.type === 'success' && styles.alertButtonSuccess,
+                                customAlert.type === 'error' && styles.alertButtonError,
+                                customAlert.type === 'info' && styles.alertButtonSuccess,
+                            ]}
+                            onPress={hideCustomAlert}
+                            activeOpacity={0.8}
+                        >
+                            <Text style={[
+                                styles.alertButtonText,
+                                customAlert.type === 'error' && styles.alertButtonTextError,
+                            ]}>OK</Text>
+                        </TouchableOpacity>
+                    </View>
                 </View>
             </Modal>
         </View>
@@ -718,5 +775,90 @@ const styles = StyleSheet.create({
         color: Colors.primary,
         fontSize: 14,
         fontWeight: "600",
+    },
+    alertOverlay: {
+        flex: 1,
+        backgroundColor: "rgba(0, 0, 0, 0.85)",
+        justifyContent: "center",
+        alignItems: "center",
+        paddingHorizontal: 32,
+    },
+    alertContainer: {
+        backgroundColor: Colors.surfaceDark,
+        borderRadius: 24,
+        padding: 28,
+        width: "100%",
+        maxWidth: 340,
+        alignItems: "center",
+        borderWidth: 1,
+        borderColor: "rgba(255, 255, 255, 0.1)",
+        ...Platform.select({
+            ios: {
+                shadowColor: "#000",
+                shadowOffset: { width: 0, height: 12 },
+                shadowOpacity: 0.4,
+                shadowRadius: 24,
+            },
+            android: {
+                elevation: 16,
+            },
+            web: {
+                boxShadow: "0 12px 48px rgba(0, 0, 0, 0.5)",
+            } as any,
+        }),
+    },
+    alertIconContainer: {
+        width: 64,
+        height: 64,
+        borderRadius: 32,
+        justifyContent: "center",
+        alignItems: "center",
+        marginBottom: 20,
+    },
+    alertIconSuccess: {
+        backgroundColor: "rgba(43, 238, 91, 0.15)",
+    },
+    alertIconError: {
+        backgroundColor: "rgba(239, 68, 68, 0.15)",
+    },
+    alertIconInfo: {
+        backgroundColor: "rgba(43, 238, 91, 0.15)",
+    },
+    alertTitle: {
+        fontSize: 20,
+        fontWeight: "700",
+        color: Colors.white,
+        textAlign: "center",
+        marginBottom: 10,
+    },
+    alertMessage: {
+        fontSize: 15,
+        color: Colors.textSecondary,
+        textAlign: "center",
+        lineHeight: 22,
+        marginBottom: 24,
+    },
+    alertButton: {
+        width: "100%",
+        height: 50,
+        borderRadius: 14,
+        justifyContent: "center",
+        alignItems: "center",
+    },
+    alertButtonSuccess: {
+        backgroundColor: Colors.primary,
+    },
+    alertButtonError: {
+        backgroundColor: "rgba(239, 68, 68, 0.2)",
+        borderWidth: 1,
+        borderColor: "rgba(239, 68, 68, 0.4)",
+    },
+    alertButtonText: {
+        fontSize: 16,
+        fontWeight: "700",
+        color: Colors.backgroundDark,
+    },
+    alertButtonTextError: {
+        color: Colors.red,
     },
 });
