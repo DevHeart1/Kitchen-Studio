@@ -203,6 +203,17 @@ export default function OnboardingScreen() {
     const [currentSlide, setCurrentSlide] = useState(0);
     const translateX = useRef(new Animated.Value(0)).current;
     const [dimensions, setDimensions] = useState({ width: SCREEN_WIDTH, height: SCREEN_HEIGHT });
+    
+    const currentSlideRef = useRef(currentSlide);
+    const dimensionsRef = useRef(dimensions);
+    
+    useEffect(() => {
+        currentSlideRef.current = currentSlide;
+    }, [currentSlide]);
+    
+    useEffect(() => {
+        dimensionsRef.current = dimensions;
+    }, [dimensions]);
 
     useEffect(() => {
         const subscription = Dimensions.addEventListener('change', ({ window }) => {
@@ -214,28 +225,29 @@ export default function OnboardingScreen() {
     const goToSlide = useCallback((index: number) => {
         if (index >= 0 && index < SLIDES.length) {
             Animated.spring(translateX, {
-                toValue: -index * dimensions.width,
+                toValue: -index * dimensionsRef.current.width,
                 useNativeDriver: true,
                 tension: 50,
                 friction: 12,
             }).start();
             setCurrentSlide(index);
+            currentSlideRef.current = index;
         }
-    }, [translateX, dimensions.width]);
+    }, [translateX]);
 
     const handleNext = useCallback(() => {
-        if (currentSlide < SLIDES.length - 1) {
-            goToSlide(currentSlide + 1);
+        if (currentSlideRef.current < SLIDES.length - 1) {
+            goToSlide(currentSlideRef.current + 1);
         } else {
             router.replace("/(auth)/login");
         }
-    }, [currentSlide, goToSlide]);
+    }, [goToSlide]);
 
     const handleBack = useCallback(() => {
-        if (currentSlide > 0) {
-            goToSlide(currentSlide - 1);
+        if (currentSlideRef.current > 0) {
+            goToSlide(currentSlideRef.current - 1);
         }
-    }, [currentSlide, goToSlide]);
+    }, [goToSlide]);
 
     const handleSkip = useCallback(() => {
         router.replace("/(auth)/login");
@@ -249,29 +261,66 @@ export default function OnboardingScreen() {
         PanResponder.create({
             onStartShouldSetPanResponder: () => true,
             onMoveShouldSetPanResponder: (_, gestureState) => {
-                return Math.abs(gestureState.dx) > 10;
+                return Math.abs(gestureState.dx) > 10 && Math.abs(gestureState.dy) < Math.abs(gestureState.dx);
+            },
+            onPanResponderGrant: () => {
+                translateX.stopAnimation();
             },
             onPanResponderMove: (_, gestureState) => {
-                const newTranslateX = -currentSlide * dimensions.width + gestureState.dx;
+                const slide = currentSlideRef.current;
+                const width = dimensionsRef.current.width;
+                const newTranslateX = -slide * width + gestureState.dx;
                 translateX.setValue(newTranslateX);
             },
             onPanResponderRelease: (_, gestureState) => {
                 const { dx, vx } = gestureState;
+                const slide = currentSlideRef.current;
+                const width = dimensionsRef.current.width;
+                const threshold = width * 0.25;
                 
-                if (dx < -SWIPE_THRESHOLD || (dx < 0 && vx < -0.5)) {
-                    if (currentSlide < SLIDES.length - 1) {
-                        goToSlide(currentSlide + 1);
+                if (dx < -threshold || (dx < -20 && vx < -0.3)) {
+                    if (slide < SLIDES.length - 1) {
+                        Animated.spring(translateX, {
+                            toValue: -(slide + 1) * width,
+                            useNativeDriver: true,
+                            tension: 50,
+                            friction: 12,
+                        }).start();
+                        setCurrentSlide(slide + 1);
+                        currentSlideRef.current = slide + 1;
                     } else {
-                        goToSlide(currentSlide);
+                        Animated.spring(translateX, {
+                            toValue: -slide * width,
+                            useNativeDriver: true,
+                            tension: 50,
+                            friction: 12,
+                        }).start();
                     }
-                } else if (dx > SWIPE_THRESHOLD || (dx > 0 && vx > 0.5)) {
-                    if (currentSlide > 0) {
-                        goToSlide(currentSlide - 1);
+                } else if (dx > threshold || (dx > 20 && vx > 0.3)) {
+                    if (slide > 0) {
+                        Animated.spring(translateX, {
+                            toValue: -(slide - 1) * width,
+                            useNativeDriver: true,
+                            tension: 50,
+                            friction: 12,
+                        }).start();
+                        setCurrentSlide(slide - 1);
+                        currentSlideRef.current = slide - 1;
                     } else {
-                        goToSlide(currentSlide);
+                        Animated.spring(translateX, {
+                            toValue: -slide * width,
+                            useNativeDriver: true,
+                            tension: 50,
+                            friction: 12,
+                        }).start();
                     }
                 } else {
-                    goToSlide(currentSlide);
+                    Animated.spring(translateX, {
+                        toValue: -slide * width,
+                        useNativeDriver: true,
+                        tension: 50,
+                        friction: 12,
+                    }).start();
                 }
             },
         })
