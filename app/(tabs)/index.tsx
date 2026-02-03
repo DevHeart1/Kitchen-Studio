@@ -15,10 +15,12 @@ import SessionCard from "@/components/SessionCard";
 import RecentCookCard from "@/components/RecentCookCard";
 import { featuredSessions, recentCooks } from "@/mocks/sessions";
 import { RecentCook } from "@/types";
+import { useUserProfile } from "@/contexts/UserProfileContext";
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { profile, isLoading } = useUserProfile();
 
   const handleConvert = (url: string) => {
     console.log("Converting URL:", url);
@@ -35,6 +37,28 @@ export default function HomeScreen() {
     });
   };
 
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Good morning";
+    if (hour < 18) return "Good afternoon";
+    return "Good evening";
+  };
+
+  const getGoalMessage = () => {
+    if (!profile.primaryGoal) return "What would you like to make?";
+
+    switch (profile.primaryGoal) {
+      case "eat-healthy":
+        return "Focusing on nutritious meals today.";
+      case "save-money":
+        return "Budget-friendly recipes selected for you.";
+      case "learn-new":
+        return "Explore new techniques and flavors.";
+      default:
+        return "What would you like to make?";
+    }
+  };
+
   return (
     <View style={styles.container}>
       <ScrollView
@@ -48,10 +72,14 @@ export default function HomeScreen() {
         <Header />
 
         <View style={styles.headlineSection}>
-          <Text style={styles.headline}>
-            Transform any video into a{" "}
-            <Text style={styles.headlineAccent}>kitchen guide</Text>
+          <Text style={styles.greeting}>
+            {getGreeting()}, <Text style={styles.nameAccent}>{profile.name.split(' ')[0]}</Text>
           </Text>
+          <Text style={styles.userTitle}>{profile.title}</Text>
+          <Text style={styles.headline}>
+            Ready to cook something <Text style={styles.headlineAccent}>delicious?</Text>
+          </Text>
+          <Text style={styles.goalMessage}>{getGoalMessage()}</Text>
         </View>
 
         <LinkInput onConvert={handleConvert} />
@@ -115,6 +143,24 @@ const styles = StyleSheet.create({
     paddingTop: 24,
     paddingBottom: 8,
   },
+  greeting: {
+    fontSize: 16,
+    color: "rgba(255, 255, 255, 0.8)",
+    marginBottom: 4,
+    fontWeight: "500",
+  },
+  nameAccent: {
+    color: Colors.white,
+    fontWeight: "700",
+  },
+  userTitle: {
+    fontSize: 12,
+    color: Colors.primary,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 1,
+    marginBottom: 12,
+  },
   headline: {
     fontSize: 30,
     fontWeight: "700" as const,
@@ -125,6 +171,11 @@ const styles = StyleSheet.create({
   },
   headlineAccent: {
     color: Colors.primary,
+  },
+  goalMessage: {
+    fontSize: 14,
+    color: "rgba(255, 255, 255, 0.6)",
+    marginTop: 8,
   },
   sectionHeader: {
     flexDirection: "row",
