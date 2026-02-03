@@ -90,6 +90,15 @@ export async function getStarterRecipes(preferences: UserPreferences): Promise<S
             };
         }
 
+        if (!data?.success) {
+            console.error("[StarterRecipes] Server returned error:", data?.error);
+            console.log("[StarterRecipes] Using fallback recipes");
+            return {
+                recipes: FALLBACK_RECIPES,
+                error: null, // Return null error so UI doesn't show error state, just shows fallback recipes
+            };
+        }
+
         if (data?.recipes && data.recipes.length > 0) {
             console.log("[StarterRecipes] Received", data.recipes.length, "recipes");
             return { recipes: data.recipes, error: null };

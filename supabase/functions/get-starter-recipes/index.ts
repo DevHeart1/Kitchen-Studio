@@ -146,7 +146,7 @@ Make recipes appealing, practical, and perfectly matched to the user's preferenc
                 error: errorMessage
             }),
             {
-                status: 500,
+                status: 200,
                 headers: { ...corsHeaders, "Content-Type": "application/json" }
             }
         );
