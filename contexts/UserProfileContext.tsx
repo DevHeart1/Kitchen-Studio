@@ -227,24 +227,27 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
       if (useSupabase) {
         const { error } = await supabase
           .from("user_profiles")
-          .upsert({
-            user_id: DEMO_USER_ID,
-            name: updated.name,
-            title: updated.title,
-            level: updated.level,
-            avatar: updated.avatar,
-            cook_time: updated.stats.cookTime,
-            accuracy: updated.stats.accuracy,
-            recipes_completed: updated.stats.recipesCompleted,
-            total_xp: updated.stats.totalXP,
-            unlocked_badge_ids: updated.unlockedBadgeIds,
-            settings: updated.settings,
-            cooking_level: updated.cookingLevel || 'beginner',
-            dietary_preferences: updated.dietaryPreferences || [],
-            primary_goal: updated.primaryGoal,
-            cooking_interests: updated.cookingInterests || [],
-            onboarding_completed: true,
-          });
+          .upsert(
+            {
+              user_id: DEMO_USER_ID,
+              name: updated.name,
+              title: updated.title,
+              level: updated.level,
+              avatar: updated.avatar,
+              cook_time: updated.stats.cookTime,
+              accuracy: updated.stats.accuracy,
+              recipes_completed: updated.stats.recipesCompleted,
+              total_xp: updated.stats.totalXP,
+              unlocked_badge_ids: updated.unlockedBadgeIds,
+              settings: updated.settings,
+              cooking_level: updated.cookingLevel || 'beginner',
+              dietary_preferences: updated.dietaryPreferences || [],
+              primary_goal: updated.primaryGoal,
+              cooking_interests: updated.cookingInterests || [],
+              onboarding_completed: true,
+            },
+            { onConflict: 'user_id' }
+          );
 
         if (error) {
           console.error("[Profile] Save error:", error.message);
@@ -444,10 +447,13 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
       if (useSupabase) {
         await supabase
           .from("user_profiles")
-          .upsert({
-            user_id: DEMO_USER_ID,
-            onboarding_completed: true,
-          });
+          .upsert(
+            {
+              user_id: DEMO_USER_ID,
+              onboarding_completed: true,
+            },
+            { onConflict: 'user_id' }
+          );
       } else {
         const stored = await AsyncStorage.getItem(STORAGE_KEY);
         const parsed = stored ? JSON.parse(stored) : DEFAULT_PROFILE;
