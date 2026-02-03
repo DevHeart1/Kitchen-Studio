@@ -3,7 +3,7 @@
 // Uses Gemini 3 Flash Preview to generate personalized recipe recommendations
 // Note: This file runs in Deno runtime, not Node.js
 
-import { GoogleGenAI } from "npm:@google/genai@^1.0.0";
+import { GoogleGenerativeAI } from "npm:@google/generative-ai@^0.21.0";
 
 const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
@@ -47,7 +47,8 @@ Deno.serve(async (req) => {
             throw new Error("Missing user preferences");
         }
 
-        const ai = new GoogleGenAI({ apiKey });
+        const ai = new GoogleGenerativeAI(apiKey);
+        const model = ai.getGenerativeModel({ model: "gemini-1.5-flash" });
 
         const dietaryText = preferences.dietaryPreferences.length > 0
             ? preferences.dietaryPreferences.join(", ")
@@ -99,16 +100,9 @@ Return a JSON array with this exact structure:
 
 Make recipes appealing, practical, and perfectly matched to the user's preferences. First recipe should have highest match percentage.`;
 
-        const response = await ai.models.generateContent({
-            model: "gemini-3-flash-preview",
-            config: {
-                thinkingConfig: { thinkingLevel: "MINIMAL" },
-                responseMimeType: "application/json",
-            },
-            contents: [{ role: "user", parts: [{ text: prompt }] }],
-        });
+        const response = await model.generateContent(prompt);
 
-        const text = response.text || "";
+        const text = response.response.text() || "";
         let recipes: StarterRecipe[];
 
         try {
