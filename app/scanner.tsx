@@ -714,7 +714,7 @@ export default function ScannerScreen() {
             </Text>
             <Text style={styles.traySubtitle}>
               {isScanning
-                ? "Gemini 2.0 Flash is analyzing"
+                ? "Gemini 3 Flash is analyzing"
                 : detectedItems.length > 0
                   ? `${detectedItems.length} items • Tap to toggle`
                   : "Capture your pantry to begin"}
@@ -734,7 +734,7 @@ export default function ScannerScreen() {
             <View style={styles.loadingRing}>
               <ActivityIndicator size="large" color={Colors.primary} />
             </View>
-            <Text style={styles.loadingText}>Processing with Gemini 2.0 Flash...</Text>
+            <Text style={styles.loadingText}>Processing with Gemini 3 Flash...</Text>
           </View>
         ) : (
           <ScrollView
