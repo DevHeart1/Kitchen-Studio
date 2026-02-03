@@ -10,6 +10,7 @@ import {
   Dimensions,
   Platform,
   ActivityIndicator,
+  Alert,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -570,29 +571,46 @@ export default function ScannerScreen() {
 
     console.log("[Scanner] Adding confirmed items to inventory:", confirmedItems.length);
 
-    for (const item of confirmedItems) {
-      const stockPercentage =
-        item.estimatedQuantity === "full" ? 100 :
-          item.estimatedQuantity === "half" ? 50 :
-            item.estimatedQuantity === "almost empty" ? 15 :
-              item.estimatedQuantity === "multiple" ? 100 : 75;
+    try {
+      if (confirmedItems.length === 0) return;
 
-      await addItem({
-        name: item.name,
-        image: item.imageUri || PLACEHOLDER_IMAGES[item.category] || PLACEHOLDER_IMAGES["Other"],
-        category: item.category,
-        addedDate: "Added just now",
-        status: item.suggestedStatus || "good",
-        stockPercentage,
-        expiresIn: item.suggestedStatus === "expiring" ? "Soon" : undefined,
-      });
+      for (const item of confirmedItems) {
+        const stockPercentage =
+          item.estimatedQuantity === "full" ? 100 :
+            item.estimatedQuantity === "half" ? 50 :
+              item.estimatedQuantity === "almost empty" ? 15 :
+                item.estimatedQuantity === "multiple" ? 100 : 75;
+
+        await addItem({
+          name: item.name,
+          image: item.imageUri || PLACEHOLDER_IMAGES[item.category] || PLACEHOLDER_IMAGES["Other"],
+          category: item.category,
+          addedDate: "Added just now",
+          status: item.suggestedStatus || "good",
+          stockPercentage,
+          expiresIn: item.suggestedStatus === "expiring" ? "Soon" : undefined,
+        });
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      if (router.canGoBack()) {
+        router.back();
+      } else {
+        router.replace('/(tabs)/kitchen');
+      }
+    } catch (e) {
+      console.error("Failed to finish scan:", e);
+      router.replace('/(tabs)/kitchen');
     }
-
-    router.back();
   }, [detectedItems, addItem, router]);
 
   const handleClose = () => {
-    router.back();
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(tabs)/kitchen');
+    }
   };
 
   const confirmedCount = detectedItems.filter((item) => item.confirmed).length;
@@ -728,15 +746,6 @@ export default function ScannerScreen() {
                   : "Capture your pantry to begin"}
             </Text>
             <View style={styles.headerControls}>
-              {detectedItems.length > 0 && (
-                <TouchableOpacity
-                  style={styles.scanMoreButton}
-                  onPress={handleScanMore}
-                  activeOpacity={0.7}
-                >
-                  <Plus size={20} color={Colors.white} />
-                </TouchableOpacity>
-              )}
               {overallConfidence > 0 && (
                 <View style={styles.confidenceBadge}>
                   <Text style={styles.confidenceText}>
@@ -831,523 +840,536 @@ export default function ScannerScreen() {
             </ScrollView>
           )}
 
-          <TouchableOpacity
-            style={[
-              styles.finishButton,
-              (detectedItems.length === 0 || confirmedCount === 0) && styles.finishButtonDisabled,
-            ]}
-            onPress={handleFinishScan}
-            activeOpacity={0.8}
-            disabled={detectedItems.length === 0 || confirmedCount === 0}
-          >
-            <CheckCheck size={22} color={Colors.backgroundDark} strokeWidth={2.5} />
-            <Text style={styles.finishButtonText}>
-              Add {confirmedCount} Items to Pantry
-            </Text>
-          </TouchableOpacity>
+          <View style={styles.actionButtonsContainer}>
+            <TouchableOpacity
+              style={[styles.actionButton, styles.scanNextButton]}
+              onPress={handleScanMore}
+              activeOpacity={0.8}
+            >
+              <Plus size={20} color={Colors.white} />
+              <Text style={styles.actionButtonText}>Scan Next</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.actionButton,
+                styles.finishButton,
+                (detectedItems.length === 0 || confirmedCount === 0) && styles.finishButtonDisabled,
+              ]}
+              onPress={handleFinishScan}
+              activeOpacity={0.8}
+              disabled={detectedItems.length === 0 || confirmedCount === 0}
+            >
+              <CheckCheck size={20} color={Colors.backgroundDark} strokeWidth={2.5} />
+              <Text style={styles.finishButtonText}>
+                Add ({confirmedCount})
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
-      );
+    </View>
+  );
 }
 
-      const styles = StyleSheet.create({
-        container: {
-        flex: 1,
-      backgroundColor: Colors.backgroundDark,
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: Colors.backgroundDark,
   },
-      centered: {
-        alignItems: "center",
-      justifyContent: "center",
-      padding: 32,
+  centered: {
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 32,
   },
-      cameraBackground: {
-        position: "absolute",
-      width: SCREEN_WIDTH,
-      height: SCREEN_HEIGHT,
+  cameraBackground: {
+    position: "absolute",
+    width: SCREEN_WIDTH,
+    height: SCREEN_HEIGHT,
   },
-      overlay: {
-        position: "absolute",
-      width: SCREEN_WIDTH,
-      height: SCREEN_HEIGHT,
-      backgroundColor: "rgba(0,0,0,0.2)",
+  overlay: {
+    position: "absolute",
+    width: SCREEN_WIDTH,
+    height: SCREEN_HEIGHT,
+    backgroundColor: "rgba(0,0,0,0.2)",
   },
-      fullScanLine: {
-        position: "absolute",
-      left: 0,
-      right: 0,
-      backgroundColor: Colors.primary,
-      ...Platform.select({
-        ios: {
+  fullScanLine: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    backgroundColor: Colors.primary,
+    ...Platform.select({
+      ios: {
         shadowColor: Colors.primary,
-      shadowOffset: {width: 0, height: 0 },
-      shadowOpacity: 1,
-      shadowRadius: 20,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 1,
+        shadowRadius: 20,
       },
       web: {
         boxShadow: `0 0 30px ${Colors.primary}, 0 0 60px ${Colors.primary}40`,
       } as any,
     }),
   },
-      scanLineSecondary: {
-        backgroundColor: `${Colors.primary}80`,
+  scanLineSecondary: {
+    backgroundColor: `${Colors.primary}80`,
   },
-      scanLineTertiary: {
-        backgroundColor: `${Colors.primary}40`,
+  scanLineTertiary: {
+    backgroundColor: `${Colors.primary}40`,
   },
-      crtContainer: {
-        position: "absolute",
-      width: SCREEN_WIDTH,
-      height: SCREEN_HEIGHT,
-      overflow: "hidden",
+  crtContainer: {
+    position: "absolute",
+    width: SCREEN_WIDTH,
+    height: SCREEN_HEIGHT,
+    overflow: "hidden",
   },
-      crtLine: {
-        position: "absolute",
-      left: 0,
-      right: 0,
-      height: 1,
-      backgroundColor: "rgba(0,0,0,0.1)",
+  crtLine: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    height: 1,
+    backgroundColor: "rgba(0,0,0,0.1)",
   },
-      gridContainer: {
-        position: "absolute",
-      width: SCREEN_WIDTH,
-      height: SCREEN_HEIGHT,
+  gridContainer: {
+    position: "absolute",
+    width: SCREEN_WIDTH,
+    height: SCREEN_HEIGHT,
   },
-      gridLineVertical: {
-        position: "absolute",
-      top: 0,
-      bottom: 0,
-      width: 1,
-      backgroundColor: Colors.primary,
+  gridLineVertical: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    width: 1,
+    backgroundColor: Colors.primary,
   },
-      gridLineHorizontal: {
-        position: "absolute",
-      left: 0,
-      right: 0,
-      height: 1,
-      backgroundColor: Colors.primary,
+  gridLineHorizontal: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    height: 1,
+    backgroundColor: Colors.primary,
   },
-      cornersContainer: {
-        position: "relative",
+  cornersContainer: {
+    position: "relative",
   },
-      cornerBracket: {
-        position: "absolute",
+  cornerBracket: {
+    position: "absolute",
   },
-      cornerTL: {
-        top: 0,
-      left: 0,
+  cornerTL: {
+    top: 0,
+    left: 0,
   },
-      cornerTR: {
-        top: 0,
-      right: 0,
+  cornerTR: {
+    top: 0,
+    right: 0,
   },
-      cornerBL: {
-        bottom: 0,
-      left: 0,
+  cornerBL: {
+    bottom: 0,
+    left: 0,
   },
-      cornerBR: {
-        bottom: 0,
-      right: 0,
+  cornerBR: {
+    bottom: 0,
+    right: 0,
   },
-      bracketHorizontal: {
-        position: "absolute",
-      height: 3,
-      backgroundColor: Colors.primary,
-      ...Platform.select({
-        ios: {
+  bracketHorizontal: {
+    position: "absolute",
+    height: 3,
+    backgroundColor: Colors.primary,
+    ...Platform.select({
+      ios: {
         shadowColor: Colors.primary,
-      shadowOffset: {width: 0, height: 0 },
-      shadowOpacity: 0.8,
-      shadowRadius: 6,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.8,
+        shadowRadius: 6,
       },
       web: {
         boxShadow: `0 0 12px ${Colors.primary}`,
       } as any,
     }),
   },
-      bracketVertical: {
-        position: "absolute",
-      width: 3,
-      backgroundColor: Colors.primary,
-      ...Platform.select({
-        ios: {
+  bracketVertical: {
+    position: "absolute",
+    width: 3,
+    backgroundColor: Colors.primary,
+    ...Platform.select({
+      ios: {
         shadowColor: Colors.primary,
-      shadowOffset: {width: 0, height: 0 },
-      shadowOpacity: 0.8,
-      shadowRadius: 6,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.8,
+        shadowRadius: 6,
       },
       web: {
         boxShadow: `0 0 12px ${Colors.primary}`,
       } as any,
     }),
   },
-      cornerGlow: {
-        position: "absolute",
-      width: 20,
-      height: 20,
-      borderRadius: 10,
-      backgroundColor: Colors.primary,
-      ...Platform.select({
-        ios: {
+  cornerGlow: {
+    position: "absolute",
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: Colors.primary,
+    ...Platform.select({
+      ios: {
         shadowColor: Colors.primary,
-      shadowOffset: {width: 0, height: 0 },
-      shadowOpacity: 1,
-      shadowRadius: 15,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 1,
+        shadowRadius: 15,
       },
       web: {
         boxShadow: `0 0 20px ${Colors.primary}, 0 0 40px ${Colors.primary}`,
       } as any,
     }),
   },
-      glowTL: {
-        top: -5,
-      left: -5,
+  glowTL: {
+    top: -5,
+    left: -5,
   },
-      glowTR: {
-        top: -5,
-      right: -5,
+  glowTR: {
+    top: -5,
+    right: -5,
   },
-      glowBL: {
-        bottom: -5,
-      left: -5,
+  glowBL: {
+    bottom: -5,
+    left: -5,
   },
-      glowBR: {
-        bottom: -5,
-      right: -5,
+  glowBR: {
+    bottom: -5,
+    right: -5,
   },
-      centerCrosshair: {
-        position: "absolute",
-      top: "50%",
-      left: "50%",
-      width: 30,
-      height: 30,
-      marginTop: -15,
-      marginLeft: -15,
-      alignItems: "center",
-      justifyContent: "center",
+  centerCrosshair: {
+    position: "absolute",
+    top: "50%",
+    left: "50%",
+    width: 30,
+    height: 30,
+    marginTop: -15,
+    marginLeft: -15,
+    alignItems: "center",
+    justifyContent: "center",
   },
-      crosshairH: {
-        position: "absolute",
-      width: 20,
-      height: 1,
-      backgroundColor: `${Colors.primary}60`,
+  crosshairH: {
+    position: "absolute",
+    width: 20,
+    height: 1,
+    backgroundColor: `${Colors.primary}60`,
   },
-      crosshairV: {
-        position: "absolute",
-      width: 1,
-      height: 20,
-      backgroundColor: `${Colors.primary}60`,
+  crosshairV: {
+    position: "absolute",
+    width: 1,
+    height: 20,
+    backgroundColor: `${Colors.primary}60`,
   },
-      crosshairDot: {
-        width: 6,
-      height: 6,
-      borderRadius: 3,
-      backgroundColor: Colors.primary,
-      ...Platform.select({
-        ios: {
+  crosshairDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: Colors.primary,
+    ...Platform.select({
+      ios: {
         shadowColor: Colors.primary,
-      shadowOffset: {width: 0, height: 0 },
-      shadowOpacity: 1,
-      shadowRadius: 4,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 1,
+        shadowRadius: 4,
       },
       web: {
         boxShadow: `0 0 8px ${Colors.primary}`,
       } as any,
     }),
   },
-      dataStreamContainer: {
-        position: "absolute",
-      top: 120,
-      left: 0,
-      right: 0,
-      height: 100,
+  dataStreamContainer: {
+    position: "absolute",
+    top: 120,
+    left: 0,
+    right: 0,
+    height: 100,
   },
-      dataStream: {
-        position: "absolute",
+  dataStream: {
+    position: "absolute",
   },
-      dataStreamText: {
-        fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
-      fontSize: 10,
-      color: `${Colors.primary}80`,
-      letterSpacing: 2,
+  dataStreamText: {
+    fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
+    fontSize: 10,
+    color: `${Colors.primary}80`,
+    letterSpacing: 2,
   },
-      glowVignette: {
-        position: "absolute",
-      width: SCREEN_WIDTH,
-      height: SCREEN_HEIGHT,
-      borderWidth: 3,
-      borderColor: Colors.primary,
-      ...Platform.select({
-        ios: {
+  glowVignette: {
+    position: "absolute",
+    width: SCREEN_WIDTH,
+    height: SCREEN_HEIGHT,
+    borderWidth: 3,
+    borderColor: Colors.primary,
+    ...Platform.select({
+      ios: {
         shadowColor: Colors.primary,
-      shadowOffset: {width: 0, height: 0 },
-      shadowOpacity: 1,
-      shadowRadius: 30,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 1,
+        shadowRadius: 30,
       },
       web: {
         boxShadow: `inset 0 0 100px ${Colors.primary}20`,
       } as any,
     }),
   },
-      topBar: {
-        position: "absolute",
-      top: 0,
-      left: 0,
-      right: 0,
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
-      paddingHorizontal: 20,
-      zIndex: 20,
+  topBar: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    zIndex: 20,
   },
-      topButton: {
-        width: 48,
-      height: 48,
-      borderRadius: 24,
-      backgroundColor: Colors.cardGlass,
-      alignItems: "center",
-      justifyContent: "center",
-      borderWidth: 1,
-      borderColor: Colors.cardGlassBorder,
+  topButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: Colors.cardGlass,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: Colors.cardGlassBorder,
   },
-      scanningIndicator: {
-        alignItems: "center",
+  scanningIndicator: {
+    alignItems: "center",
   },
-      statusContainer: {
-        flexDirection: "row",
-      alignItems: "center",
-      gap: 8,
-      marginBottom: 4,
+  statusContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 4,
   },
-      statusDot: {
-        width: 8,
-      height: 8,
-      borderRadius: 4,
-      backgroundColor: Colors.primary,
-      ...Platform.select({
-        ios: {
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: Colors.primary,
+    ...Platform.select({
+      ios: {
         shadowColor: Colors.primary,
-      shadowOffset: {width: 0, height: 0 },
-      shadowOpacity: 1,
-      shadowRadius: 4,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 1,
+        shadowRadius: 4,
       },
       web: {
         boxShadow: `0 0 8px ${Colors.primary}`,
       } as any,
     }),
   },
-      scanningText: {
-        fontSize: 12,
-      fontWeight: "700" as const,
-      color: Colors.primary,
-      letterSpacing: 3,
+  scanningText: {
+    fontSize: 12,
+    fontWeight: "700" as const,
+    color: Colors.primary,
+    letterSpacing: 3,
   },
-      modelBadge: {
-        fontSize: 8,
-      fontWeight: "600" as const,
-      color: Colors.textSecondary,
-      letterSpacing: 1,
-      backgroundColor: "rgba(0,0,0,0.3)",
-      paddingHorizontal: 8,
-      paddingVertical: 2,
-      borderRadius: 4,
+  modelBadge: {
+    fontSize: 8,
+    fontWeight: "600" as const,
+    color: Colors.textSecondary,
+    letterSpacing: 1,
+    backgroundColor: "rgba(0,0,0,0.3)",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
   },
-      viewfinderContainer: {
-        flex: 1,
-      alignItems: "center",
-      justifyContent: "center",
-      marginTop: -60,
+  viewfinderContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: -60,
   },
-      scanningTitle: {
-        marginTop: 32,
-      fontSize: 22,
-      fontWeight: "700" as const,
-      color: Colors.white,
-      textAlign: "center",
-      ...Platform.select({
-        ios: {
+  scanningTitle: {
+    marginTop: 32,
+    fontSize: 22,
+    fontWeight: "700" as const,
+    color: Colors.white,
+    textAlign: "center",
+    ...Platform.select({
+      ios: {
         textShadowColor: Colors.primary,
-      textShadowOffset: {width: 0, height: 0 },
-      textShadowRadius: 10,
+        textShadowOffset: { width: 0, height: 0 },
+        textShadowRadius: 10,
       },
       web: {
         textShadow: `0 0 10px ${Colors.primary}`,
       } as any,
     }),
   },
-      captureButton: {
-        marginTop: 24,
+  captureButton: {
+    marginTop: 24,
   },
-      captureButtonOuter: {
-        width: 80,
-      height: 80,
-      borderRadius: 40,
-      backgroundColor: `${Colors.primary}20`,
-      alignItems: "center",
-      justifyContent: "center",
-      borderWidth: 3,
-      borderColor: Colors.primary,
-      ...Platform.select({
-        ios: {
+  captureButtonOuter: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: `${Colors.primary}20`,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 3,
+    borderColor: Colors.primary,
+    ...Platform.select({
+      ios: {
         shadowColor: Colors.primary,
-      shadowOffset: {width: 0, height: 0 },
-      shadowOpacity: 0.6,
-      shadowRadius: 15,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.6,
+        shadowRadius: 15,
       },
       web: {
         boxShadow: `0 0 30px ${Colors.primary}40`,
       } as any,
     }),
   },
-      captureButtonInner: {
-        width: 60,
-      height: 60,
-      borderRadius: 30,
-      backgroundColor: Colors.primary,
-      alignItems: "center",
-      justifyContent: "center",
+  captureButtonInner: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: Colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
   },
-      retakeButton: {
-        marginTop: 24,
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 8,
-      paddingHorizontal: 20,
-      paddingVertical: 12,
-      backgroundColor: "rgba(255,255,255,0.15)",
-      borderRadius: 24,
-      borderWidth: 1,
-      borderColor: "rgba(255,255,255,0.2)",
+  retakeButton: {
+    marginTop: 24,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    backgroundColor: "rgba(255,255,255,0.15)",
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.2)",
   },
-      retakeButtonText: {
-        fontSize: 14,
-      fontWeight: "600" as const,
-      color: Colors.white,
+  retakeButtonText: {
+    fontSize: 14,
+    fontWeight: "600" as const,
+    color: Colors.white,
   },
-      bottomTray: {
-        backgroundColor: Colors.cardGlass,
-      borderTopLeftRadius: 24,
-      borderTopRightRadius: 24,
-      borderWidth: 1,
-      borderBottomWidth: 0,
-      borderColor: Colors.cardGlassBorder,
-      ...Platform.select({
-        ios: {
+  bottomTray: {
+    backgroundColor: Colors.cardGlass,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderWidth: 1,
+    borderBottomWidth: 0,
+    borderColor: Colors.cardGlassBorder,
+    ...Platform.select({
+      ios: {
         shadowColor: "#000",
-      shadowOffset: {width: 0, height: -10 },
-      shadowOpacity: 0.3,
-      shadowRadius: 20,
+        shadowOffset: { width: 0, height: -10 },
+        shadowOpacity: 0.3,
+        shadowRadius: 20,
       },
       web: {
         backdropFilter: "blur(12px)",
       } as any,
     }),
   },
-      trayHandle: {
-        width: 48,
-      height: 5,
-      borderRadius: 3,
-      backgroundColor: "rgba(255,255,255,0.2)",
-      alignSelf: "center",
-      marginTop: 12,
-      marginBottom: 8,
+  trayHandle: {
+    width: 48,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: "rgba(255,255,255,0.2)",
+    alignSelf: "center",
+    marginTop: 12,
+    marginBottom: 8,
   },
-      trayHeader: {
-        flexDirection: "row",
-      justifyContent: "space-between",
-      alignItems: "flex-end",
-      paddingHorizontal: 20,
-      paddingVertical: 12,
+  trayHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-end",
+    paddingHorizontal: 20,
+    paddingVertical: 12,
   },
-      trayTitle: {
-        fontSize: 18,
-      fontWeight: "700" as const,
-      color: Colors.white,
+  trayTitle: {
+    fontSize: 18,
+    fontWeight: "700" as const,
+    color: Colors.white,
   },
-      traySubtitle: {
-        fontSize: 12,
-      color: Colors.textSecondary,
-      marginTop: 2,
+  traySubtitle: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    marginTop: 2,
   },
-      headerControls: {
-        flexDirection: 'row',
-      alignItems: 'center',
-      gap: 8,
+  headerControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
-      scanMoreButton: {
-        width: 36,
-      height: 36,
-      borderRadius: 18,
-      backgroundColor: "rgba(255, 255, 255, 0.1)",
-      alignItems: "center",
-      justifyContent: "center",
-      borderWidth: 1,
-      borderColor: "rgba(255, 255, 255, 0.1)",
+  scanMoreButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
   },
-      confidenceBadge: {
-        backgroundColor: `${Colors.primary}33`,
-      paddingHorizontal: 14,
-      paddingVertical: 8,
-      borderRadius: 20,
-      borderWidth: 1,
-      borderColor: `${Colors.primary}4D`,
+  confidenceBadge: {
+    backgroundColor: `${Colors.primary}33`,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: `${Colors.primary}4D`,
   },
-      confidenceText: {
-        fontSize: 14,
-      fontWeight: "800" as const,
-      color: Colors.primary,
+  confidenceText: {
+    fontSize: 14,
+    fontWeight: "800" as const,
+    color: Colors.primary,
   },
-      loadingContainer: {
-        alignItems: "center",
-      justifyContent: "center",
-      paddingVertical: 40,
-      gap: 16,
+  loadingContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 40,
+    gap: 16,
   },
-      loadingRing: {
-        padding: 8,
-      borderRadius: 40,
-      borderWidth: 2,
-      borderColor: `${Colors.primary}30`,
+  loadingRing: {
+    padding: 8,
+    borderRadius: 40,
+    borderWidth: 2,
+    borderColor: `${Colors.primary}30`,
   },
-      loadingText: {
-        fontSize: 14,
-      color: Colors.textSecondary,
+  loadingText: {
+    fontSize: 14,
+    color: Colors.textSecondary,
   },
-      emptyState: {
-        alignItems: "center",
-      justifyContent: "center",
-      paddingVertical: 32,
-      paddingHorizontal: 48,
-      gap: 12,
+  emptyState: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 32,
+    paddingHorizontal: 48,
+    gap: 12,
   },
-      emptyStateText: {
-        fontSize: 14,
-      color: Colors.textSecondary,
-      textAlign: "center",
+  emptyStateText: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    textAlign: "center",
   },
-      itemsList: {
-        paddingHorizontal: 16,
-      gap: 12,
-      paddingVertical: 8,
+  itemsList: {
+    paddingHorizontal: 16,
+    gap: 12,
+    paddingVertical: 8,
   },
-      detectedItemCard: {
-        width: 120,
-      height: 140,
-      borderRadius: 16,
-      overflow: "hidden",
-      borderWidth: 1,
+  detectedItemCard: {
+    width: 120,
+    height: 140,
+    borderRadius: 16,
+    overflow: "hidden",
+    borderWidth: 1,
   },
-      detectedItemImage: {
-        width: "100%",
-      height: "100%",
+  detectedItemImage: {
+    width: "100%",
+    height: "100%",
   },
-      detectedItemGradient: {
-        position: "absolute",
-      bottom: 0,
-      left: 0,
-      right: 0,
-      height: 80,
-      ...Platform.select({
-        ios: {
+  detectedItemGradient: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 80,
+    ...Platform.select({
+      ios: {
         backgroundColor: "rgba(0,0,0,0.5)",
       },
       android: {
@@ -1358,62 +1380,79 @@ export default function ScannerScreen() {
       },
     }),
   },
-      detectedItemCheck: {
-        position: "absolute",
-      top: 8,
-      right: 8,
-      width: 24,
-      height: 24,
-      borderRadius: 12,
-      alignItems: "center",
-      justifyContent: "center",
+  detectedItemCheck: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
   },
-      confidenceIndicator: {
-        position: "absolute",
-      top: 8,
-      left: 8,
-      backgroundColor: "rgba(0,0,0,0.6)",
-      paddingHorizontal: 6,
-      paddingVertical: 2,
-      borderRadius: 8,
+  confidenceIndicator: {
+    position: "absolute",
+    top: 8,
+    left: 8,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
   },
-      confidenceIndicatorText: {
-        fontSize: 9,
-      fontWeight: "700" as const,
-      color: Colors.white,
+  confidenceIndicatorText: {
+    fontSize: 9,
+    fontWeight: "700" as const,
+    color: Colors.white,
   },
-      detectedItemName: {
-        position: "absolute",
-      bottom: 22,
-      left: 10,
-      right: 10,
-      fontSize: 11,
-      fontWeight: "700" as const,
-      color: Colors.white,
+  detectedItemName: {
+    position: "absolute",
+    bottom: 22,
+    left: 10,
+    right: 10,
+    fontSize: 11,
+    fontWeight: "700" as const,
+    color: Colors.white,
   },
-      detectedItemCategory: {
-        position: "absolute",
-      bottom: 8,
-      left: 10,
-      fontSize: 9,
-      color: Colors.textSecondary,
+  detectedItemCategory: {
+    position: "absolute",
+    bottom: 8,
+    left: 10,
+    fontSize: 9,
+    color: Colors.textSecondary,
   },
-      finishButton: {
-        flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "center",
-      backgroundColor: Colors.primary,
-      marginHorizontal: 16,
-      marginTop: 8,
-      height: 56,
-      borderRadius: 28,
-      gap: 8,
-      ...Platform.select({
-        ios: {
+  actionButtonsContainer: {
+    flexDirection: "row",
+    gap: 12,
+    paddingHorizontal: 16,
+    marginTop: 8,
+  },
+  actionButton: {
+    flex: 1,
+    height: 54,
+    borderRadius: 27,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  scanNextButton: {
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.2)",
+  },
+  actionButtonText: {
+    fontSize: 15,
+    fontWeight: "600" as const,
+    color: Colors.white,
+  },
+  finishButton: {
+    backgroundColor: Colors.primary,
+    ...Platform.select({
+      ios: {
         shadowColor: Colors.primary,
-      shadowOffset: {width: 0, height: 4 },
-      shadowOpacity: 0.3,
-      shadowRadius: 12,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 12,
       },
       android: {
         elevation: 8,
@@ -1423,37 +1462,37 @@ export default function ScannerScreen() {
       } as any,
     }),
   },
-      finishButtonDisabled: {
-        backgroundColor: Colors.textSecondary,
-      opacity: 0.5,
+  finishButtonDisabled: {
+    backgroundColor: Colors.textSecondary,
+    opacity: 0.5,
   },
-      finishButtonText: {
-        fontSize: 16,
-      fontWeight: "700" as const,
-      color: Colors.backgroundDark,
+  finishButtonText: {
+    fontSize: 16,
+    fontWeight: "700" as const,
+    color: Colors.backgroundDark,
   },
-      permissionTitle: {
-        fontSize: 22,
-      fontWeight: "700" as const,
-      color: Colors.white,
-      marginTop: 24,
-      marginBottom: 8,
+  permissionTitle: {
+    fontSize: 22,
+    fontWeight: "700" as const,
+    color: Colors.white,
+    marginTop: 24,
+    marginBottom: 8,
   },
-      permissionText: {
-        fontSize: 14,
-      color: Colors.textSecondary,
-      textAlign: "center",
-      marginBottom: 24,
+  permissionText: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    textAlign: "center",
+    marginBottom: 24,
   },
-      permissionButton: {
-        backgroundColor: Colors.primary,
-      paddingHorizontal: 32,
-      paddingVertical: 14,
-      borderRadius: 24,
+  permissionButton: {
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 32,
+    paddingVertical: 14,
+    borderRadius: 24,
   },
-      permissionButtonText: {
-        fontSize: 16,
-      fontWeight: "700" as const,
-      color: Colors.backgroundDark,
+  permissionButtonText: {
+    fontSize: 16,
+    fontWeight: "700" as const,
+    color: Colors.backgroundDark,
   },
 });
