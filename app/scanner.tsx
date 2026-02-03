@@ -571,7 +571,7 @@ export default function ScannerScreen() {
 
       await addItem({
         name: item.name,
-        image: PLACEHOLDER_IMAGES[item.category] || PLACEHOLDER_IMAGES["Other"],
+        image: capturedImage || PLACEHOLDER_IMAGES[item.category] || PLACEHOLDER_IMAGES["Other"],
         category: item.category,
         addedDate: "Added just now",
         status: item.suggestedStatus || "good",
@@ -777,7 +777,7 @@ export default function ScannerScreen() {
                   activeOpacity={0.7}
                 >
                   <Image
-                    source={{ uri: PLACEHOLDER_IMAGES[item.category] || PLACEHOLDER_IMAGES["Other"] }}
+                    source={{ uri: capturedImage || PLACEHOLDER_IMAGES[item.category] || PLACEHOLDER_IMAGES["Other"] }}
                     style={styles.detectedItemImage}
                     resizeMode="cover"
                   />

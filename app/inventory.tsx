@@ -17,6 +17,7 @@ import {
   MoreVertical,
   AlertTriangle,
   ArrowLeft,
+  Plus,
 } from "lucide-react-native";
 import Colors from "@/constants/colors";
 
@@ -291,7 +292,7 @@ export default function InventoryScreen() {
                     style={[
                       styles.ingredientCard,
                       ingredient.status === "expiring" &&
-                        styles.ingredientCardExpiring,
+                      styles.ingredientCardExpiring,
                     ]}
                   >
                     {ingredient.status === "expiring" && (
@@ -302,7 +303,7 @@ export default function InventoryScreen() {
                       style={[
                         styles.ingredientImage,
                         ingredient.status === "expiring" &&
-                          styles.ingredientImageGrayscale,
+                        styles.ingredientImageGrayscale,
                       ]}
                     />
                     <View style={styles.ingredientInfo}>
@@ -342,7 +343,7 @@ export default function InventoryScreen() {
                         style={[
                           styles.ingredientDate,
                           ingredient.status === "expiring" &&
-                            styles.ingredientDateExpiring,
+                          styles.ingredientDateExpiring,
                         ]}
                       >
                         {ingredient.addedDate}
@@ -377,15 +378,25 @@ export default function InventoryScreen() {
         })}
       </ScrollView>
 
-      <TouchableOpacity
-        style={[styles.quickScanButton, { bottom: insets.bottom + 24 }]}
-        onPress={handleQuickScan}
-        activeOpacity={0.9}
-      >
-        <QrCode size={24} color={Colors.backgroundDark} />
-        <Text style={styles.quickScanText}>Quick Scan</Text>
-      </TouchableOpacity>
-    </View>
+      <View style={[styles.floatingActionContainer, { bottom: insets.bottom + 24 }]}>
+        <TouchableOpacity
+          style={styles.manualAddButton}
+          onPress={() => router.push("/manual-add")}
+          activeOpacity={0.9}
+        >
+          <Plus size={24} color={Colors.white} />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.quickScanButton}
+          onPress={handleQuickScan}
+          activeOpacity={0.9}
+        >
+          <QrCode size={24} color={Colors.backgroundDark} />
+          <Text style={styles.quickScanText}>Quick Scan</Text>
+        </TouchableOpacity>
+      </View>
+    </View >
   );
 }
 
@@ -666,9 +677,32 @@ const styles = StyleSheet.create({
     right: 8,
     bottom: 8,
   },
-  quickScanButton: {
+  floatingActionContainer: {
     position: "absolute",
     right: 24,
+    left: 24,
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    alignItems: "center",
+    gap: 16,
+    pointerEvents: "box-none",
+  },
+  manualAddButton: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: Colors.cardDark,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+  },
+  quickScanButton: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
