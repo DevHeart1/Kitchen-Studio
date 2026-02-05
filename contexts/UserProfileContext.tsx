@@ -208,7 +208,18 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
              const newProfile = {
                 user_id: currentUserId,
                 name: user.user_metadata?.name || user.email?.split('@')[0] || "Chef",
-                // Default values are handled by DB defaults, but we can be explicit if needed
+                title: "Kitchen Novice",
+                level: 1,
+                cook_time: "0h",
+                accuracy: 0,
+                recipes_completed: 0,
+                total_xp: 0,
+                unlocked_badge_ids: [],
+                settings: DEFAULT_SETTINGS,
+                cooking_level: 'beginner',
+                dietary_preferences: [],
+                cooking_interests: [],
+                onboarding_completed: false
              };
 
              // Insert the new profile
@@ -219,7 +230,7 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
                .single();
 
              if (createError) {
-                 console.error("[Profile] Error creating profile:", createError);
+                 console.error("[Profile] Error creating profile:", JSON.stringify(createError, null, 2));
                  setProfile(DEFAULT_PROFILE); // Fallback
              } else if (newProfileData) {
                  setProfile(dbToFrontend(newProfileData, []));
