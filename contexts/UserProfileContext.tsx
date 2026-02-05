@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import createContextHook from "@nkzw/create-context-hook";
 import { recentCooks } from "@/mocks/sessions";
+import { useAuth } from "@/contexts/AuthContext";
 import { supabase, DbUserProfile, DbSharedRecipe } from "@/lib/supabase";
 
 export interface SharedRecipe {
@@ -159,40 +160,75 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
   const [isLoading, setIsLoading] = useState(true);
   const [pendingLevelUp, setPendingLevelUp] = useState<{ fromLevel: number; toLevel: number } | null>(null);
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState<boolean | null>(null);
-  const useSupabase = isSupabaseConfigured();
+  const { user, isLoading: authLoading, isDemoMode } = useAuth();
+  const useSupabase = isSupabaseConfigured() && !isDemoMode;
+
+  const currentUserId = useMemo(() => {
+    if (isDemoMode) return DEMO_USER_ID;
+    return user?.id || null;
+  }, [isDemoMode, user]);
 
   useEffect(() => {
-    loadProfile();
-  }, []);
+    if (!authLoading) {
+      loadProfile();
+    }
+  }, [authLoading, user, isDemoMode, currentUserId]);
 
   const loadProfile = async () => {
     try {
-      if (useSupabase) {
+      if (useSupabase && currentUserId) {
         // Load profile from Supabase
         const { data: profileData, error: profileError } = await supabase
           .from("user_profiles")
           .select("*")
+          .eq("user_id", currentUserId)
           .single();
 
         if (profileError && profileError.code !== "PGRST116") {
           console.error("[Profile] Supabase error:", profileError.message);
-          await loadFromAsyncStorage();
-          return;
+          // Don't fall back to async storage if auth error, just log it.
+          // Or maybe we should if network fails?
+          // For now, let's assume if authenticated, we want DB data.
+          // If we fail to load from DB, maybe we shouldn't overwrite with default?
         }
 
         // Load shared recipes
         const { data: recipesData } = await supabase
           .from("shared_recipes")
           .select("*")
+          .eq("user_id", currentUserId)
           .order("created_at", { ascending: false });
 
         if (profileData) {
           setProfile(dbToFrontend(profileData, recipesData || []));
           setHasCompletedOnboarding((profileData as any).onboarding_completed === true);
         } else {
-          // No profile in Supabase, new user
-          setProfile(DEFAULT_PROFILE);
-          setHasCompletedOnboarding(false);
+          // No profile in Supabase, create one
+          if (currentUserId && user) {
+             const newProfile = {
+                user_id: currentUserId,
+                name: user.user_metadata?.name || user.email?.split('@')[0] || "Chef",
+                // Default values are handled by DB defaults, but we can be explicit if needed
+             };
+
+             // Insert the new profile
+             const { data: newProfileData, error: createError } = await supabase
+               .from("user_profiles")
+               .insert(newProfile)
+               .select()
+               .single();
+
+             if (createError) {
+                 console.error("[Profile] Error creating profile:", createError);
+                 setProfile(DEFAULT_PROFILE); // Fallback
+             } else if (newProfileData) {
+                 setProfile(dbToFrontend(newProfileData, []));
+                 setHasCompletedOnboarding(false);
+             }
+          } else {
+             setProfile(DEFAULT_PROFILE);
+             setHasCompletedOnboarding(false);
+          }
         }
       } else {
         await loadFromAsyncStorage();
@@ -224,12 +260,12 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
 
   const saveProfile = async (updated: UserProfile) => {
     try {
-      if (useSupabase) {
+      if (useSupabase && currentUserId) {
         const { error } = await supabase
           .from("user_profiles")
           .upsert(
             {
-              user_id: DEMO_USER_ID,
+              user_id: currentUserId,
               name: updated.name,
               title: updated.title,
               level: updated.level,
@@ -244,7 +280,6 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
               dietary_preferences: updated.dietaryPreferences || [],
               primary_goal: updated.primaryGoal,
               cooking_interests: updated.cookingInterests || [],
-              onboarding_completed: true,
             },
             { onConflict: 'user_id' }
           );
@@ -267,7 +302,7 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
     const updated = { ...profile, ...updates };
     setProfile(updated);
     await saveProfile(updated);
-  }, [profile, useSupabase]);
+  }, [profile, useSupabase, currentUserId]);
 
   const updateName = useCallback(async (name: string) => {
     await updateProfile({ name });
@@ -333,11 +368,11 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
 
   const shareRecipe = useCallback(async (recipe: Omit<SharedRecipe, "id" | "createdAt" | "likes">) => {
     try {
-      if (useSupabase) {
+      if (useSupabase && currentUserId) {
         const { data, error } = await supabase
           .from("shared_recipes")
           .insert({
-            user_id: DEMO_USER_ID,
+            user_id: currentUserId,
             title: recipe.title,
             image: recipe.image,
           })
@@ -379,11 +414,11 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
       console.log("Error sharing recipe:", error);
       return null;
     }
-  }, [profile, updateProfile, useSupabase]);
+  }, [profile, updateProfile, useSupabase, currentUserId]);
 
   const removeSharedRecipe = useCallback(async (recipeId: string) => {
     try {
-      if (useSupabase) {
+      if (useSupabase && currentUserId) {
         const { error } = await supabase
           .from("shared_recipes")
           .delete()
@@ -404,7 +439,7 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
     } catch (error) {
       console.log("Error removing recipe:", error);
     }
-  }, [profile, useSupabase]);
+  }, [profile, useSupabase, currentUserId]);
 
   const unlockBadge = useCallback(async (badgeId: string) => {
     if (!profile.unlockedBadgeIds.includes(badgeId)) {
@@ -444,12 +479,12 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
   const completeOnboarding = useCallback(async () => {
     setHasCompletedOnboarding(true);
     try {
-      if (useSupabase) {
+      if (useSupabase && currentUserId) {
         await supabase
           .from("user_profiles")
           .upsert(
             {
-              user_id: DEMO_USER_ID,
+              user_id: currentUserId,
               onboarding_completed: true,
             },
             { onConflict: 'user_id' }
@@ -463,7 +498,7 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
     } catch (error) {
       console.error("[Profile] Error completing onboarding:", error);
     }
-  }, [useSupabase]);
+  }, [useSupabase, currentUserId]);
 
   const checkOnboardingStatus = useCallback(async (): Promise<boolean> => {
     if (hasCompletedOnboarding !== null) {
@@ -471,11 +506,18 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
     }
     
     try {
-      if (useSupabase) {
-        const { data } = await supabase
+      if (useSupabase && currentUserId) {
+        const { data, error } = await supabase
           .from("user_profiles")
           .select("onboarding_completed")
+          .eq("user_id", currentUserId)
           .single();
+
+        if (error && error.code === "PGRST116") {
+            // No profile found, so onboarding not completed
+            setHasCompletedOnboarding(false);
+            return false;
+        }
         
         const completed = data?.onboarding_completed === true;
         setHasCompletedOnboarding(completed);
@@ -495,7 +537,7 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
       console.error("[Profile] Error checking onboarding status:", error);
       return false;
     }
-  }, [useSupabase, hasCompletedOnboarding]);
+  }, [useSupabase, hasCompletedOnboarding, currentUserId]);
 
   const computedStats = useMemo(() => {
     const completedCooks = recentCooks.filter((c) => c.progress === 100);
