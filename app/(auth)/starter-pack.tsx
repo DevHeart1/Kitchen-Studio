@@ -46,7 +46,7 @@ const LEVEL_LABELS: Record<string, string> = {
 };
 
 export default function StarterPackScreen() {
-    const { profile } = useUserProfile();
+    const { profile, completeOnboarding } = useUserProfile();
     const [recipes, setRecipes] = useState<StarterRecipe[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -115,13 +115,15 @@ export default function StarterPackScreen() {
         }
     };
 
-    const handleStartCooking = () => {
+    const handleStartCooking = async () => {
         console.log("[StarterPack] Starting first cook");
+        await completeOnboarding();
         router.replace("/(tabs)");
     };
 
-    const handleRecipePress = (recipe: StarterRecipe) => {
+    const handleRecipePress = async (recipe: StarterRecipe) => {
         console.log("[StarterPack] Recipe pressed:", recipe.name);
+        await completeOnboarding();
         router.replace("/(tabs)");
     };
 

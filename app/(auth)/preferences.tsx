@@ -122,7 +122,7 @@ export default function OnboardingScreen() {
                 primaryGoal,
                 cookingInterests: selectedInterests,
             });
-            await completeOnboarding();
+            // Don't complete onboarding yet - wait until starter pack
             console.log("[Onboarding] Preferences saved:", { cookingLevel, dietaryPreferences, primaryGoal, selectedInterests });
             router.replace("/(auth)/starter-pack");
         } catch (error) {
