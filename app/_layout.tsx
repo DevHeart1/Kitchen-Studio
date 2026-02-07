@@ -38,7 +38,7 @@ function useProtectedRoute() {
       }
     } else if (isAuthenticated || isDemoMode) {
       if (hasCompletedOnboarding === false) {
-        if (!onOnboardingScreen) {
+        if (!onOnboardingScreen && !onPreferencesScreen) {
           router.replace("/(auth)/onboarding");
         }
       } else if (hasCompletedOnboarding === true) {
