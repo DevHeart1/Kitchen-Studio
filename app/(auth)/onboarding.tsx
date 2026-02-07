@@ -13,6 +13,7 @@ import {
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { LinearGradient } from "expo-linear-gradient";
+// @ts-ignore
 import { GLView } from "expo-gl";
 import {
     Sparkles,
@@ -37,6 +38,7 @@ import {
     ArrowLeft,
 } from "lucide-react-native";
 import Colors from "@/constants/colors";
+import { useAuth } from "@/contexts/AuthContext";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.25;
@@ -60,9 +62,9 @@ const ShaderBackground: React.FC<ShaderBackgroundProps> = ({ style }) => {
 
     const onContextCreate = useCallback((gl: any) => {
         glRef.current = gl;
-        
+
         gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
-        
+
         const vertShader = gl.createShader(gl.VERTEX_SHADER);
         gl.shaderSource(vertShader, `
             attribute vec2 position;
@@ -142,19 +144,19 @@ const ShaderBackground: React.FC<ShaderBackgroundProps> = ({ style }) => {
 
         const render = () => {
             if (!glRef.current) return;
-            
+
             timeRef.current += 0.016;
             gl.uniform1f(timeLocation, timeRef.current);
             gl.uniform2f(resolutionLocation, gl.drawingBufferWidth, gl.drawingBufferHeight);
-            
+
             gl.clear(gl.COLOR_BUFFER_BIT);
             gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
             gl.flush();
             gl.endFrameEXP();
-            
+
             rafRef.current = requestAnimationFrame(render);
         };
-        
+
         render();
     }, []);
 
@@ -203,14 +205,14 @@ export default function OnboardingScreen() {
     const [currentSlide, setCurrentSlide] = useState(0);
     const translateX = useRef(new Animated.Value(0)).current;
     const [dimensions, setDimensions] = useState({ width: SCREEN_WIDTH, height: SCREEN_HEIGHT });
-    
+
     const currentSlideRef = useRef(currentSlide);
     const dimensionsRef = useRef(dimensions);
-    
+
     useEffect(() => {
         currentSlideRef.current = currentSlide;
     }, [currentSlide]);
-    
+
     useEffect(() => {
         dimensionsRef.current = dimensions;
     }, [dimensions]);
@@ -235,13 +237,23 @@ export default function OnboardingScreen() {
         }
     }, [translateX]);
 
+    const { isAuthenticated } = useAuth();
+
+    const navigateNext = useCallback(() => {
+        if (isAuthenticated) {
+            router.replace("/(auth)/preferences");
+        } else {
+            router.replace("/(auth)/login");
+        }
+    }, [isAuthenticated]);
+
     const handleNext = useCallback(() => {
         if (currentSlideRef.current < SLIDES.length - 1) {
             goToSlide(currentSlideRef.current + 1);
         } else {
-            router.replace("/(auth)/login");
+            navigateNext();
         }
-    }, [goToSlide]);
+    }, [goToSlide, navigateNext]);
 
     const handleBack = useCallback(() => {
         if (currentSlideRef.current > 0) {
@@ -250,12 +262,12 @@ export default function OnboardingScreen() {
     }, [goToSlide]);
 
     const handleSkip = useCallback(() => {
-        router.replace("/(auth)/login");
-    }, []);
+        navigateNext();
+    }, [navigateNext]);
 
     const handleUserTypeSelect = useCallback((type: 'cook' | 'creator') => {
-        router.replace("/(auth)/login");
-    }, []);
+        navigateNext();
+    }, [navigateNext]);
 
     const panResponder = useRef(
         PanResponder.create({
@@ -277,7 +289,7 @@ export default function OnboardingScreen() {
                 const slide = currentSlideRef.current;
                 const width = dimensionsRef.current.width;
                 const threshold = width * 0.25;
-                
+
                 if (dx < -threshold || (dx < -20 && vx < -0.3)) {
                     if (slide < SLIDES.length - 1) {
                         Animated.spring(translateX, {
@@ -328,7 +340,7 @@ export default function OnboardingScreen() {
 
     const renderSlide = (slide: typeof SLIDES[0], index: number) => {
         const slideWidth = dimensions.width;
-        
+
         switch (slide.type) {
             case "welcome":
                 return <WelcomeSlide key={slide.id} onNext={handleNext} onSkip={handleSkip} currentStep={index} totalSteps={SLIDES.length} slideWidth={slideWidth} />;
@@ -349,7 +361,7 @@ export default function OnboardingScreen() {
         <View style={styles.container}>
             <StatusBar style="light" />
             <ShaderBackground />
-            
+
             <View style={styles.slidesWrapper} {...panResponder.panHandlers}>
                 <Animated.View
                     style={[
@@ -416,7 +428,7 @@ const WelcomeSlide = ({ onNext, onSkip, currentStep, totalSteps, slideWidth }: S
                     <Text style={styles.primaryButtonText}>See How It Works</Text>
                     <ArrowRight size={20} color={Colors.backgroundDark} />
                 </TouchableOpacity>
-                
+
                 <Text style={styles.swipeHint}>Swipe to navigate</Text>
             </View>
         </View>

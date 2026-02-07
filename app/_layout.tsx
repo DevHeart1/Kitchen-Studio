@@ -38,8 +38,8 @@ function useProtectedRoute() {
       }
     } else if (isAuthenticated || isDemoMode) {
       if (hasCompletedOnboarding === false) {
-        if (!onPreferencesScreen) {
-          router.replace("/(auth)/preferences");
+        if (!onOnboardingScreen) {
+          router.replace("/(auth)/onboarding");
         }
       } else if (hasCompletedOnboarding === true) {
         if (inAuthGroup) {
