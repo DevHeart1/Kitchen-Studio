@@ -94,7 +94,7 @@ export default function LoginScreen() {
                 if (hasOnboarded) {
                     router.replace("/(tabs)");
                 } else {
-                    router.replace("/(auth)/onboarding");
+                    router.replace("/(auth)/preferences");
                 }
             }
         } catch (error) {
@@ -140,7 +140,7 @@ export default function LoginScreen() {
                 if (hasOnboarded) {
                     router.replace("/(tabs)");
                 } else {
-                    router.replace("/(auth)/onboarding");
+                    router.replace("/(auth)/preferences");
                 }
             }
         } catch (error) {
@@ -160,7 +160,7 @@ export default function LoginScreen() {
                 if (hasOnboarded) {
                     router.replace("/(tabs)");
                 } else {
-                    router.replace("/(auth)/onboarding");
+                    router.replace("/(auth)/preferences");
                 }
             }
         } catch (error) {
@@ -192,13 +192,13 @@ export default function LoginScreen() {
     return (
         <View style={styles.container}>
             <StatusBar style="light" />
-            
+
             <Image
                 source={{ uri: BACKGROUND_IMAGE }}
                 style={styles.backgroundImage}
                 resizeMode="cover"
             />
-            
+
             <LinearGradient
                 colors={["rgba(0,0,0,0.2)", "rgba(16,34,21,0.8)", Colors.backgroundDark]}
                 locations={[0, 0.5, 1]}

@@ -38,8 +38,14 @@ function useProtectedRoute() {
       }
     } else if (isAuthenticated || isDemoMode) {
       if (hasCompletedOnboarding === false) {
-        if (!onOnboardingScreen && !onPreferencesScreen) {
-          router.replace("/(auth)/onboarding");
+        // User requesting Step 2: "If false = go back to the onboarding step 2"
+        // Allow them to be on preferences (step 2) or starter-pack (step 3)
+        // If they are on onboarding (step 1), we also redirect them to step 2 as per request?
+        // Or should we allow step 1?
+        // The request says "If false = go back to the onboarding step 2".
+        // This implies forcing step 2.
+        if (!onPreferencesScreen && segments[1] !== "starter-pack") {
+          router.replace("/(auth)/preferences");
         }
       } else if (hasCompletedOnboarding === true) {
         if (inAuthGroup) {
