@@ -54,7 +54,7 @@ function RootLayoutNav() {
   const { isLoading: authLoading, isAuthenticated, isDemoMode } = useAuth();
   const { isLoading: profileLoading, hasCompletedOnboarding, activeCookingSession } = useUserProfile();
   const [showWelcomeBack, setShowWelcomeBack] = useState(true);
-  
+
   useProtectedRoute();
 
   if (authLoading || profileLoading) {
@@ -67,8 +67,8 @@ function RootLayoutNav() {
   // Only show WelcomeBackSplash if returning user AND has an active cooking session
   if (showWelcomeBack && isReturningUser && hasActiveCooking) {
     return (
-      <WelcomeBackSplash 
-        onContinue={() => setShowWelcomeBack(false)} 
+      <WelcomeBackSplash
+        onContinue={() => setShowWelcomeBack(false)}
       />
     );
   }
@@ -94,6 +94,13 @@ function RootLayoutNav() {
       />
       <Stack.Screen
         name="inventory"
+        options={{
+          headerShown: false,
+          animation: "slide_from_right",
+        }}
+      />
+      <Stack.Screen
+        name="manual-add"
         options={{
           headerShown: false,
           animation: "slide_from_right",

@@ -381,7 +381,7 @@ export default function InventoryScreen() {
       <View style={[styles.floatingActionContainer, { bottom: insets.bottom + 24 }]}>
         <TouchableOpacity
           style={styles.manualAddButton}
-          onPress={() => router.push("/manual-add")}
+          onPress={() => router.push("/manual-add" as any)}
           activeOpacity={0.9}
         >
           <Plus size={24} color={Colors.white} />
