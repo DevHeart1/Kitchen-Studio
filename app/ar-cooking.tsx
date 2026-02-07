@@ -138,15 +138,6 @@ export default function ARCookingScreen() {
   const step = cookingSteps[currentStep];
   const progress = ((currentStep + 1) / cookingSteps.length) * 100;
 
-  if (!step) {
-    console.error(`[ARCooking] Step not found. currentStep: ${currentStep}, total: ${cookingSteps.length}`);
-    return (
-      <View style={[styles.container, { justifyContent: "center", alignItems: "center" }]}>
-        <Text style={{ color: Colors.white }}>Loading step...</Text>
-      </View>
-    );
-  }
-
   useEffect(() => {
     const animation = Animated.loop(
       Animated.sequence([
@@ -290,6 +281,15 @@ export default function ARCookingScreen() {
         return <Timer size={20} color="#fbbf24" />;
     }
   };
+
+  if (!step) {
+    console.error(`[ARCooking] Step not found. currentStep: ${currentStep}, total: ${cookingSteps.length}`);
+    return (
+      <View style={[styles.container, { justifyContent: "center", alignItems: "center" }]}>
+        <Text style={{ color: Colors.white }}>Loading step...</Text>
+      </View>
+    );
+  }
 
   if (showCompletion) {
     return (
