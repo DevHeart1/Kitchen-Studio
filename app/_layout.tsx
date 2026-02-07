@@ -18,48 +18,67 @@ ExpoSplashScreen.preventAutoHideAsync();
 const queryClient = new QueryClient();
 
 function useProtectedRoute() {
-  const { isAuthenticated, isLoading: authLoading, isDemoMode } = useAuth();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { hasCompletedOnboarding, isLoading: profileLoading } = useUserProfile();
   const segments = useSegments();
   const router = useRouter();
 
   useEffect(() => {
-    // Don't navigate while still loading
-    if (authLoading || profileLoading) return;
-
-    // Don't navigate if onboarding status is still unknown (null = loading)
-    if (hasCompletedOnboarding === null) return;
+    if (authLoading || profileLoading) {
+      console.log("[Navigation] Still loading...", { authLoading, profileLoading });
+      return;
+    }
 
     const inAuthGroup = segments[0] === "(auth)";
-    const onOnboardingScreen = segments[1] === "onboarding";
-    const onAuthScreen = segments[1] === "login" || segments[1] === "sign-up";
-    const onPreferencesScreen = segments[1] === "preferences" || segments[1] === "starter-pack";
+    const currentScreen = segments[1];
+    const onOnboardingFlowScreen = currentScreen === "preferences" || currentScreen === "starter-pack";
 
-    // User is not authenticated - allow them to stay in auth group for onboarding/login
-    if (!isAuthenticated && !isDemoMode) {
+    console.log("[Navigation] State:", { 
+      isAuthenticated, 
+      hasCompletedOnboarding, 
+      inAuthGroup, 
+      currentScreen,
+      segments: segments.join('/') 
+    });
+
+    // Not authenticated - allow auth screens, redirect others to onboarding
+    if (!isAuthenticated) {
       if (!inAuthGroup) {
+        console.log("[Navigation] Not authenticated, redirecting to onboarding");
         router.replace("/(auth)/onboarding");
       }
       return;
     }
 
-    // User IS authenticated (or in demo mode)
+    // Authenticated but onboarding status still loading - wait
+    if (hasCompletedOnboarding === null) {
+      console.log("[Navigation] Authenticated but onboarding status unknown, waiting...");
+      return;
+    }
+
+    // Authenticated and onboarding completed - go to main app
     if (hasCompletedOnboarding === true) {
-      // Onboarding complete - redirect to main app if still in auth group
       if (inAuthGroup) {
+        console.log("[Navigation] Onboarding complete, redirecting to tabs");
         router.replace("/(tabs)");
       }
-    } else if (hasCompletedOnboarding === false) {
-      // Onboarding not complete - allow onboarding, preferences, and starter-pack screens
+      return;
+    }
+
+    // Authenticated but onboarding NOT completed - ensure user is on onboarding flow
+    if (hasCompletedOnboarding === false) {
       if (!inAuthGroup) {
         // User somehow got to main app without completing onboarding
-        router.replace("/(auth)/onboarding");
-      } else if (!onOnboardingScreen && !onPreferencesScreen && !onAuthScreen) {
-        // User is in auth group but not on an allowed screen
-        router.replace("/(auth)/onboarding");
+        console.log("[Navigation] Onboarding not complete, redirecting to preferences");
+        router.replace("/(auth)/preferences");
+      } else if (!onOnboardingFlowScreen && currentScreen !== "sign-up" && currentScreen !== "login") {
+        // User is in auth but not on a valid screen for onboarding flow
+        console.log("[Navigation] In auth but not on onboarding flow, redirecting to preferences");
+        router.replace("/(auth)/preferences");
       }
+      // Otherwise, let them continue on their current auth screen
     }
-  }, [isAuthenticated, authLoading, profileLoading, isDemoMode, segments, hasCompletedOnboarding]);
+  }, [isAuthenticated, authLoading, profileLoading, segments, hasCompletedOnboarding]);
 }
 
 function RootLayoutNav() {

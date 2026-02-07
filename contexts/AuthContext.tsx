@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { Platform } from "react-native";
 import { Session, User } from "@supabase/supabase-js";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import createContextHook from "@nkzw/create-context-hook";
 import { supabase } from "@/lib/supabase";
 import * as WebBrowser from "expo-web-browser";
@@ -16,8 +17,19 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     const [user, setUser] = useState<User | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isDemoMode, setIsDemoMode] = useState(false);
+    const [hasEnteredApp, setHasEnteredApp] = useState<boolean | null>(null);
 
     useEffect(() => {
+        const loadHasEnteredApp = async () => {
+            try {
+                const stored = await AsyncStorage.getItem('has_entered_app');
+                setHasEnteredApp(stored === 'true');
+            } catch {
+                setHasEnteredApp(false);
+            }
+        };
+        loadHasEnteredApp();
+
         // Check if Supabase is properly configured
         const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
         if (!supabaseUrl || supabaseUrl.includes("your-project")) {
@@ -45,11 +57,22 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         return () => subscription.unsubscribe();
     }, []);
 
+    const markAsEntered = useCallback(async () => {
+        try {
+            await AsyncStorage.setItem('has_entered_app', 'true');
+            setHasEnteredApp(true);
+            console.log("[Auth] User has entered the app");
+        } catch (e) {
+            console.error("[Auth] Error marking as entered:", e);
+        }
+    }, []);
+
     const signUp = useCallback(
         async (email: string, password: string, name?: string, cookingInterests?: string[]) => {
             if (isDemoMode) {
                 console.log("[Auth] Demo mode - sign up simulated");
                 console.log("[Auth] Cooking interests:", cookingInterests);
+                await markAsEntered();
                 return { error: null };
             }
 
@@ -78,13 +101,14 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
                 needsEmailConfirmation 
             };
         },
-        [isDemoMode]
+        [isDemoMode, markAsEntered]
     );
 
     const signIn = useCallback(
         async (email: string, password: string) => {
             if (isDemoMode) {
                 console.log("[Auth] Demo mode - sign in simulated");
+                await markAsEntered();
                 return { error: null, needsEmailConfirmation: false };
             }
 
@@ -115,7 +139,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
 
             return { data, error, needsEmailConfirmation: false };
         },
-        [isDemoMode]
+        [isDemoMode, markAsEntered]
     );
 
     const resendConfirmationEmail = useCallback(
@@ -136,7 +160,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
 
             return { error };
         },
-        [isDemoMode]
+        [isDemoMode, markAsEntered]
     );
 
     const signOut = useCallback(async () => {
@@ -152,7 +176,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         }
 
         return { error };
-    }, [isDemoMode]);
+    }, [isDemoMode, markAsEntered]);
 
     const signInWithGoogle = useCallback(async () => {
         if (isDemoMode) {
@@ -203,7 +227,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
             console.error("[Auth] Google sign in exception:", error);
             return { error: { message: error.message || "Google sign in failed" } };
         }
-    }, [isDemoMode]);
+    }, [isDemoMode, markAsEntered]);
 
     const signInWithApple = useCallback(async () => {
         if (isDemoMode) {
@@ -254,7 +278,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
             console.error("[Auth] Apple sign in exception:", error);
             return { error: { message: error.message || "Apple sign in failed" } };
         }
-    }, [isDemoMode]);
+    }, [isDemoMode, markAsEntered]);
 
     // Get the current user ID (for database queries)
     const getUserId = useCallback((): string => {
@@ -265,14 +289,17 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     }, [isDemoMode, user]);
 
     const isAuthenticated = useMemo(() => {
-        return isDemoMode || !!user;
-    }, [isDemoMode, user]);
+        if (isDemoMode) {
+            return hasEnteredApp === true;
+        }
+        return !!user;
+    }, [isDemoMode, user, hasEnteredApp]);
 
     return useMemo(
         () => ({
             session,
             user,
-            isLoading,
+            isLoading: isLoading || hasEnteredApp === null,
             isDemoMode,
             isAuthenticated,
             signUp,
@@ -282,11 +309,13 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
             signInWithApple,
             resendConfirmationEmail,
             getUserId,
+            markAsEntered,
         }),
         [
             session,
             user,
             isLoading,
+            hasEnteredApp,
             isDemoMode,
             isAuthenticated,
             signUp,
@@ -296,6 +325,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
             signInWithApple,
             resendConfirmationEmail,
             getUserId,
+            markAsEntered,
         ]
     );
 });

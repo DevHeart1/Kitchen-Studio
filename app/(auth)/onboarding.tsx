@@ -13,8 +13,6 @@ import {
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { LinearGradient } from "expo-linear-gradient";
-// @ts-ignore
-import { GLView } from "expo-gl";
 import {
     Sparkles,
     ArrowRight,
@@ -51,140 +49,12 @@ const SLIDES = [
     { id: "5", type: "user_type" },
 ];
 
-interface ShaderBackgroundProps {
-    style?: any;
-}
-
-const ShaderBackground: React.FC<ShaderBackgroundProps> = ({ style }) => {
-    const timeRef = useRef(0);
-    const glRef = useRef<any>(null);
-    const rafRef = useRef<number | null>(null);
-
-    const onContextCreate = useCallback((gl: any) => {
-        glRef.current = gl;
-
-        gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
-
-        const vertShader = gl.createShader(gl.VERTEX_SHADER);
-        gl.shaderSource(vertShader, `
-            attribute vec2 position;
-            varying vec2 vUv;
-            void main() {
-                vUv = position * 0.5 + 0.5;
-                gl_Position = vec4(position, 0.0, 1.0);
-            }
-        `);
-        gl.compileShader(vertShader);
-
-        const fragShader = gl.createShader(gl.FRAGMENT_SHADER);
-        gl.shaderSource(fragShader, `
-            precision highp float;
-            varying vec2 vUv;
-            uniform float uTime;
-            uniform vec2 uResolution;
-            
-            vec3 palette(float t) {
-                vec3 a = vec3(0.063, 0.133, 0.082);
-                vec3 b = vec3(0.169, 0.933, 0.357);
-                vec3 c = vec3(0.5, 0.5, 0.5);
-                vec3 d = vec3(0.0, 0.333, 0.167);
-                return a + b * cos(6.28318 * (c * t + d));
-            }
-            
-            void main() {
-                vec2 uv = vUv;
-                vec2 uv0 = uv;
-                vec3 finalColor = vec3(0.0);
-                
-                for (float i = 0.0; i < 3.0; i++) {
-                    uv = fract(uv * 1.5) - 0.5;
-                    
-                    float d = length(uv) * exp(-length(uv0));
-                    
-                    vec3 col = palette(length(uv0) + i * 0.4 + uTime * 0.15);
-                    
-                    d = sin(d * 8.0 + uTime * 0.3) / 8.0;
-                    d = abs(d);
-                    d = pow(0.01 / d, 1.2);
-                    
-                    finalColor += col * d * 0.15;
-                }
-                
-                vec3 darkGreen = vec3(0.063, 0.133, 0.082);
-                finalColor = mix(darkGreen, finalColor, 0.4);
-                
-                gl_FragColor = vec4(finalColor, 1.0);
-            }
-        `);
-        gl.compileShader(fragShader);
-
-        const program = gl.createProgram();
-        gl.attachShader(program, vertShader);
-        gl.attachShader(program, fragShader);
-        gl.linkProgram(program);
-        gl.useProgram(program);
-
-        const vertices = new Float32Array([
-            -1, -1,
-            1, -1,
-            -1, 1,
-            1, 1,
-        ]);
-
-        const buffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-        gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
-
-        const positionLocation = gl.getAttribLocation(program, "position");
-        gl.enableVertexAttribArray(positionLocation);
-        gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
-
-        const timeLocation = gl.getUniformLocation(program, "uTime");
-        const resolutionLocation = gl.getUniformLocation(program, "uResolution");
-
-        const render = () => {
-            if (!glRef.current) return;
-
-            timeRef.current += 0.016;
-            gl.uniform1f(timeLocation, timeRef.current);
-            gl.uniform2f(resolutionLocation, gl.drawingBufferWidth, gl.drawingBufferHeight);
-
-            gl.clear(gl.COLOR_BUFFER_BIT);
-            gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-            gl.flush();
-            gl.endFrameEXP();
-
-            rafRef.current = requestAnimationFrame(render);
-        };
-
-        render();
-    }, []);
-
-    useEffect(() => {
-        return () => {
-            if (rafRef.current) {
-                cancelAnimationFrame(rafRef.current);
-            }
-            glRef.current = null;
-        };
-    }, []);
-
-    if (Platform.OS === 'web') {
-        return (
-            <LinearGradient
-                colors={["#102215", "#0a160d", "#051008"]}
-                style={[StyleSheet.absoluteFill, style]}
-            />
-        );
-    }
-
-    return (
-        <GLView
-            style={[StyleSheet.absoluteFill, style]}
-            onContextCreate={onContextCreate}
-        />
-    );
-};
+const ShaderBackground = () => (
+    <LinearGradient
+        colors={["#102215", "#0a160d", "#051008"]}
+        style={StyleSheet.absoluteFill}
+    />
+);
 
 const StepIndicator = ({ currentStep, totalSteps }: { currentStep: number; totalSteps: number }) => (
     <View style={styles.stepperContainer}>
@@ -240,12 +110,8 @@ export default function OnboardingScreen() {
     const { isAuthenticated } = useAuth();
 
     const navigateNext = useCallback(() => {
-        if (isAuthenticated) {
-            router.replace("/(auth)/preferences");
-        } else {
-            router.replace("/(auth)/login");
-        }
-    }, [isAuthenticated]);
+        router.replace("/(auth)/sign-up");
+    }, []);
 
     const handleNext = useCallback(() => {
         if (currentSlideRef.current < SLIDES.length - 1) {
