@@ -24,27 +24,39 @@ function useProtectedRoute() {
   const router = useRouter();
 
   useEffect(() => {
+    // Don't navigate while still loading
     if (authLoading || profileLoading) return;
 
+    // Don't navigate if onboarding status is still unknown (null = loading)
+    if (hasCompletedOnboarding === null) return;
+
     const inAuthGroup = segments[0] === "(auth)";
-    const inTabs = segments[0] === "(tabs)";
     const onOnboardingScreen = segments[1] === "onboarding";
     const onAuthScreen = segments[1] === "login" || segments[1] === "sign-up";
     const onPreferencesScreen = segments[1] === "preferences" || segments[1] === "starter-pack";
 
+    // User is not authenticated - allow them to stay in auth group for onboarding/login
     if (!isAuthenticated && !isDemoMode) {
       if (!inAuthGroup) {
         router.replace("/(auth)/onboarding");
       }
-    } else if (isAuthenticated || isDemoMode) {
-      if (hasCompletedOnboarding === false) {
-        if (!onOnboardingScreen && !onPreferencesScreen) {
-          router.replace("/(auth)/onboarding");
-        }
-      } else if (hasCompletedOnboarding === true) {
-        if (inAuthGroup) {
-          router.replace("/(tabs)");
-        }
+      return;
+    }
+
+    // User IS authenticated (or in demo mode)
+    if (hasCompletedOnboarding === true) {
+      // Onboarding complete - redirect to main app if still in auth group
+      if (inAuthGroup) {
+        router.replace("/(tabs)");
+      }
+    } else if (hasCompletedOnboarding === false) {
+      // Onboarding not complete - allow onboarding, preferences, and starter-pack screens
+      if (!inAuthGroup) {
+        // User somehow got to main app without completing onboarding
+        router.replace("/(auth)/onboarding");
+      } else if (!onOnboardingScreen && !onPreferencesScreen && !onAuthScreen) {
+        // User is in auth group but not on an allowed screen
+        router.replace("/(auth)/onboarding");
       }
     }
   }, [isAuthenticated, authLoading, profileLoading, isDemoMode, segments, hasCompletedOnboarding]);

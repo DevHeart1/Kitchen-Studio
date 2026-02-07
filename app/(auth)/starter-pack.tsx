@@ -11,7 +11,6 @@ import {
     Animated,
     ActivityIndicator,
 } from "react-native";
-import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { LinearGradient } from "expo-linear-gradient";
 import {
@@ -118,13 +117,13 @@ export default function StarterPackScreen() {
     const handleStartCooking = async () => {
         console.log("[StarterPack] Starting first cook");
         await completeOnboarding();
-        router.replace("/(tabs)");
+        // Navigation handled automatically by useProtectedRoute when hasCompletedOnboarding becomes true
     };
 
     const handleRecipePress = async (recipe: StarterRecipe) => {
         console.log("[StarterPack] Recipe pressed:", recipe.name);
         await completeOnboarding();
-        router.replace("/(tabs)");
+        // Navigation handled automatically by useProtectedRoute when hasCompletedOnboarding becomes true
     };
 
     const primaryDiet = profile.dietaryPreferences?.[0];
