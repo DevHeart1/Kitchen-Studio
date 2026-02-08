@@ -32,9 +32,14 @@
     "plugins": [
       [
         "expo-router",
-        "expo-camera",
         {
           "origin": "https://rork.com/"
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow Kitchen Studio to access your camera to scan pantry items."
         }
       ],
       "expo-font",
