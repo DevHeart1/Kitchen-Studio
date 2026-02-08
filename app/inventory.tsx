@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useEffect } from "react";
+import React, { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -8,6 +8,10 @@ import {
   TextInput,
   Image,
   Animated,
+  Modal,
+  Alert,
+  Dimensions,
+  Platform,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -23,7 +27,13 @@ import {
   ShoppingBasket,
   Sparkles,
   Package,
+  X,
+  Trash2,
+  Edit3,
+  Minus,
+  Eye,
 } from "lucide-react-native";
+import * as Haptics from "expo-haptics";
 import Colors from "@/constants/colors";
 import { useInventory, InventoryItem } from "@/contexts/InventoryContext";
 
@@ -35,16 +45,34 @@ const FILTERS: { key: FilterType; label: string; dotColor?: string }[] = [
   { key: "low", label: "Low Stock", dotColor: "#facc15" },
 ];
 
+const STOCK_PRESETS = [
+  { label: "Empty", value: 0 },
+  { label: "25%", value: 25 },
+  { label: "50%", value: 50 },
+  { label: "75%", value: 75 },
+  { label: "Full", value: 100 },
+];
+
 export default function InventoryScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { inventory, getTotalCount, getExpiringCount } = useInventory();
+  const { inventory, removeItem, updateItem, getTotalCount, getExpiringCount } = useInventory();
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<FilterType>("all");
+  const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [showActionMenu, setShowActionMenu] = useState(false);
+  const [actionMenuTarget, setActionMenuTarget] = useState<InventoryItem | null>(null);
+  const [editingStock, setEditingStock] = useState(false);
+
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  const modalSlide = useRef(new Animated.Value(400)).current;
+  const modalOpacity = useRef(new Animated.Value(0)).current;
+  const actionMenuSlide = useRef(new Animated.Value(300)).current;
+  const actionMenuOpacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     Animated.parallel([
@@ -172,6 +200,414 @@ export default function InventoryScreen() {
 
   const handleQuickScan = () => {
     router.push("/scanner");
+  };
+
+  const openDetailModal = useCallback((item: InventoryItem) => {
+    setSelectedItem(item);
+    setEditingStock(false);
+    setShowDetailModal(true);
+    if (Platform.OS !== "web") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    Animated.parallel([
+      Animated.spring(modalSlide, {
+        toValue: 0,
+        tension: 65,
+        friction: 11,
+        useNativeDriver: true,
+      }),
+      Animated.timing(modalOpacity, {
+        toValue: 1,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
+
+  const closeDetailModal = useCallback(() => {
+    Animated.parallel([
+      Animated.timing(modalSlide, {
+        toValue: 400,
+        duration: 250,
+        useNativeDriver: true,
+      }),
+      Animated.timing(modalOpacity, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setShowDetailModal(false);
+      setSelectedItem(null);
+      setEditingStock(false);
+    });
+  }, []);
+
+  const openActionMenu = useCallback((item: InventoryItem) => {
+    setActionMenuTarget(item);
+    setShowActionMenu(true);
+    if (Platform.OS !== "web") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+    Animated.parallel([
+      Animated.spring(actionMenuSlide, {
+        toValue: 0,
+        tension: 65,
+        friction: 11,
+        useNativeDriver: true,
+      }),
+      Animated.timing(actionMenuOpacity, {
+        toValue: 1,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
+
+  const closeActionMenu = useCallback(() => {
+    Animated.parallel([
+      Animated.timing(actionMenuSlide, {
+        toValue: 300,
+        duration: 250,
+        useNativeDriver: true,
+      }),
+      Animated.timing(actionMenuOpacity, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setShowActionMenu(false);
+      setActionMenuTarget(null);
+    });
+  }, []);
+
+  const handleDeleteItem = useCallback(async (item: InventoryItem) => {
+    Alert.alert(
+      "Delete Item",
+      `Are you sure you want to remove "${item.name}" from your pantry?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            if (Platform.OS !== "web") {
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            }
+            const success = await removeItem(item.id);
+            if (success) {
+              console.log("[Inventory] Deleted item:", item.name);
+              if (showDetailModal) closeDetailModal();
+              if (showActionMenu) closeActionMenu();
+            } else {
+              Alert.alert("Error", "Failed to delete item. Please try again.");
+            }
+          },
+        },
+      ]
+    );
+  }, [removeItem, showDetailModal, showActionMenu]);
+
+  const handleUpdateStock = useCallback(async (item: InventoryItem, newStock: number) => {
+    const clampedStock = Math.max(0, Math.min(100, newStock));
+    let newStatus: InventoryItem["status"] = "good";
+    if (clampedStock <= 20) {
+      newStatus = "low";
+    } else if (item.status === "expiring") {
+      newStatus = "expiring";
+    }
+
+    const success = await updateItem(item.id, {
+      stockPercentage: clampedStock,
+      status: newStatus,
+    });
+
+    if (success) {
+      if (Platform.OS !== "web") {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      }
+      setSelectedItem((prev) =>
+        prev ? { ...prev, stockPercentage: clampedStock, status: newStatus } : null
+      );
+      console.log("[Inventory] Updated stock for", item.name, "to", clampedStock);
+    }
+  }, [updateItem]);
+
+  const handleActionView = useCallback(() => {
+    if (actionMenuTarget) {
+      closeActionMenu();
+      setTimeout(() => openDetailModal(actionMenuTarget), 300);
+    }
+  }, [actionMenuTarget]);
+
+  const handleActionDelete = useCallback(() => {
+    if (actionMenuTarget) {
+      closeActionMenu();
+      setTimeout(() => handleDeleteItem(actionMenuTarget), 300);
+    }
+  }, [actionMenuTarget, handleDeleteItem]);
+
+  const handleActionEditStock = useCallback(() => {
+    if (actionMenuTarget) {
+      closeActionMenu();
+      setTimeout(() => {
+        setEditingStock(true);
+        openDetailModal(actionMenuTarget);
+      }, 300);
+    }
+  }, [actionMenuTarget]);
+
+  const renderDetailModal = () => {
+    if (!selectedItem) return null;
+
+    return (
+      <Modal
+        visible={showDetailModal}
+        transparent
+        animationType="none"
+        onRequestClose={closeDetailModal}
+      >
+        <Animated.View style={[styles.modalOverlay, { opacity: modalOpacity }]}>
+          <TouchableOpacity
+            style={StyleSheet.absoluteFill}
+            activeOpacity={1}
+            onPress={closeDetailModal}
+          />
+          <Animated.View
+            style={[
+              styles.modalContent,
+              {
+                transform: [{ translateY: modalSlide }],
+                paddingBottom: insets.bottom + 24,
+              },
+            ]}
+          >
+            <View style={styles.modalHandle} />
+
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Item Details</Text>
+              <TouchableOpacity style={styles.modalCloseButton} onPress={closeDetailModal}>
+                <X size={20} color={Colors.white} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.detailCard}>
+              <Image source={{ uri: selectedItem.image }} style={styles.detailImage} />
+              <View style={styles.detailInfo}>
+                <Text style={styles.detailName}>{selectedItem.name}</Text>
+                <View style={styles.detailMetaRow}>
+                  <View style={styles.detailCategoryBadge}>
+                    <Text style={styles.detailCategoryText}>{selectedItem.category}</Text>
+                  </View>
+                  <View
+                    style={[
+                      styles.detailStatusBadge,
+                      { backgroundColor: getStatusColor(selectedItem.status) + "33" },
+                    ]}
+                  >
+                    {selectedItem.status === "expiring" && (
+                      <AlertTriangle size={10} color={getStatusColor(selectedItem.status)} />
+                    )}
+                    <Text
+                      style={[styles.detailStatusText, { color: getStatusColor(selectedItem.status) }]}
+                    >
+                      {getStatusLabel(selectedItem.status)}
+                    </Text>
+                  </View>
+                </View>
+                <Text style={styles.detailDate}>{selectedItem.addedDate}</Text>
+                {selectedItem.expiresIn && (
+                  <Text style={styles.detailExpiry}>Expires: {selectedItem.expiresIn}</Text>
+                )}
+              </View>
+            </View>
+
+            <View style={styles.stockSection}>
+              <View style={styles.stockHeader}>
+                <Text style={styles.stockTitle}>Stock Level</Text>
+                {!editingStock ? (
+                  <TouchableOpacity
+                    style={styles.editStockButton}
+                    onPress={() => setEditingStock(true)}
+                  >
+                    <Edit3 size={14} color={Colors.primary} />
+                    <Text style={styles.editStockText}>Edit</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity
+                    style={styles.doneStockButton}
+                    onPress={() => setEditingStock(false)}
+                  >
+                    <Text style={styles.doneStockText}>Done</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              <View style={styles.stockDisplay}>
+                <View style={styles.stockBarContainer}>
+                  <View
+                    style={[
+                      styles.stockBarFill,
+                      {
+                        width: `${selectedItem.stockPercentage}%`,
+                        backgroundColor: getProgressColor(selectedItem.status),
+                      },
+                    ]}
+                  />
+                </View>
+                <Text style={styles.stockPercentText}>
+                  {selectedItem.stockPercentage}%
+                </Text>
+              </View>
+
+              {editingStock && (
+                <View style={styles.stockControls}>
+                  <View style={styles.stockAdjustRow}>
+                    <TouchableOpacity
+                      style={styles.stockAdjustButton}
+                      onPress={() =>
+                        handleUpdateStock(
+                          selectedItem,
+                          Math.max(0, selectedItem.stockPercentage - 10)
+                        )
+                      }
+                    >
+                      <Minus size={18} color={Colors.white} />
+                    </TouchableOpacity>
+                    <Text style={styles.stockAdjustValue}>
+                      {selectedItem.stockPercentage}%
+                    </Text>
+                    <TouchableOpacity
+                      style={styles.stockAdjustButton}
+                      onPress={() =>
+                        handleUpdateStock(
+                          selectedItem,
+                          Math.min(100, selectedItem.stockPercentage + 10)
+                        )
+                      }
+                    >
+                      <Plus size={18} color={Colors.white} />
+                    </TouchableOpacity>
+                  </View>
+
+                  <View style={styles.stockPresetsRow}>
+                    {STOCK_PRESETS.map((preset) => (
+                      <TouchableOpacity
+                        key={preset.value}
+                        style={[
+                          styles.stockPresetChip,
+                          selectedItem.stockPercentage === preset.value &&
+                            styles.stockPresetChipActive,
+                        ]}
+                        onPress={() => handleUpdateStock(selectedItem, preset.value)}
+                      >
+                        <Text
+                          style={[
+                            styles.stockPresetText,
+                            selectedItem.stockPercentage === preset.value &&
+                              styles.stockPresetTextActive,
+                          ]}
+                        >
+                          {preset.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+              )}
+            </View>
+
+            <TouchableOpacity
+              style={styles.deleteItemButton}
+              onPress={() => handleDeleteItem(selectedItem)}
+              activeOpacity={0.7}
+            >
+              <Trash2 size={18} color={Colors.red} />
+              <Text style={styles.deleteItemText}>Remove from Pantry</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        </Animated.View>
+      </Modal>
+    );
+  };
+
+  const renderActionMenu = () => {
+    if (!actionMenuTarget) return null;
+
+    return (
+      <Modal
+        visible={showActionMenu}
+        transparent
+        animationType="none"
+        onRequestClose={closeActionMenu}
+      >
+        <Animated.View style={[styles.modalOverlay, { opacity: actionMenuOpacity }]}>
+          <TouchableOpacity
+            style={StyleSheet.absoluteFill}
+            activeOpacity={1}
+            onPress={closeActionMenu}
+          />
+          <Animated.View
+            style={[
+              styles.actionMenuContent,
+              {
+                transform: [{ translateY: actionMenuSlide }],
+                paddingBottom: insets.bottom + 24,
+              },
+            ]}
+          >
+            <View style={styles.modalHandle} />
+
+            <View style={styles.actionMenuHeader}>
+              <Image source={{ uri: actionMenuTarget.image }} style={styles.actionMenuImage} />
+              <View style={styles.actionMenuInfo}>
+                <Text style={styles.actionMenuName} numberOfLines={1}>
+                  {actionMenuTarget.name}
+                </Text>
+                <Text style={styles.actionMenuCategory}>{actionMenuTarget.category}</Text>
+              </View>
+            </View>
+
+            <View style={styles.actionMenuDivider} />
+
+            <TouchableOpacity style={styles.actionMenuItem} onPress={handleActionView}>
+              <View style={[styles.actionMenuIcon, { backgroundColor: Colors.primary + "1A" }]}>
+                <Eye size={20} color={Colors.primary} />
+              </View>
+              <View style={styles.actionMenuItemInfo}>
+                <Text style={styles.actionMenuItemTitle}>View Details</Text>
+                <Text style={styles.actionMenuItemDesc}>See full item information</Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.actionMenuItem} onPress={handleActionEditStock}>
+              <View style={[styles.actionMenuIcon, { backgroundColor: Colors.orange + "1A" }]}>
+                <Edit3 size={20} color={Colors.orange} />
+              </View>
+              <View style={styles.actionMenuItemInfo}>
+                <Text style={styles.actionMenuItemTitle}>Adjust Stock</Text>
+                <Text style={styles.actionMenuItemDesc}>Update how much you have left</Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.actionMenuItem} onPress={handleActionDelete}>
+              <View style={[styles.actionMenuIcon, { backgroundColor: Colors.red + "1A" }]}>
+                <Trash2 size={20} color={Colors.red} />
+              </View>
+              <View style={styles.actionMenuItemInfo}>
+                <Text style={styles.actionMenuItemTitle}>Delete Item</Text>
+                <Text style={styles.actionMenuItemDesc}>Remove from your pantry</Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.actionCancelButton} onPress={closeActionMenu}>
+              <Text style={styles.actionCancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        </Animated.View>
+      </Modal>
+    );
   };
 
   const renderEmptyState = () => (
@@ -410,6 +846,8 @@ export default function InventoryScreen() {
                         ingredient.status === "expiring" &&
                           styles.ingredientCardExpiring,
                       ]}
+                      onPress={() => openDetailModal(ingredient)}
+                      activeOpacity={0.7}
                     >
                       {ingredient.status === "expiring" && (
                         <View style={styles.expiringGlow} />
@@ -483,7 +921,14 @@ export default function InventoryScreen() {
                           </Text>
                         </View>
                       </View>
-                      <TouchableOpacity style={styles.moreButton}>
+                      <TouchableOpacity
+                        style={styles.moreButton}
+                        onPress={(e) => {
+                          e.stopPropagation?.();
+                          openActionMenu(ingredient);
+                        }}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                      >
                         <MoreVertical size={18} color="rgba(255, 255, 255, 0.4)" />
                       </TouchableOpacity>
                     </TouchableOpacity>
@@ -513,6 +958,9 @@ export default function InventoryScreen() {
           <Text style={styles.quickScanText}>Quick Scan</Text>
         </TouchableOpacity>
       </View>
+
+      {renderDetailModal()}
+      {renderActionMenu()}
     </View>
   );
 }
@@ -1015,5 +1463,319 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600" as const,
     color: Colors.white,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    justifyContent: "flex-end",
+  },
+  modalContent: {
+    backgroundColor: Colors.backgroundDark,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingTop: 12,
+    paddingHorizontal: 24,
+    maxHeight: "85%",
+  },
+  modalHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    alignSelf: "center",
+    marginBottom: 16,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "700" as const,
+    color: Colors.white,
+  },
+  modalCloseButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  detailCard: {
+    flexDirection: "row",
+    backgroundColor: Colors.cardDark,
+    borderRadius: 20,
+    padding: 16,
+    gap: 16,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
+    marginBottom: 24,
+  },
+  detailImage: {
+    width: 90,
+    height: 90,
+    borderRadius: 14,
+  },
+  detailInfo: {
+    flex: 1,
+    justifyContent: "center",
+  },
+  detailName: {
+    fontSize: 20,
+    fontWeight: "700" as const,
+    color: Colors.white,
+    marginBottom: 8,
+  },
+  detailMetaRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 8,
+    flexWrap: "wrap",
+  },
+  detailCategoryBadge: {
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+  },
+  detailCategoryText: {
+    fontSize: 11,
+    fontWeight: "600" as const,
+    color: Colors.textSecondary,
+  },
+  detailStatusBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+  },
+  detailStatusText: {
+    fontSize: 11,
+    fontWeight: "700" as const,
+  },
+  detailDate: {
+    fontSize: 12,
+    color: Colors.textMuted,
+  },
+  detailExpiry: {
+    fontSize: 12,
+    color: Colors.orange,
+    marginTop: 4,
+    fontWeight: "600" as const,
+  },
+  stockSection: {
+    backgroundColor: Colors.cardDark,
+    borderRadius: 20,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
+    marginBottom: 16,
+  },
+  stockHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 16,
+  },
+  stockTitle: {
+    fontSize: 16,
+    fontWeight: "700" as const,
+    color: Colors.white,
+  },
+  editStockButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 10,
+    backgroundColor: Colors.primary + "1A",
+  },
+  editStockText: {
+    fontSize: 13,
+    fontWeight: "600" as const,
+    color: Colors.primary,
+  },
+  doneStockButton: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 10,
+    backgroundColor: Colors.primary,
+  },
+  doneStockText: {
+    fontSize: 13,
+    fontWeight: "700" as const,
+    color: Colors.backgroundDark,
+  },
+  stockDisplay: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+  },
+  stockBarContainer: {
+    flex: 1,
+    height: 10,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    borderRadius: 5,
+    overflow: "hidden",
+  },
+  stockBarFill: {
+    height: "100%",
+    borderRadius: 5,
+  },
+  stockPercentText: {
+    fontSize: 16,
+    fontWeight: "700" as const,
+    color: Colors.white,
+    minWidth: 44,
+    textAlign: "right",
+  },
+  stockControls: {
+    marginTop: 20,
+  },
+  stockAdjustRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 24,
+    marginBottom: 18,
+  },
+  stockAdjustButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.15)",
+  },
+  stockAdjustValue: {
+    fontSize: 32,
+    fontWeight: "700" as const,
+    color: Colors.white,
+    minWidth: 80,
+    textAlign: "center",
+  },
+  stockPresetsRow: {
+    flexDirection: "row",
+    gap: 8,
+    justifyContent: "center",
+  },
+  stockPresetChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 12,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
+  },
+  stockPresetChipActive: {
+    backgroundColor: Colors.primary + "33",
+    borderColor: Colors.primary + "66",
+  },
+  stockPresetText: {
+    fontSize: 12,
+    fontWeight: "600" as const,
+    color: Colors.textMuted,
+  },
+  stockPresetTextActive: {
+    color: Colors.primary,
+  },
+  deleteItemButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    paddingVertical: 16,
+    borderRadius: 16,
+    backgroundColor: Colors.red + "15",
+    borderWidth: 1,
+    borderColor: Colors.red + "30",
+    marginBottom: 8,
+  },
+  deleteItemText: {
+    fontSize: 15,
+    fontWeight: "700" as const,
+    color: Colors.red,
+  },
+  actionMenuContent: {
+    backgroundColor: Colors.backgroundDark,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingTop: 12,
+    paddingHorizontal: 24,
+  },
+  actionMenuHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    paddingVertical: 8,
+  },
+  actionMenuImage: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+  },
+  actionMenuInfo: {
+    flex: 1,
+  },
+  actionMenuName: {
+    fontSize: 17,
+    fontWeight: "700" as const,
+    color: Colors.white,
+    marginBottom: 2,
+  },
+  actionMenuCategory: {
+    fontSize: 13,
+    color: Colors.textMuted,
+  },
+  actionMenuDivider: {
+    height: 1,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    marginVertical: 16,
+  },
+  actionMenuItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 16,
+    paddingVertical: 14,
+  },
+  actionMenuIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  actionMenuItemInfo: {
+    flex: 1,
+  },
+  actionMenuItemTitle: {
+    fontSize: 16,
+    fontWeight: "600" as const,
+    color: Colors.white,
+    marginBottom: 2,
+  },
+  actionMenuItemDesc: {
+    fontSize: 12,
+    color: Colors.textMuted,
+  },
+  actionCancelButton: {
+    alignItems: "center",
+    paddingVertical: 16,
+    marginTop: 8,
+    borderRadius: 16,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
+  },
+  actionCancelText: {
+    fontSize: 16,
+    fontWeight: "600" as const,
+    color: Colors.textSecondary,
   },
 });
