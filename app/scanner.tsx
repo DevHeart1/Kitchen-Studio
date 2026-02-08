@@ -647,6 +647,12 @@ export default function ScannerScreen() {
     <View style={styles.container}>
       {hasCaptured && capturedImage ? (
         <Image source={{ uri: capturedImage }} style={styles.cameraBackground} />
+      ) : Platform.OS === 'web' ? (
+        <View style={[styles.cameraBackground, styles.webCameraFallback]}>
+          <Camera size={48} color={Colors.textSecondary} />
+          <Text style={styles.webCameraText}>Camera not available on web</Text>
+          <Text style={styles.webCameraSubtext}>Use a mobile device to scan items</Text>
+        </View>
       ) : (
         <CameraView
           ref={cameraRef}
@@ -1494,5 +1500,21 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700" as const,
     color: Colors.backgroundDark,
+  },
+  webCameraFallback: {
+    backgroundColor: Colors.backgroundDark,
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
+    gap: 12,
+  },
+  webCameraText: {
+    fontSize: 18,
+    fontWeight: "600" as const,
+    color: Colors.white,
+    marginTop: 8,
+  },
+  webCameraSubtext: {
+    fontSize: 14,
+    color: Colors.textSecondary,
   },
 });
