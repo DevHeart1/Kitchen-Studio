@@ -9,6 +9,7 @@ import { InventoryProvider } from "@/contexts/InventoryContext";
 import { UserProfileProvider, useUserProfile } from "@/contexts/UserProfileContext";
 import { CookingHistoryProvider, useCookingHistory } from "@/contexts/CookingHistoryContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { DialogProvider } from "@/contexts/DialogContext";
 import SplashScreen from "@/components/SplashScreen";
 import WelcomeBackSplash from "@/components/WelcomeBackSplash";
 import { trpc, trpcClient } from "@/lib/trpc";
@@ -247,13 +248,15 @@ function RootLayoutNav() {
 function AppProviders({ children }: { children: React.ReactNode }) {
   return (
     <AuthProvider>
-      <InventoryProvider>
-        <SavedRecipesProvider>
-          <UserProfileProvider>
-            <CookingHistoryProvider>{children}</CookingHistoryProvider>
-          </UserProfileProvider>
-        </SavedRecipesProvider>
-      </InventoryProvider>
+      <DialogProvider>
+        <InventoryProvider>
+          <SavedRecipesProvider>
+            <UserProfileProvider>
+              <CookingHistoryProvider>{children}</CookingHistoryProvider>
+            </UserProfileProvider>
+          </SavedRecipesProvider>
+        </InventoryProvider>
+      </DialogProvider>
     </AuthProvider>
   );
 }
