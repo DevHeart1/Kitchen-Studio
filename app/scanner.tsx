@@ -20,6 +20,8 @@ import Colors from "@/constants/colors";
 import { useInventory } from "@/contexts/InventoryContext";
 import { useNotifications } from "@/contexts/NotificationContext";
 import { trpc } from "@/lib/trpc";
+import { supabase } from "@/lib/supabase";
+import { useMutation } from "@tanstack/react-query";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
@@ -418,8 +420,39 @@ export default function ScannerScreen() {
 
   const { addItem } = useInventory();
   const { estimateShelfLifeForItems, addNotification } = useNotifications();
-  const analyzeMutation = trpc.pantryScan.analyzeImage.useMutation();
-  const expiryDateMutation = trpc.pantryScan.analyzeExpiryDate.useMutation();
+  const { addItem } = useInventory();
+  const { estimateShelfLifeForItems, addNotification } = useNotifications();
+
+  const analyzeMutation = useMutation({
+    mutationFn: async (data: { imageBase64: string; mimeType: string }) => {
+      const { data: response, error } = await supabase.functions.invoke('pantry-scan', {
+        body: { action: 'analyzeImage', ...data }
+      });
+      if (error) throw error;
+      if (response && response.error) throw new Error(response.error);
+      return response;
+    }
+  });
+
+  const expiryDateMutation = useMutation({
+    mutationFn: async (data: { imageBase64: string; mimeType: string }) => {
+      const { data: response, error } = await supabase.functions.invoke('pantry-scan', {
+        body: { action: 'analyzeExpiryDate', ...data }
+      });
+      if (error) throw error;
+      if (response && response.error) throw new Error(response.error);
+      return response;
+    }
+  });
+
+  useEffect(() => {
+    console.log("[Scanner] Component mounted");
+    return () => console.log("[Scanner] Component unmounted");
+  }, []);
+
+  useEffect(() => {
+    console.log("[Scanner] Permission state changed:", permission);
+  }, [permission]);
 
   useEffect(() => {
     const pulseAnimation = Animated.loop(
@@ -566,7 +599,7 @@ export default function ScannerScreen() {
                   expiryDate: est.expiryDate,
                   expiryStatus: est.perishability === "non_perishable" ? "fresh" as const :
                     est.shelfLifeDays <= 3 ? "expiring_soon" as const :
-                    est.shelfLifeDays <= 7 ? "fresh" as const : "fresh" as const,
+                      est.shelfLifeDays <= 7 ? "fresh" as const : "fresh" as const,
                   suggestedStatus: est.perishability === "non_perishable" ? "good" as const :
                     est.shelfLifeDays <= 3 ? "expiring" as const : "good" as const,
                 };
@@ -993,8 +1026,8 @@ export default function ScannerScreen() {
                 detectedItems.map((item) => {
                   const expiryColor =
                     item.expiryStatus === "expired" ? "#FF4444" :
-                    item.expiryStatus === "expiring_soon" ? "#FF9500" :
-                    item.expiryStatus === "fresh" ? "#34C759" : undefined;
+                      item.expiryStatus === "expiring_soon" ? "#FF9500" :
+                        item.expiryStatus === "fresh" ? "#34C759" : undefined;
                   const qty = item.quantityCount ?? 1;
 
                   return (

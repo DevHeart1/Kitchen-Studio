@@ -324,9 +324,6 @@ export const pantryScanRouter = createTRPCRouter({
           model: 'gemini-3-flash-preview',
           config: {
             responseMimeType: 'application/json',
-            thinkingConfig: {
-              thinkingLevel: 'HIGH' as any,
-            },
           },
           contents: [
             {
@@ -376,8 +373,17 @@ export const pantryScanRouter = createTRPCRouter({
 
         console.log(`[PantryScan] Found ${finalResult.items.length} items`);
         return finalResult;
-      } catch (error) {
+      } catch (error: any) {
         console.error("[PantryScan] Error analyzing image:", error);
+
+        // Log detailed error info if available
+        if (error.response) {
+          console.error("[PantryScan] API Response Error:", JSON.stringify(error.response, null, 2));
+        }
+        if (error.message) {
+          console.error("[PantryScan] Error Message:", error.message);
+        }
+
         throw new Error(
           `Failed to analyze pantry image: ${error instanceof Error ? error.message : "Unknown error"}`
         );

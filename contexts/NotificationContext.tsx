@@ -2,7 +2,8 @@ import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import createContextHook from "@nkzw/create-context-hook";
 import { useInventory, InventoryItem } from "@/contexts/InventoryContext";
-import { trpc } from "@/lib/trpc";
+import { supabase } from "@/lib/supabase";
+import { useMutation } from "@tanstack/react-query";
 import { Notification, NotificationType } from "@/types";
 
 const NOTIFICATIONS_KEY = "app_notifications_v2";
@@ -140,8 +141,27 @@ export const [NotificationProvider, useNotifications] = createContextHook(() => 
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   const { inventory } = useInventory();
   const prevInventoryRef = useRef<string>("");
-  const recommendationsMutation = trpc.pantryScan.getSmartRecommendations.useMutation();
-  const shelfLifeMutation = trpc.pantryScan.estimateShelfLife.useMutation();
+  const recommendationsMutation = useMutation({
+    mutationFn: async (data: { inventoryItems: any[] }) => {
+      const { data: response, error } = await supabase.functions.invoke('pantry-scan', {
+        body: { action: 'getSmartRecommendations', ...data }
+      });
+      if (error) throw error;
+      if (response && response.error) throw new Error(response.error);
+      return response;
+    }
+  });
+
+  const shelfLifeMutation = useMutation({
+    mutationFn: async (data: { items: any[] }) => {
+      const { data: response, error } = await supabase.functions.invoke('pantry-scan', {
+        body: { action: 'estimateShelfLife', ...data }
+      });
+      if (error) throw error;
+      if (response && response.error) throw new Error(response.error);
+      return response;
+    }
+  });
 
   useEffect(() => {
     loadPersistedState();
