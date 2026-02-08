@@ -27,7 +27,7 @@ import Colors from "@/constants/colors";
 import { useAuth } from "@/contexts/AuthContext";
 
 export default function SignUpScreen() {
-    const { signUp, isLoading, isDemoMode } = useAuth();
+    const { signUp, isLoading } = useAuth();
     const [name, setName] = useState("");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
@@ -70,32 +70,16 @@ export default function SignUpScreen() {
 
         setIsSubmitting(true);
         try {
-            const { error } = await signUp(email, password, name);
+            const result = await signUp(email, password, name);
 
-            if (error) {
-                Alert.alert("Sign Up Failed", error.message || "Could not create account");
+            if (result.error) {
+                Alert.alert("Sign Up Failed", result.error.message || "Could not create account");
                 setIsSubmitting(false);
                 return;
             }
 
-            // In demo mode, navigate to preferences to complete onboarding
-            if (isDemoMode) {
-                console.log("[SignUp] Demo mode - navigating to preferences");
-                router.replace("/(auth)/preferences");
-                return;
-            }
-
-            // In production mode, show email verification message
-            Alert.alert(
-                "Verify Your Email",
-                "We've sent a verification link to your email address. Please check your inbox and verify your email before logging in.",
-                [
-                    {
-                        text: "OK",
-                        onPress: () => router.replace("/(auth)/login"),
-                    },
-                ]
-            );
+            console.log("[SignUp] Account created, navigating to preferences");
+            router.replace("/(auth)/preferences");
         } catch {
             Alert.alert("Error", "An unexpected error occurred");
         } finally {

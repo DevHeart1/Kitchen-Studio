@@ -92,8 +92,12 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
                 return { data, error };
             }
 
-            // Check if email confirmation is required
             const needsEmailConfirmation = data?.user && !data?.session;
+            
+            if (needsEmailConfirmation) {
+                console.log("[Auth] Email confirmation required, marking as entered for onboarding");
+                await markAsEntered();
+            }
             
             return { 
                 data, 
@@ -122,18 +126,39 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
                 
                 const isEmailNotConfirmed = error.message.includes("Email not confirmed");
                 
-                // Provide more helpful error messages
+                if (isEmailNotConfirmed) {
+                    console.log("[Auth] Email not confirmed - attempting OTP verification flow");
+                    const { error: otpError } = await supabase.auth.signInWithOtp({
+                        email,
+                        options: {
+                            shouldCreateUser: false,
+                        },
+                    });
+                    
+                    if (!otpError) {
+                        return {
+                            data,
+                            error: { ...error, message: "We sent a magic link to your email. Please check your inbox to sign in." },
+                            needsEmailConfirmation: true,
+                        };
+                    }
+
+                    return { 
+                        data, 
+                        error: { ...error, message: "Your email hasn't been confirmed yet. Please check your inbox for a confirmation or magic link email." },
+                        needsEmailConfirmation: true
+                    };
+                }
+                
                 let userFriendlyMessage = error.message;
                 if (error.message === "Invalid login credentials") {
                     userFriendlyMessage = "Invalid email or password. Please check your credentials or create an account if you haven't signed up yet.";
-                } else if (isEmailNotConfirmed) {
-                    userFriendlyMessage = "Please check your email and click the confirmation link before signing in.";
                 }
                 
                 return { 
                     data, 
                     error: { ...error, message: userFriendlyMessage },
-                    needsEmailConfirmation: isEmailNotConfirmed
+                    needsEmailConfirmation: false
                 };
             }
 
