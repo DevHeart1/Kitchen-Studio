@@ -10,13 +10,12 @@ import {
   Dimensions,
   Platform,
   ActivityIndicator,
-  Alert,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
-import { Zap, Check, Loader, CheckCheck, X, Camera, RefreshCw, Scan, AlertCircle, Plus } from "lucide-react-native";
+import { Zap, Check, Loader, CheckCheck, X, Camera, RefreshCw, Scan, AlertCircle, Plus, Clock, Package, Hash, AlertTriangle } from "lucide-react-native";
 import Colors from "@/constants/colors";
 import { useInventory } from "@/contexts/InventoryContext";
 import { trpc } from "@/lib/trpc";
@@ -32,6 +31,11 @@ interface DetectedItem {
   imageUri: string;
   estimatedQuantity?: string;
   suggestedStatus?: "good" | "low" | "expiring";
+  quantityCount?: number;
+  isPackaged?: boolean;
+  expiryDate?: string | null;
+  expiryStatus?: "fresh" | "expiring_soon" | "expired" | "unknown";
+  unit?: string;
 }
 
 const PLACEHOLDER_IMAGES: Record<string, string> = {
@@ -523,6 +527,11 @@ export default function ScannerScreen() {
         imageUri: manipulated.uri,
         estimatedQuantity: item.estimatedQuantity,
         suggestedStatus: item.suggestedStatus,
+        quantityCount: (item as any).quantityCount ?? 1,
+        isPackaged: (item as any).isPackaged ?? false,
+        expiryDate: (item as any).expiryDate ?? null,
+        expiryStatus: (item as any).expiryStatus ?? "unknown",
+        unit: (item as any).unit,
       }));
 
       setDetectedItems((prev) => [...prev, ...items]);
@@ -575,20 +584,42 @@ export default function ScannerScreen() {
       if (confirmedItems.length === 0) return;
 
       for (const item of confirmedItems) {
+        const qty = item.quantityCount ?? 1;
         const stockPercentage =
           item.estimatedQuantity === "full" ? 100 :
             item.estimatedQuantity === "half" ? 50 :
               item.estimatedQuantity === "almost empty" ? 15 :
                 item.estimatedQuantity === "multiple" ? 100 : 75;
 
+        const expiresIn = item.expiryDate
+          ? item.expiryDate
+          : item.expiryStatus === "expiring_soon"
+            ? "Soon"
+            : item.expiryStatus === "expired"
+              ? "Expired"
+              : item.suggestedStatus === "expiring"
+                ? "Soon"
+                : undefined;
+
+        const status: "good" | "low" | "expiring" =
+          item.expiryStatus === "expired" || item.expiryStatus === "expiring_soon"
+            ? "expiring"
+            : item.suggestedStatus || "good";
+
+        const itemName = qty > 1 && item.unit
+          ? `${item.name} (${qty} ${item.unit}${qty > 1 ? 's' : ''})`
+          : qty > 1
+            ? `${item.name} (x${qty})`
+            : item.name;
+
         await addItem({
-          name: item.name,
+          name: itemName,
           image: item.imageUri || PLACEHOLDER_IMAGES[item.category] || PLACEHOLDER_IMAGES["Other"],
           category: item.category,
           addedDate: "Added just now",
-          status: item.suggestedStatus || "good",
+          status,
           stockPercentage,
-          expiresIn: item.suggestedStatus === "expiring" ? "Soon" : undefined,
+          expiresIn,
         });
       }
 
@@ -794,54 +825,101 @@ export default function ScannerScreen() {
                   )}
                 </View>
               ) : (
-                detectedItems.map((item) => (
-                  <TouchableOpacity
-                    key={item.id}
-                    style={[
-                      styles.detectedItemCard,
-                      {
-                        borderColor: item.confirmed
-                          ? `${Colors.primary}66`
-                          : "rgba(255,255,255,0.1)",
-                        opacity: item.confirmed ? 1 : 0.6,
-                      },
-                    ]}
-                    onPress={() => toggleItemConfirm(item.id)}
-                    activeOpacity={0.7}
-                  >
-                    <Image
-                      source={{ uri: item.imageUri || PLACEHOLDER_IMAGES[item.category] || PLACEHOLDER_IMAGES["Other"] }}
-                      style={styles.detectedItemImage}
-                      resizeMode="cover"
-                    />
-                    <View style={styles.detectedItemGradient} />
-                    <View
+                detectedItems.map((item) => {
+                  const expiryColor =
+                    item.expiryStatus === "expired" ? "#FF4444" :
+                    item.expiryStatus === "expiring_soon" ? "#FF9500" :
+                    item.expiryStatus === "fresh" ? "#34C759" : undefined;
+                  const qty = item.quantityCount ?? 1;
+
+                  return (
+                    <TouchableOpacity
+                      key={item.id}
                       style={[
-                        styles.detectedItemCheck,
+                        styles.detectedItemCard,
                         {
-                          backgroundColor: item.confirmed
-                            ? Colors.primary
-                            : "rgba(255,255,255,0.2)",
+                          borderColor: item.expiryStatus === "expired"
+                            ? "#FF444466"
+                            : item.expiryStatus === "expiring_soon"
+                              ? "#FF950066"
+                              : item.confirmed
+                                ? `${Colors.primary}66`
+                                : "rgba(255,255,255,0.1)",
+                          opacity: item.confirmed ? 1 : 0.6,
                         },
                       ]}
+                      onPress={() => toggleItemConfirm(item.id)}
+                      activeOpacity={0.7}
                     >
-                      {item.confirmed ? (
-                        <Check size={12} color={Colors.backgroundDark} strokeWidth={3} />
-                      ) : (
-                        <Loader size={12} color={Colors.white} strokeWidth={2} />
+                      <Image
+                        source={{ uri: item.imageUri || PLACEHOLDER_IMAGES[item.category] || PLACEHOLDER_IMAGES["Other"] }}
+                        style={styles.detectedItemImage}
+                        resizeMode="cover"
+                      />
+                      <View style={styles.detectedItemGradient} />
+                      <View
+                        style={[
+                          styles.detectedItemCheck,
+                          {
+                            backgroundColor: item.confirmed
+                              ? Colors.primary
+                              : "rgba(255,255,255,0.2)",
+                          },
+                        ]}
+                      >
+                        {item.confirmed ? (
+                          <Check size={12} color={Colors.backgroundDark} strokeWidth={3} />
+                        ) : (
+                          <Loader size={12} color={Colors.white} strokeWidth={2} />
+                        )}
+                      </View>
+                      <View style={styles.confidenceIndicator}>
+                        <Text style={styles.confidenceIndicatorText}>
+                          {Math.round(item.confidence * 100)}%
+                        </Text>
+                      </View>
+                      {qty > 1 && (
+                        <View style={styles.quantityBadge}>
+                          <Hash size={8} color={Colors.white} strokeWidth={3} />
+                          <Text style={styles.quantityBadgeText}>x{qty}</Text>
+                        </View>
                       )}
-                    </View>
-                    <View style={styles.confidenceIndicator}>
-                      <Text style={styles.confidenceIndicatorText}>
-                        {Math.round(item.confidence * 100)}%
-                      </Text>
-                    </View>
-                    <Text style={styles.detectedItemName} numberOfLines={2}>
-                      {item.name}
-                    </Text>
-                    <Text style={styles.detectedItemCategory}>{item.category}</Text>
-                  </TouchableOpacity>
-                ))
+                      {item.isPackaged && (
+                        <View style={styles.packageBadge}>
+                          <Package size={8} color="#A0D2FF" strokeWidth={2.5} />
+                        </View>
+                      )}
+                      <View style={styles.detectedItemInfo}>
+                        <Text style={styles.detectedItemName} numberOfLines={2}>
+                          {item.name}
+                        </Text>
+                        <View style={styles.detectedItemMeta}>
+                          <Text style={styles.detectedItemCategory}>{item.category}</Text>
+                          {expiryColor && item.expiryStatus !== "unknown" && (
+                            <View style={[styles.expiryBadge, { backgroundColor: `${expiryColor}30` }]}>
+                              {item.expiryStatus === "expired" ? (
+                                <AlertTriangle size={7} color={expiryColor} strokeWidth={3} />
+                              ) : item.expiryStatus === "expiring_soon" ? (
+                                <Clock size={7} color={expiryColor} strokeWidth={3} />
+                              ) : (
+                                <Check size={7} color={expiryColor} strokeWidth={3} />
+                              )}
+                              <Text style={[styles.expiryBadgeText, { color: expiryColor }]}>
+                                {item.expiryStatus === "expired" ? "EXP" :
+                                  item.expiryStatus === "expiring_soon" ? "SOON" : "OK"}
+                              </Text>
+                            </View>
+                          )}
+                        </View>
+                        {item.expiryDate && (
+                          <Text style={[styles.expiryDateText, { color: expiryColor || Colors.textSecondary }]}>
+                            {item.expiryDate}
+                          </Text>
+                        )}
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })
               )}
             </ScrollView>
           )}
@@ -1358,8 +1436,8 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   detectedItemCard: {
-    width: 120,
-    height: 140,
+    width: 130,
+    height: 170,
     borderRadius: 16,
     overflow: "hidden",
     borderWidth: 1,
@@ -1373,16 +1451,16 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: 80,
+    height: 100,
     ...Platform.select({
       ios: {
-        backgroundColor: "rgba(0,0,0,0.5)",
+        backgroundColor: "rgba(0,0,0,0.6)",
       },
       android: {
-        backgroundColor: "rgba(0,0,0,0.5)",
+        backgroundColor: "rgba(0,0,0,0.6)",
       },
       web: {
-        backgroundColor: "rgba(0,0,0,0.5)",
+        backgroundColor: "rgba(0,0,0,0.6)",
       },
     }),
   },
@@ -1410,21 +1488,77 @@ const styles = StyleSheet.create({
     fontWeight: "700" as const,
     color: Colors.white,
   },
-  detectedItemName: {
+  detectedItemInfo: {
     position: "absolute",
-    bottom: 22,
-    left: 10,
-    right: 10,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 8,
+    paddingBottom: 8,
+    paddingTop: 4,
+  },
+  detectedItemName: {
     fontSize: 11,
     fontWeight: "700" as const,
     color: Colors.white,
+    lineHeight: 14,
+  },
+  detectedItemMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginTop: 3,
   },
   detectedItemCategory: {
-    position: "absolute",
-    bottom: 8,
-    left: 10,
     fontSize: 9,
     color: Colors.textSecondary,
+  },
+  quantityBadge: {
+    position: "absolute",
+    top: 32,
+    left: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+    backgroundColor: "rgba(100,100,255,0.7)",
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  quantityBadgeText: {
+    fontSize: 9,
+    fontWeight: "800" as const,
+    color: Colors.white,
+  },
+  packageBadge: {
+    position: "absolute",
+    top: 32,
+    right: 8,
+    backgroundColor: "rgba(0,80,160,0.6)",
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  expiryBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 4,
+  },
+  expiryBadgeText: {
+    fontSize: 7,
+    fontWeight: "800" as const,
+    letterSpacing: 0.5,
+  },
+  expiryDateText: {
+    fontSize: 8,
+    fontWeight: "600" as const,
+    marginTop: 2,
+    letterSpacing: 0.3,
   },
   actionButtonsContainer: {
     flexDirection: "row",
