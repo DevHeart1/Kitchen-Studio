@@ -7,6 +7,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SavedRecipesProvider } from "@/contexts/SavedRecipesContext";
 import { InventoryProvider } from "@/contexts/InventoryContext";
 import { UserProfileProvider, useUserProfile } from "@/contexts/UserProfileContext";
+import { CookingHistoryProvider, useCookingHistory } from "@/contexts/CookingHistoryContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import SplashScreen from "@/components/SplashScreen";
 import WelcomeBackSplash from "@/components/WelcomeBackSplash";
@@ -83,7 +84,8 @@ function useProtectedRoute() {
 
 function RootLayoutNav() {
   const { isLoading: authLoading, isAuthenticated, isDemoMode } = useAuth();
-  const { isLoading: profileLoading, hasCompletedOnboarding, activeCookingSession } = useUserProfile();
+  const { isLoading: profileLoading, hasCompletedOnboarding } = useUserProfile();
+  const { activeCookingSession } = useCookingHistory();
   const [showWelcomeBack, setShowWelcomeBack] = useState(true);
 
   useProtectedRoute();
@@ -247,7 +249,9 @@ function AppProviders({ children }: { children: React.ReactNode }) {
     <AuthProvider>
       <InventoryProvider>
         <SavedRecipesProvider>
-          <UserProfileProvider>{children}</UserProfileProvider>
+          <UserProfileProvider>
+            <CookingHistoryProvider>{children}</CookingHistoryProvider>
+          </UserProfileProvider>
         </SavedRecipesProvider>
       </InventoryProvider>
     </AuthProvider>

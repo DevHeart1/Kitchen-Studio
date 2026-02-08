@@ -28,8 +28,8 @@ import {
   X,
 } from "lucide-react-native";
 import Colors from "@/constants/colors";
-import { recentCooks } from "@/mocks/sessions";
-import { RecentCook, CookingStep } from "@/types";
+import { useCookingHistory } from "@/contexts/CookingHistoryContext";
+import { CookingStep } from "@/types";
 
 export default function CookSessionScreen() {
   const insets = useSafeAreaInsets();
@@ -39,10 +39,11 @@ export default function CookSessionScreen() {
   const [selectedRating, setSelectedRating] = useState(0);
   const [notes, setNotes] = useState("");
   const [showMenuModal, setShowMenuModal] = useState(false);
+  const { getSession, removeSession } = useCookingHistory();
 
   const cook = useMemo(() => {
-    return recentCooks.find((c) => c.id === id);
-  }, [id]);
+    return getSession(id || "");
+  }, [id, getSession]);
 
   if (!cook) {
     return (

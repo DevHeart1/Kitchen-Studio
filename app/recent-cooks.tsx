@@ -19,7 +19,7 @@ import {
   Filter,
 } from "lucide-react-native";
 import Colors from "@/constants/colors";
-import { recentCooks } from "@/mocks/sessions";
+import { useCookingHistory } from "@/contexts/CookingHistoryContext";
 import { RecentCook } from "@/types";
 
 type FilterType = "all" | "in_progress" | "completed";
@@ -28,20 +28,21 @@ export default function RecentCooksScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const [activeFilter, setActiveFilter] = useState<FilterType>("all");
+  const { cookingSessions } = useCookingHistory();
 
   const filteredCooks = useMemo(() => {
     switch (activeFilter) {
       case "in_progress":
-        return recentCooks.filter((cook) => cook.progress < 100);
+        return cookingSessions.filter((cook) => cook.progress < 100);
       case "completed":
-        return recentCooks.filter((cook) => cook.progress === 100);
+        return cookingSessions.filter((cook) => cook.progress === 100);
       default:
-        return recentCooks;
+        return cookingSessions;
     }
-  }, [activeFilter]);
+  }, [activeFilter, cookingSessions]);
 
-  const inProgressCount = recentCooks.filter((c) => c.progress < 100).length;
-  const completedCount = recentCooks.filter((c) => c.progress === 100).length;
+  const inProgressCount = cookingSessions.filter((c) => c.progress < 100).length;
+  const completedCount = cookingSessions.filter((c) => c.progress === 100).length;
 
   const handleCookPress = (cook: RecentCook) => {
     router.push({
@@ -176,7 +177,7 @@ export default function RecentCooksScreen() {
             <ChefHat size={20} color={Colors.primary} />
           </View>
           <View>
-            <Text style={styles.statValue}>{recentCooks.length}</Text>
+            <Text style={styles.statValue}>{cookingSessions.length}</Text>
             <Text style={styles.statLabel}>Total Sessions</Text>
           </View>
         </View>

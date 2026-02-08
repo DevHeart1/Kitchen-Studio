@@ -1,7 +1,6 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import createContextHook from "@nkzw/create-context-hook";
-import { recentCooks } from "@/mocks/sessions";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase, DbUserProfile, DbSharedRecipe } from "@/lib/supabase";
 
@@ -562,20 +561,12 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
   }, [useSupabase, hasCompletedOnboarding, currentUserId]);
 
   const computedStats = useMemo(() => {
-    const completedCooks = recentCooks.filter((c) => c.progress === 100);
-    const inProgressCooks = recentCooks.filter((c) => c.progress < 100);
-
     return {
-      totalCooks: recentCooks.length,
-      completedCooks: completedCooks.length,
-      inProgressCooks: inProgressCooks.length,
-      avgRating: completedCooks.reduce((acc, c) => acc + (c.rating || 0), 0) / (completedCooks.length || 1),
+      totalCooks: 0,
+      completedCooks: 0,
+      inProgressCooks: 0,
+      avgRating: 0,
     };
-  }, []);
-
-  // Get the first active cooking session (progress < 100)
-  const activeCookingSession = useMemo(() => {
-    return recentCooks.find((c) => c.progress < 100) || null;
   }, []);
 
   return {
@@ -600,6 +591,5 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
     hasCompletedOnboarding,
     completeOnboarding,
     checkOnboardingStatus,
-    activeCookingSession,
   };
 });

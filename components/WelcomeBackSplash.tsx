@@ -12,7 +12,7 @@ import {
 import { Play, Compass } from "lucide-react-native";
 import { useRouter } from "expo-router";
 import { useUserProfile } from "@/contexts/UserProfileContext";
-import { recentCooks } from "@/mocks/sessions";
+import { useCookingHistory } from "@/contexts/CookingHistoryContext";
 import Colors from "@/constants/colors";
 
 const { width, height } = Dimensions.get("window");
@@ -24,12 +24,13 @@ interface WelcomeBackSplashProps {
 export default function WelcomeBackSplash({ onContinue }: WelcomeBackSplashProps) {
   const router = useRouter();
   const { profile } = useUserProfile();
+  const { activeCookingSession } = useCookingHistory();
   const pulseValue = useRef(new Animated.Value(1)).current;
   const fadeValue = useRef(new Animated.Value(0)).current;
   const glowOpacity = useRef(new Animated.Value(0.4)).current;
   const progressShimmer = useRef(new Animated.Value(0)).current;
 
-  const inProgressCook = recentCooks.find((cook) => cook.progress < 100);
+  const inProgressCook = activeCookingSession;
   const progressPercent = inProgressCook ? inProgressCook.progress : 0;
 
   useEffect(() => {
