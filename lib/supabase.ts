@@ -55,6 +55,12 @@ export interface DbUserProfile {
         dataSharing?: boolean;
         analytics?: boolean;
     };
+    // User onboarding preferences
+    cooking_level?: 'beginner' | 'intermediate' | 'pro';
+    dietary_preferences?: ('vegetarian' | 'vegan' | 'keto' | 'halal' | 'gluten-free' | 'dairy-free' | 'nut-free')[];
+    primary_goal?: 'eat-healthy' | 'save-money' | 'learn-new';
+    cooking_interests?: string[];
+    onboarding_completed?: boolean;
     created_at: string;
     updated_at: string;
 }

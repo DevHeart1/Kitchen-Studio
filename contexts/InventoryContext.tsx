@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback, useMemo } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import createContextHook from "@nkzw/create-context-hook";
 import { supabase, DbInventoryItem } from "@/lib/supabase";
+import { useAuth } from "./AuthContext";
 
 export interface InventoryItem {
   id: string;
@@ -81,19 +82,24 @@ const frontendToDb = (
 export const [InventoryProvider, useInventory] = createContextHook(() => {
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const { user, getUserId } = useAuth();
   const useSupabase = isSupabaseConfigured();
+  const userId = getUserId();
 
   useEffect(() => {
-    loadInventory();
-  }, []);
+    if (userId) {
+      loadInventory();
+    }
+  }, [userId]);
 
   const loadInventory = async () => {
     try {
-      if (useSupabase) {
+      if (useSupabase && userId) {
         // Load from Supabase
         const { data, error } = await supabase
           .from("inventory_items")
           .select("*")
+          .eq("user_id", userId)
           .order("created_at", { ascending: false });
 
         if (error) {

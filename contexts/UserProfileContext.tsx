@@ -148,10 +148,10 @@ const dbToFrontend = (
     ...DEFAULT_SETTINGS,
     ...dbProfile.settings,
   },
-  cookingLevel: (dbProfile as any).cooking_level,
-  dietaryPreferences: (dbProfile as any).dietary_preferences,
-  primaryGoal: (dbProfile as any).primary_goal,
-  cookingInterests: (dbProfile as any).cooking_interests,
+  cookingLevel: dbProfile.cooking_level,
+  dietaryPreferences: dbProfile.dietary_preferences,
+  primaryGoal: dbProfile.primary_goal,
+  cookingInterests: dbProfile.cooking_interests,
 });
 
 export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
@@ -200,45 +200,45 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
 
         if (profileData) {
           setProfile(dbToFrontend(profileData, recipesData || []));
-          const dbOnboardingCompleted = (profileData as any).onboarding_completed === true;
+          const dbOnboardingCompleted = profileData.onboarding_completed === true;
           setHasCompletedOnboarding(prev => prev === true ? true : dbOnboardingCompleted);
         } else {
           // No profile in Supabase, create one
           if (currentUserId && user) {
-             const newProfile = {
-                user_id: currentUserId,
-                name: user.user_metadata?.name || user.email?.split('@')[0] || "Chef",
-                title: "Kitchen Novice",
-                level: 1,
-                cook_time: "0h",
-                accuracy: 0,
-                recipes_completed: 0,
-                total_xp: 0,
-                unlocked_badge_ids: [],
-                settings: DEFAULT_SETTINGS,
-                cooking_level: 'beginner',
-                dietary_preferences: [],
-                cooking_interests: [],
-                onboarding_completed: false
-             };
+            const newProfile = {
+              user_id: currentUserId,
+              name: user.user_metadata?.name || user.email?.split('@')[0] || "Chef",
+              title: "Kitchen Novice",
+              level: 1,
+              cook_time: "0h",
+              accuracy: 0,
+              recipes_completed: 0,
+              total_xp: 0,
+              unlocked_badge_ids: [],
+              settings: DEFAULT_SETTINGS,
+              cooking_level: 'beginner',
+              dietary_preferences: [],
+              cooking_interests: [],
+              onboarding_completed: false
+            };
 
-             // Insert the new profile
-             const { data: newProfileData, error: createError } = await supabase
-               .from("user_profiles")
-               .insert(newProfile)
-               .select()
-               .single();
+            // Insert the new profile
+            const { data: newProfileData, error: createError } = await supabase
+              .from("user_profiles")
+              .insert(newProfile)
+              .select()
+              .single();
 
-             if (createError) {
-                 console.error("[Profile] Error creating profile:", JSON.stringify(createError, null, 2));
-                 setProfile(DEFAULT_PROFILE);
-             } else if (newProfileData) {
-                 setProfile(dbToFrontend(newProfileData, []));
-                 setHasCompletedOnboarding(prev => prev === true ? true : false);
-             }
+            if (createError) {
+              console.error("[Profile] Error creating profile:", JSON.stringify(createError, null, 2));
+              setProfile(DEFAULT_PROFILE);
+            } else if (newProfileData) {
+              setProfile(dbToFrontend(newProfileData, []));
+              setHasCompletedOnboarding(prev => prev === true ? true : false);
+            }
           } else {
-             setProfile(DEFAULT_PROFILE);
-             setHasCompletedOnboarding(false);
+            setProfile(DEFAULT_PROFILE);
+            setHasCompletedOnboarding(false);
           }
         }
       } else {
@@ -494,21 +494,43 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
     setHasCompletedOnboarding(true);
     try {
       if (useSupabase && currentUserId) {
-        const { error } = await supabase
+        // Try strict update first
+        const { error, data } = await supabase
           .from("user_profiles")
           .update({ onboarding_completed: true })
-          .eq("user_id", currentUserId);
-        if (error) {
-          console.error("[Profile] Error updating onboarding in DB:", error.message);
-          await supabase
+          .eq("user_id", currentUserId)
+          .select();
+
+        // If error or no rows updated (profile missing), try full upsert
+        if (error || !data || data.length === 0) {
+          console.log("[Profile] Update failed or no row, trying full upsert with onboarding_completed=true");
+          const { error: upsertError } = await supabase
             .from("user_profiles")
             .upsert(
               {
                 user_id: currentUserId,
+                name: profile.name,
+                title: profile.title,
+                level: profile.level,
+                avatar: profile.avatar,
+                cook_time: profile.stats.cookTime,
+                accuracy: profile.stats.accuracy,
+                recipes_completed: profile.stats.recipesCompleted,
+                total_xp: profile.stats.totalXP,
+                unlocked_badge_ids: profile.unlockedBadgeIds,
+                settings: profile.settings,
+                cooking_level: profile.cookingLevel || 'beginner',
+                dietary_preferences: profile.dietaryPreferences || [],
+                primary_goal: profile.primaryGoal,
+                cooking_interests: profile.cookingInterests || [],
                 onboarding_completed: true,
               },
               { onConflict: 'user_id' }
             );
+
+          if (upsertError) {
+            console.error("[Profile] Full upsert failed:", upsertError.message);
+          }
         }
       } else {
         const stored = await AsyncStorage.getItem(STORAGE_KEY);
@@ -525,7 +547,7 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
     if (hasCompletedOnboarding !== null) {
       return hasCompletedOnboarding;
     }
-    
+
     try {
       if (useSupabase && currentUserId) {
         const { data, error } = await supabase
@@ -535,11 +557,11 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
           .single();
 
         if (error && error.code === "PGRST116") {
-            // No profile found, so onboarding not completed
-            setHasCompletedOnboarding(false);
-            return false;
+          // No profile found, so onboarding not completed
+          setHasCompletedOnboarding(false);
+          return false;
         }
-        
+
         const completed = data?.onboarding_completed === true;
         setHasCompletedOnboarding(completed);
         return completed;
