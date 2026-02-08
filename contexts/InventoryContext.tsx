@@ -16,10 +16,11 @@ export interface InventoryItem {
 }
 
 const STORAGE_KEY = "pantry_inventory";
-const MOCK_CLEARED_KEY = "pantry_mock_cleared_v1";
+const MOCK_CLEARED_KEY = "pantry_mock_cleared_v3";
 const DEMO_USER_ID = "demo-user-00000000-0000-0000-0000-000000000000";
 
 const MOCK_IDS = ["1-1", "1-2", "2-1", "2-2", "3-1", "4-1", "4-2", "4-3"];
+const KNOWN_MOCK_CATEGORIES = ["Snacks", "Grains & Pasta", "Oils & Spices", "Produce", "Dairy", "Proteins", "Beverages", "Condiments"];
 
 
 
@@ -114,7 +115,14 @@ export const [InventoryProvider, useInventory] = createContextHook(() => {
       const stored = await AsyncStorage.getItem(STORAGE_KEY);
       if (stored) {
         const parsed: InventoryItem[] = JSON.parse(stored);
-        const realItems = parsed.filter((item) => !MOCK_IDS.includes(item.id));
+        const isMockItem = (item: InventoryItem): boolean => {
+          if (MOCK_IDS.includes(item.id)) return true;
+          if (/^\d+-\d+$/.test(item.id)) return true;
+          if (/^mock-/.test(item.id)) return true;
+          return false;
+        };
+        const realItems = parsed.filter((item) => !isMockItem(item));
+        console.log(`[Inventory] Purged ${parsed.length - realItems.length} mock items, kept ${realItems.length} real items`);
         await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(realItems));
         setInventory(realItems);
       } else {
