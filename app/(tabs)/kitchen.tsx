@@ -285,6 +285,15 @@ export default function KitchenScreen() {
         <ScanLine size={16} color={Colors.backgroundDark} />
         <Text style={styles.emptySectionButtonText}>Scan Items</Text>
       </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[styles.emptySectionButton, { backgroundColor: "transparent", marginTop: 8, borderWidth: 1, borderColor: "rgba(255,255,255,0.2)" }]}
+        onPress={() => router.push("/manual-add")}
+        activeOpacity={0.8}
+      >
+        <Plus size={16} color={Colors.white} />
+        <Text style={[styles.emptySectionButtonText, { color: Colors.white }]}>Add Manually</Text>
+      </TouchableOpacity>
     </View>
   );
 

@@ -420,8 +420,7 @@ export default function ScannerScreen() {
 
   const { addItem } = useInventory();
   const { estimateShelfLifeForItems, addNotification } = useNotifications();
-  const { addItem } = useInventory();
-  const { estimateShelfLifeForItems, addNotification } = useNotifications();
+
 
   const analyzeMutation = useMutation({
     mutationFn: async (data: { imageBase64: string; mimeType: string }) => {
@@ -558,7 +557,7 @@ export default function ScannerScreen() {
 
       console.log("[Scanner] Analysis complete:", result);
 
-      const items: DetectedItem[] = result.items.map((item, index) => ({
+      const items: DetectedItem[] = (result as any).items.map((item: any, index: number) => ({
         id: `scan-${Date.now()}-${index}`,
         name: item.name,
         category: item.category,
