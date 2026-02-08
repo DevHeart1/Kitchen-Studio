@@ -14,6 +14,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { CameraView, useCameraPermissions } from "expo-camera";
+import * as Linking from "expo-linking";
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import { Zap, Check, Loader, CheckCheck, X, Camera, RefreshCw, Scan, AlertCircle, Plus, Clock, Package, Hash, AlertTriangle, CalendarClock, Eye, SkipForward, Sparkles } from "lucide-react-native";
 import Colors from "@/constants/colors";
@@ -453,6 +454,20 @@ export default function ScannerScreen() {
     console.log("[Scanner] Permission state changed:", permission);
   }, [permission]);
 
+  const handleGrantPermission = useCallback(async () => {
+    console.log("[Scanner] Requesting camera permission...");
+    const result = await requestPermission();
+    console.log("[Scanner] Permission result:", result);
+
+    if (!result.granted) {
+      // Permission was denied - offer to open settings
+      if (result.canAskAgain === false) {
+        console.log("[Scanner] Cannot ask again, opening settings...");
+        await Linking.openSettings();
+      }
+    }
+  }, [requestPermission]);
+
   useEffect(() => {
     const pulseAnimation = Animated.loop(
       Animated.sequence([
@@ -833,7 +848,7 @@ export default function ScannerScreen() {
         <Text style={styles.permissionText}>
           We need camera access to scan your pantry items
         </Text>
-        <TouchableOpacity style={styles.permissionButton} onPress={requestPermission}>
+        <TouchableOpacity style={styles.permissionButton} onPress={handleGrantPermission}>
           <Text style={styles.permissionButtonText}>Grant Permission</Text>
         </TouchableOpacity>
       </View>
