@@ -201,7 +201,8 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
 
         if (profileData) {
           setProfile(dbToFrontend(profileData, recipesData || []));
-          setHasCompletedOnboarding((profileData as any).onboarding_completed === true);
+          const dbOnboardingCompleted = (profileData as any).onboarding_completed === true;
+          setHasCompletedOnboarding(prev => prev === true ? true : dbOnboardingCompleted);
         } else {
           // No profile in Supabase, create one
           if (currentUserId && user) {
@@ -231,10 +232,10 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
 
              if (createError) {
                  console.error("[Profile] Error creating profile:", JSON.stringify(createError, null, 2));
-                 setProfile(DEFAULT_PROFILE); // Fallback
+                 setProfile(DEFAULT_PROFILE);
              } else if (newProfileData) {
                  setProfile(dbToFrontend(newProfileData, []));
-                 setHasCompletedOnboarding(false);
+                 setHasCompletedOnboarding(prev => prev === true ? true : false);
              }
           } else {
              setProfile(DEFAULT_PROFILE);
@@ -248,6 +249,7 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
       console.log("Error loading profile:", error);
       await loadFromAsyncStorage();
     } finally {
+      console.log("[Profile] loadProfile finished");
       setIsLoading(false);
     }
   };
@@ -258,10 +260,11 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
       if (stored) {
         const parsed = JSON.parse(stored);
         setProfile({ ...DEFAULT_PROFILE, ...parsed });
-        setHasCompletedOnboarding(parsed.onboardingCompleted === true);
+        const storedCompleted = parsed.onboardingCompleted === true;
+        setHasCompletedOnboarding(prev => prev === true ? true : storedCompleted);
       } else {
         await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_PROFILE));
-        setHasCompletedOnboarding(false);
+        setHasCompletedOnboarding(prev => prev === true ? true : false);
       }
     } catch (error) {
       console.log("Error loading from AsyncStorage:", error);
@@ -488,24 +491,32 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
   }, [pendingLevelUp]);
 
   const completeOnboarding = useCallback(async () => {
+    console.log("[Profile] completeOnboarding called");
     setHasCompletedOnboarding(true);
     try {
       if (useSupabase && currentUserId) {
-        await supabase
+        const { error } = await supabase
           .from("user_profiles")
-          .upsert(
-            {
-              user_id: currentUserId,
-              onboarding_completed: true,
-            },
-            { onConflict: 'user_id' }
-          );
+          .update({ onboarding_completed: true })
+          .eq("user_id", currentUserId);
+        if (error) {
+          console.error("[Profile] Error updating onboarding in DB:", error.message);
+          await supabase
+            .from("user_profiles")
+            .upsert(
+              {
+                user_id: currentUserId,
+                onboarding_completed: true,
+              },
+              { onConflict: 'user_id' }
+            );
+        }
       } else {
         const stored = await AsyncStorage.getItem(STORAGE_KEY);
         const parsed = stored ? JSON.parse(stored) : DEFAULT_PROFILE;
         await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({ ...parsed, onboardingCompleted: true }));
       }
-      console.log("[Profile] Onboarding marked as complete");
+      console.log("[Profile] Onboarding marked as complete successfully");
     } catch (error) {
       console.error("[Profile] Error completing onboarding:", error);
     }
