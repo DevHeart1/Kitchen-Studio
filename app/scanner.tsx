@@ -15,9 +15,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
-import { Zap, Check, Loader, CheckCheck, X, Camera, RefreshCw, Scan, AlertCircle, Plus, Clock, Package, Hash, AlertTriangle } from "lucide-react-native";
+import { Zap, Check, Loader, CheckCheck, X, Camera, RefreshCw, Scan, AlertCircle, Plus, Clock, Package, Hash, AlertTriangle, CalendarClock, Eye, SkipForward, Sparkles } from "lucide-react-native";
 import Colors from "@/constants/colors";
 import { useInventory } from "@/contexts/InventoryContext";
+import { useNotifications } from "@/contexts/NotificationContext";
 import { trpc } from "@/lib/trpc";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
@@ -411,8 +412,14 @@ export default function ScannerScreen() {
   const [hasCaptured, setHasCaptured] = useState(false);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
 
+  const [expiryScanMode, setExpiryScanMode] = useState(false);
+  const [showExpiryPrompt, setShowExpiryPrompt] = useState(false);
+  const [isEstimatingShelfLife, setIsEstimatingShelfLife] = useState(false);
+
   const { addItem } = useInventory();
+  const { estimateShelfLifeForItems, addNotification } = useNotifications();
   const analyzeMutation = trpc.pantryScan.analyzeImage.useMutation();
+  const expiryDateMutation = trpc.pantryScan.analyzeExpiryDate.useMutation();
 
   useEffect(() => {
     const pulseAnimation = Animated.loop(
@@ -536,6 +543,44 @@ export default function ScannerScreen() {
 
       setDetectedItems((prev) => [...prev, ...items]);
       setOverallConfidence(result.overallConfidence);
+
+      const packagedWithoutExpiry = items.filter(i => i.isPackaged && !i.expiryDate);
+      if (packagedWithoutExpiry.length > 0) {
+        console.log(`[Scanner] ${packagedWithoutExpiry.length} packaged items without expiry date detected`);
+        setShowExpiryPrompt(true);
+      }
+
+      const freshItems = items.filter(i => !i.isPackaged && i.expiryStatus === "unknown");
+      if (freshItems.length > 0) {
+        setIsEstimatingShelfLife(true);
+        try {
+          const estimates = await estimateShelfLifeForItems(
+            freshItems.map(i => ({ name: i.name, category: i.category, isPackaged: false }))
+          );
+          if (estimates.length > 0) {
+            setDetectedItems(prev => prev.map(item => {
+              const est = estimates.find(e => e.name.toLowerCase() === item.name.toLowerCase());
+              if (est && !item.isPackaged) {
+                return {
+                  ...item,
+                  expiryDate: est.expiryDate,
+                  expiryStatus: est.perishability === "non_perishable" ? "fresh" as const :
+                    est.shelfLifeDays <= 3 ? "expiring_soon" as const :
+                    est.shelfLifeDays <= 7 ? "fresh" as const : "fresh" as const,
+                  suggestedStatus: est.perishability === "non_perishable" ? "good" as const :
+                    est.shelfLifeDays <= 3 ? "expiring" as const : "good" as const,
+                };
+              }
+              return item;
+            }));
+            console.log(`[Scanner] Shelf life estimated for ${estimates.length} fresh items`);
+          }
+        } catch (e) {
+          console.log("[Scanner] Shelf life estimation failed:", e);
+        } finally {
+          setIsEstimatingShelfLife(false);
+        }
+      }
     } catch (error: unknown) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       console.error("[Scanner] Error:", errorMsg);
@@ -552,13 +597,102 @@ export default function ScannerScreen() {
     } finally {
       setIsScanning(false);
     }
-  }, [isScanning, analyzeWithRetry]);
+  }, [isScanning, analyzeWithRetry, estimateShelfLifeForItems]);
+
+  const handleExpiryDateScan = useCallback(async () => {
+    if (!cameraRef.current || isScanning) return;
+
+    setShowExpiryPrompt(false);
+    setExpiryScanMode(true);
+    setHasCaptured(false);
+    setCapturedImage(null);
+    console.log("[Scanner] Entering expiry date scan mode...");
+  }, [isScanning]);
+
+  const handleCaptureExpiryDate = useCallback(async () => {
+    if (!cameraRef.current || isScanning) return;
+
+    setIsScanning(true);
+    setScanError(null);
+    console.log("[Scanner] Capturing expiry date...");
+
+    try {
+      const photo = await cameraRef.current.takePictureAsync({
+        quality: 0.8,
+        skipProcessing: true,
+      });
+
+      if (!photo?.uri) throw new Error("Failed to capture image");
+
+      const manipulated = await manipulateAsync(
+        photo.uri,
+        [{ resize: { width: 640 } }],
+        { compress: 0.5, format: SaveFormat.JPEG, base64: true }
+      );
+
+      if (!manipulated.base64) throw new Error("Failed to process image");
+
+      setCapturedImage(manipulated.uri);
+      setHasCaptured(true);
+
+      const result = await expiryDateMutation.mutateAsync({
+        imageBase64: manipulated.base64,
+        mimeType: "image/jpeg",
+      });
+
+      console.log("[Scanner] Expiry date result:", result);
+
+      if (result.found && result.expiryDate) {
+        setDetectedItems(prev => prev.map(item => {
+          if (item.isPackaged && (!item.expiryDate || item.expiryDate === null)) {
+            const expDate = new Date(result.expiryDate + "T00:00:00");
+            const now = new Date();
+            const daysLeft = Math.ceil((expDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+            return {
+              ...item,
+              expiryDate: result.expiryDate,
+              expiryStatus: daysLeft < 0 ? "expired" as const :
+                daysLeft <= 7 ? "expiring_soon" as const : "fresh" as const,
+              suggestedStatus: daysLeft < 0 ? "expiring" as const :
+                daysLeft <= 7 ? "expiring" as const : "good" as const,
+            };
+          }
+          return item;
+        }));
+
+        addNotification({
+          type: "storage_tip",
+          title: "Expiry Date Detected",
+          message: `Found expiry date: ${result.expiryDate}${result.rawText ? ` (${result.rawText})` : ""}. Items have been updated.`,
+          priority: "low",
+        });
+      } else {
+        setScanError("No expiry date found. Try focusing on the date label.");
+      }
+    } catch (error: unknown) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error("[Scanner] Expiry scan error:", errorMsg);
+      setScanError("Failed to read expiry date. Try again.");
+    } finally {
+      setIsScanning(false);
+      setExpiryScanMode(false);
+    }
+  }, [isScanning, expiryDateMutation, addNotification]);
+
+  const handleSkipExpiryScan = useCallback(() => {
+    setShowExpiryPrompt(false);
+    setExpiryScanMode(false);
+    console.log("[Scanner] Skipping expiry date scan");
+  }, []);
 
   const handleRetake = useCallback(() => {
     setHasCaptured(false);
     setCapturedImage(null);
     setDetectedItems([]);
     setOverallConfidence(0);
+    setShowExpiryPrompt(false);
+    setExpiryScanMode(false);
   }, []);
 
   const handleScanMore = useCallback(() => {
@@ -735,27 +869,51 @@ export default function ScannerScreen() {
           style={[styles.scanningTitle, { transform: [{ scale: pulseAnim }] }]}
         >
           {isScanning
-            ? "AI Processing..."
+            ? expiryScanMode ? "Reading Expiry Date..." : "AI Processing..."
             : hasCaptured
-              ? `${detectedItems.length} Items Detected`
-              : "Aim at Pantry"}
+              ? expiryScanMode ? "Expiry Date Scanned" : `${detectedItems.length} Items Detected`
+              : expiryScanMode ? "Show Expiry Date" : "Aim at Pantry"}
         </Animated.Text>
+
+        {expiryScanMode && !hasCaptured && !isScanning && (
+          <View style={styles.expiryPromptBanner}>
+            <CalendarClock size={20} color={Colors.primary} />
+            <Text style={styles.expiryPromptBannerText}>
+              Point camera at the expiry date on the package
+            </Text>
+          </View>
+        )}
 
         {!hasCaptured && !isScanning && (
           <TouchableOpacity
             style={styles.captureButton}
-            onPress={handleCapture}
+            onPress={expiryScanMode ? handleCaptureExpiryDate : handleCapture}
             activeOpacity={0.8}
           >
-            <View style={styles.captureButtonOuter}>
-              <View style={styles.captureButtonInner}>
-                <Scan size={28} color={Colors.backgroundDark} />
+            <View style={[styles.captureButtonOuter, expiryScanMode && styles.captureButtonOuterExpiry]}>
+              <View style={[styles.captureButtonInner, expiryScanMode && styles.captureButtonInnerExpiry]}>
+                {expiryScanMode ? (
+                  <Eye size={28} color={Colors.backgroundDark} />
+                ) : (
+                  <Scan size={28} color={Colors.backgroundDark} />
+                )}
               </View>
             </View>
           </TouchableOpacity>
         )}
 
-        {hasCaptured && !isScanning && (
+        {expiryScanMode && !hasCaptured && !isScanning && (
+          <TouchableOpacity
+            style={styles.skipExpiryButton}
+            onPress={handleSkipExpiryScan}
+            activeOpacity={0.8}
+          >
+            <SkipForward size={16} color={Colors.textSecondary} />
+            <Text style={styles.skipExpiryText}>Skip</Text>
+          </TouchableOpacity>
+        )}
+
+        {hasCaptured && !isScanning && !expiryScanMode && (
           <TouchableOpacity
             style={styles.retakeButton}
             onPress={handleRetake}
@@ -764,6 +922,13 @@ export default function ScannerScreen() {
             <RefreshCw size={18} color={Colors.white} />
             <Text style={styles.retakeButtonText}>Retake</Text>
           </TouchableOpacity>
+        )}
+
+        {isEstimatingShelfLife && (
+          <View style={styles.shelfLifeBanner}>
+            <Sparkles size={14} color={Colors.primary} />
+            <Text style={styles.shelfLifeBannerText}>Estimating shelf life for fresh items...</Text>
+          </View>
         )}
       </View>
 
@@ -922,6 +1087,39 @@ export default function ScannerScreen() {
                 })
               )}
             </ScrollView>
+          )}
+
+          {showExpiryPrompt && (
+            <View style={styles.expiryPromptContainer}>
+              <View style={styles.expiryPromptCard}>
+                <View style={styles.expiryPromptIcon}>
+                  <CalendarClock size={22} color={Colors.orange} />
+                </View>
+                <View style={styles.expiryPromptTextContainer}>
+                  <Text style={styles.expiryPromptTitle}>Packaged Items Detected</Text>
+                  <Text style={styles.expiryPromptMessage}>
+                    Show the expiry date on the package to the camera for accurate tracking
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.expiryPromptButtons}>
+                <TouchableOpacity
+                  style={styles.expiryPromptSkip}
+                  onPress={handleSkipExpiryScan}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.expiryPromptSkipText}>Skip</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.expiryPromptScan}
+                  onPress={handleExpiryDateScan}
+                  activeOpacity={0.8}
+                >
+                  <CalendarClock size={16} color={Colors.backgroundDark} />
+                  <Text style={styles.expiryPromptScanText}>Scan Expiry Date</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
           )}
 
           <View style={styles.actionButtonsContainer}>
@@ -1650,5 +1848,130 @@ const styles = StyleSheet.create({
   webCameraSubtext: {
     fontSize: 14,
     color: Colors.textSecondary,
+  },
+  expiryPromptBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginTop: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    backgroundColor: "rgba(249, 115, 22, 0.15)",
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "rgba(249, 115, 22, 0.3)",
+    maxWidth: 300,
+  },
+  expiryPromptBannerText: {
+    fontSize: 13,
+    color: Colors.white,
+    flex: 1,
+    lineHeight: 18,
+  },
+  captureButtonOuterExpiry: {
+    borderColor: Colors.orange,
+    backgroundColor: "rgba(249, 115, 22, 0.2)",
+  },
+  captureButtonInnerExpiry: {
+    backgroundColor: Colors.orange,
+  },
+  skipExpiryButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  skipExpiryText: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    fontWeight: "500" as const,
+  },
+  shelfLifeBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: "rgba(43, 238, 91, 0.1)",
+    borderRadius: 12,
+  },
+  shelfLifeBannerText: {
+    fontSize: 12,
+    color: Colors.primary,
+    fontWeight: "500" as const,
+  },
+  expiryPromptContainer: {
+    paddingHorizontal: 16,
+    marginBottom: 8,
+  },
+  expiryPromptCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    backgroundColor: "rgba(249, 115, 22, 0.1)",
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: "rgba(249, 115, 22, 0.2)",
+  },
+  expiryPromptIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: "rgba(249, 115, 22, 0.15)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  expiryPromptTextContainer: {
+    flex: 1,
+  },
+  expiryPromptTitle: {
+    fontSize: 14,
+    fontWeight: "700" as const,
+    color: Colors.orange,
+    marginBottom: 2,
+  },
+  expiryPromptMessage: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    lineHeight: 16,
+  },
+  expiryPromptButtons: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 10,
+  },
+  expiryPromptSkip: {
+    flex: 1,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.12)",
+  },
+  expiryPromptSkipText: {
+    fontSize: 13,
+    fontWeight: "600" as const,
+    color: Colors.textSecondary,
+  },
+  expiryPromptScan: {
+    flex: 2,
+    height: 40,
+    borderRadius: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    backgroundColor: Colors.orange,
+  },
+  expiryPromptScanText: {
+    fontSize: 13,
+    fontWeight: "700" as const,
+    color: Colors.backgroundDark,
   },
 });

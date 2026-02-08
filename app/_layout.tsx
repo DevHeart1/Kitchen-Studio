@@ -10,6 +10,7 @@ import { UserProfileProvider, useUserProfile } from "@/contexts/UserProfileConte
 import { CookingHistoryProvider, useCookingHistory } from "@/contexts/CookingHistoryContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { DialogProvider } from "@/contexts/DialogContext";
+import { NotificationProvider } from "@/contexts/NotificationContext";
 import SplashScreen from "@/components/SplashScreen";
 import WelcomeBackSplash from "@/components/WelcomeBackSplash";
 import { trpc, trpcClient } from "@/lib/trpc";
@@ -250,11 +251,13 @@ function AppProviders({ children }: { children: React.ReactNode }) {
     <AuthProvider>
       <DialogProvider>
         <InventoryProvider>
-          <SavedRecipesProvider>
-            <UserProfileProvider>
-              <CookingHistoryProvider>{children}</CookingHistoryProvider>
-            </UserProfileProvider>
-          </SavedRecipesProvider>
+          <NotificationProvider>
+            <SavedRecipesProvider>
+              <UserProfileProvider>
+                <CookingHistoryProvider>{children}</CookingHistoryProvider>
+              </UserProfileProvider>
+            </SavedRecipesProvider>
+          </NotificationProvider>
         </InventoryProvider>
       </DialogProvider>
     </AuthProvider>

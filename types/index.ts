@@ -41,7 +41,12 @@ export type NotificationType =
   | 'ingredient_alert'
   | 'achievement'
   | 'chef_update'
-  | 'tip';
+  | 'tip'
+  | 'expiry_warning'
+  | 'expiry_urgent'
+  | 'smart_recommendation'
+  | 'storage_tip'
+  | 'waste_reduction';
 
 export interface Notification {
   id: string;
@@ -54,6 +59,10 @@ export interface Notification {
   actionLabel?: string;
   actionRoute?: string;
   actionParams?: Record<string, string>;
+  priority?: 'high' | 'medium' | 'low';
+  relatedItems?: string[];
+  aiGenerated?: boolean;
+  dismissed?: boolean;
 }
 
 export interface Badge {

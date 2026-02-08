@@ -71,7 +71,234 @@ Return a valid JSON object matching the following schema:
 
 Be thorough but only include items you can actually see. Pay close attention to labels, dates, and quantities.`;
 
+const EXPIRY_SCAN_PROMPT = `You are an expert at reading expiry dates, best-before dates, use-by dates, and sell-by dates on food packaging.
+
+Analyze this image and look for ANY date printed on the packaging. This could be:
+- "Best Before", "BB", "Best By"
+- "Use By", "Use Before"
+- "Sell By"
+- "Expiry Date", "EXP", "Expires"
+- Any date format (DD/MM/YYYY, MM/DD/YYYY, YYYY-MM-DD, DD MMM YYYY, etc.)
+
+Return a valid JSON object:
+{
+  "found": true/false,
+  "expiryDate": "YYYY-MM-DD" or null,
+  "dateType": "best_before" | "use_by" | "sell_by" | "expiry" | "unknown",
+  "rawText": "the exact text seen on packaging" or null,
+  "confidence": 0.0 to 1.0
+}
+
+If no date is found, return { "found": false, "expiryDate": null, "dateType": "unknown", "rawText": null, "confidence": 0 }`;
+
+const SHELF_LIFE_PROMPT = `You are a food safety expert. For each food item provided, estimate its shelf life and expiry information.
+
+Consider:
+- Whether the item is perishable, semi-perishable, or non-perishable
+- Typical storage conditions (room temperature, refrigerated, frozen)
+- Common shelf life ranges
+- Signs of spoilage to watch for
+
+For the given items, return a valid JSON object:
+{
+  "items": [
+    {
+      "name": "item name",
+      "shelfLifeDays": number (estimated days from purchase),
+      "expiryDate": "YYYY-MM-DD" (calculated from today),
+      "perishability": "perishable" | "semi_perishable" | "non_perishable",
+      "storageAdvice": "brief storage tip",
+      "spoilageSign": "what to look for when it goes bad",
+      "category": "produce" | "dairy" | "protein" | "grain" | "canned" | "frozen" | "other"
+    }
+  ]
+}`;
+
+const SMART_RECOMMENDATIONS_PROMPT = `You are a helpful AI chef assistant. Based on the user's pantry inventory (especially items that are expiring soon), suggest practical actions and recipe ideas.
+
+For each recommendation, provide:
+- A clear, actionable title
+- A helpful message explaining why
+- The type of recommendation
+- Priority level
+
+Return a valid JSON object:
+{
+  "recommendations": [
+    {
+      "id": "unique-id",
+      "type": "expiry_warning" | "recipe_suggestion" | "storage_tip" | "meal_plan" | "waste_reduction",
+      "title": "short title",
+      "message": "detailed helpful message",
+      "priority": "high" | "medium" | "low",
+      "relatedItems": ["item names"],
+      "actionLabel": "optional action button text" or null
+    }
+  ]
+}
+
+Limit to 5-8 most relevant recommendations. Focus on preventing food waste and using items that expire soonest.`;
+
 export const pantryScanRouter = createTRPCRouter({
+  analyzeExpiryDate: publicProcedure
+    .input(
+      z.object({
+        imageBase64: z.string(),
+        mimeType: z.string().default("image/jpeg"),
+      })
+    )
+    .mutation(async ({ input }) => {
+      try {
+        console.log(`[ExpiryDateScan] Starting expiry date analysis...`);
+
+        if (!process.env.GEMINI_API_KEY) {
+          throw new Error("GEMINI_API_KEY is not set");
+        }
+
+        const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+
+        const result = await ai.models.generateContent({
+          model: 'gemini-3-flash-preview',
+          config: { responseMimeType: 'application/json' },
+          contents: [
+            {
+              role: 'user',
+              parts: [
+                { text: EXPIRY_SCAN_PROMPT },
+                { inlineData: { mimeType: input.mimeType, data: input.imageBase64 } },
+              ],
+            },
+          ],
+        });
+
+        const responseText = result.text ?? '{}';
+        console.log("[ExpiryDateScan] Response:", responseText.substring(0, 200));
+        const parsed = JSON.parse(responseText);
+
+        return {
+          found: parsed.found ?? false,
+          expiryDate: parsed.expiryDate ?? null,
+          dateType: parsed.dateType ?? "unknown",
+          rawText: parsed.rawText ?? null,
+          confidence: Math.max(0, Math.min(1, parsed.confidence ?? 0)),
+        };
+      } catch (error) {
+        console.error("[ExpiryDateScan] Error:", error);
+        throw new Error(`Failed to analyze expiry date: ${error instanceof Error ? error.message : "Unknown error"}`);
+      }
+    }),
+
+  estimateShelfLife: publicProcedure
+    .input(
+      z.object({
+        items: z.array(z.object({
+          name: z.string(),
+          category: z.string(),
+          isPackaged: z.boolean().optional(),
+        })),
+      })
+    )
+    .mutation(async ({ input }) => {
+      try {
+        console.log(`[ShelfLife] Estimating shelf life for ${input.items.length} items...`);
+
+        if (!process.env.GEMINI_API_KEY) {
+          throw new Error("GEMINI_API_KEY is not set");
+        }
+
+        const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+        const today = new Date().toISOString().split('T')[0];
+
+        const result = await ai.models.generateContent({
+          model: 'gemini-3-flash-preview',
+          config: { responseMimeType: 'application/json' },
+          contents: [
+            {
+              role: 'user',
+              parts: [
+                { text: `${SHELF_LIFE_PROMPT}\n\nToday's date is: ${today}\n\nItems to analyze:\n${JSON.stringify(input.items, null, 2)}` },
+              ],
+            },
+          ],
+        });
+
+        const responseText = result.text ?? '{}';
+        console.log("[ShelfLife] Response:", responseText.substring(0, 300));
+        const parsed = JSON.parse(responseText);
+
+        return {
+          items: (parsed.items || []).map((item: any) => ({
+            name: item.name || "",
+            shelfLifeDays: item.shelfLifeDays || 7,
+            expiryDate: item.expiryDate || null,
+            perishability: ["perishable", "semi_perishable", "non_perishable"].includes(item.perishability) ? item.perishability : "semi_perishable",
+            storageAdvice: item.storageAdvice || "",
+            spoilageSign: item.spoilageSign || "",
+            category: item.category || "other",
+          })),
+        };
+      } catch (error) {
+        console.error("[ShelfLife] Error:", error);
+        throw new Error(`Failed to estimate shelf life: ${error instanceof Error ? error.message : "Unknown error"}`);
+      }
+    }),
+
+  getSmartRecommendations: publicProcedure
+    .input(
+      z.object({
+        inventoryItems: z.array(z.object({
+          name: z.string(),
+          category: z.string(),
+          status: z.string(),
+          expiresIn: z.string().optional(),
+          stockPercentage: z.number(),
+        })),
+      })
+    )
+    .mutation(async ({ input }) => {
+      try {
+        console.log(`[SmartRec] Generating recommendations for ${input.inventoryItems.length} items...`);
+
+        if (!process.env.GEMINI_API_KEY) {
+          throw new Error("GEMINI_API_KEY is not set");
+        }
+
+        const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+
+        const result = await ai.models.generateContent({
+          model: 'gemini-3-flash-preview',
+          config: { responseMimeType: 'application/json' },
+          contents: [
+            {
+              role: 'user',
+              parts: [
+                { text: `${SMART_RECOMMENDATIONS_PROMPT}\n\nCurrent pantry inventory:\n${JSON.stringify(input.inventoryItems, null, 2)}` },
+              ],
+            },
+          ],
+        });
+
+        const responseText = result.text ?? '{}';
+        console.log("[SmartRec] Response:", responseText.substring(0, 300));
+        const parsed = JSON.parse(responseText);
+
+        return {
+          recommendations: (parsed.recommendations || []).map((rec: any) => ({
+            id: rec.id || `rec-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+            type: rec.type || "storage_tip",
+            title: rec.title || "Tip",
+            message: rec.message || "",
+            priority: ["high", "medium", "low"].includes(rec.priority) ? rec.priority : "medium",
+            relatedItems: Array.isArray(rec.relatedItems) ? rec.relatedItems : [],
+            actionLabel: rec.actionLabel || null,
+          })),
+        };
+      } catch (error) {
+        console.error("[SmartRec] Error:", error);
+        throw new Error(`Failed to generate recommendations: ${error instanceof Error ? error.message : "Unknown error"}`);
+      }
+    }),
+
   analyzeImage: publicProcedure
     .input(
       z.object({
