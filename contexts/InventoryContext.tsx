@@ -12,6 +12,8 @@ export interface InventoryItem {
   addedDate: string;
   status: "good" | "low" | "expiring";
   stockPercentage: number;
+  quantity?: number;
+  unit?: string;
   expiresIn?: string;
 }
 
@@ -53,6 +55,8 @@ const dbToFrontend = (item: DbInventoryItem): InventoryItem => ({
   addedDate: item.added_date,
   status: item.status,
   stockPercentage: item.stock_percentage,
+  quantity: item.quantity,
+  unit: item.unit,
   expiresIn: item.expires_in || undefined,
 });
 
@@ -69,6 +73,8 @@ const frontendToDb = (
   added_date: item.addedDate,
   status: item.status,
   stock_percentage: item.stockPercentage,
+  quantity: item.quantity || 1,
+  unit: item.unit || "pcs",
   expires_in: item.expiresIn || null,
 });
 

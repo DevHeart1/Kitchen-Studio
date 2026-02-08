@@ -14,6 +14,8 @@ CREATE TABLE IF NOT EXISTS inventory_items (
   added_date TEXT NOT NULL,
   status TEXT CHECK (status IN ('good', 'low', 'expiring')) DEFAULT 'good',
   stock_percentage INTEGER DEFAULT 100,
+  quantity REAL DEFAULT 1,
+  unit TEXT DEFAULT 'pcs',
   expires_in TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -126,3 +128,18 @@ CREATE POLICY "Allow all saved recipes operations" ON saved_recipes FOR ALL USIN
 -- SUCCESS MESSAGE
 -- ============================================
 SELECT 'Kitchen Studio database schema created successfully!' AS message;
+
+-- ============================================
+-- MIGRATIONS (Run these if table already exists)
+-- ============================================
+
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'inventory_items' AND column_name = 'quantity') THEN
+        ALTER TABLE inventory_items ADD COLUMN quantity REAL DEFAULT 1;
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'inventory_items' AND column_name = 'unit') THEN
+        ALTER TABLE inventory_items ADD COLUMN unit TEXT DEFAULT 'pcs';
+    END IF;
+END $$;

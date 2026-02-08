@@ -53,6 +53,8 @@ export default function ManualAddScreen() {
 
     const [name, setName] = useState("");
     const [category, setCategory] = useState("Other");
+    const [quantity, setQuantity] = useState("1");
+    const [unit, setUnit] = useState("pcs");
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const handleAdd = async () => {
@@ -61,20 +63,33 @@ export default function ManualAddScreen() {
             return;
         }
 
+        const count = parseInt(quantity);
+        if (isNaN(count) || count < 1) {
+            Alert.alert("Error", "Please enter a valid quantity (1 or more)");
+            return;
+        }
+
         setIsSubmitting(true);
         try {
-            await addItem({
-                name: name.trim(),
-                image: PLACEHOLDER_IMAGES[category] || PLACEHOLDER_IMAGES["Other"],
-                category: category,
-                addedDate: "Added just now",
-                status: "good",
-                stockPercentage: 100,
-            });
+            const promises = [];
+            for (let i = 0; i < count; i++) {
+                promises.push(addItem({
+                    name: name.trim(),
+                    image: PLACEHOLDER_IMAGES[category] || PLACEHOLDER_IMAGES["Other"],
+                    category: category,
+                    addedDate: "Added just now",
+                    status: "good",
+                    stockPercentage: 100,
+                    // We don't save quantity/unit per item if we are splitting by count
+                    // But we could save 'unit' if it represents package type e.g. 'bottle'
+                    unit: unit,
+                }));
+            }
+            await Promise.all(promises);
             router.back();
         } catch (error) {
-            console.error("Failed to add item:", error);
-            Alert.alert("Error", "Failed to add item. Please try again.");
+            console.error("Failed to add items:", error);
+            Alert.alert("Error", "Failed to add items. Please try again.");
         } finally {
             setIsSubmitting(false);
         }
@@ -110,6 +125,30 @@ export default function ManualAddScreen() {
                             value={name}
                             onChangeText={setName}
                         />
+                    </View>
+
+                    <View style={styles.row}>
+                        <View style={[styles.inputGroup, { flex: 1 }]}>
+                            <Text style={styles.label}>Quantity</Text>
+                            <TextInput
+                                style={styles.input}
+                                placeholder="1"
+                                placeholderTextColor="rgba(255, 255, 255, 0.4)"
+                                value={quantity}
+                                onChangeText={setQuantity}
+                                keyboardType="numeric"
+                            />
+                        </View>
+                        <View style={[styles.inputGroup, { flex: 1 }]}>
+                            <Text style={styles.label}>Unit</Text>
+                            <TextInput
+                                style={styles.input}
+                                placeholder="pcs"
+                                placeholderTextColor="rgba(255, 255, 255, 0.4)"
+                                value={unit}
+                                onChangeText={setUnit}
+                            />
+                        </View>
                     </View>
 
                     <View style={styles.inputGroup}>
@@ -264,5 +303,9 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: "700",
         color: Colors.backgroundDark,
+    },
+    row: {
+        flexDirection: "row",
+        gap: 12,
     },
 });

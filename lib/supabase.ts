@@ -27,6 +27,8 @@ export interface DbInventoryItem {
     added_date: string;
     status: 'good' | 'low' | 'expiring';
     stock_percentage: number;
+    quantity?: number;
+    unit?: string;
     expires_in: string | null;
     created_at: string;
     updated_at: string;
