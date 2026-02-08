@@ -21,6 +21,10 @@ import {
   AlertTriangle,
   Play,
   RefreshCw,
+  Search,
+  ScanLine,
+  Link,
+  ChevronRight,
 } from "lucide-react-native";
 import Colors from "@/constants/colors";
 import Header from "@/components/Header";
@@ -322,20 +326,69 @@ export default function HomeScreen() {
           cookingSessions.length === 0 &&
           !recipesLoading && (
             <View style={styles.emptyState}>
-              <View style={styles.emptyIconContainer}>
-                <Sparkles size={40} color={Colors.primary} />
+              <View style={styles.emptyIllustration}>
+                <View style={styles.emptyMainCircle}>
+                  <View style={styles.emptyInnerCircle}>
+                    <Sparkles size={36} color={Colors.primary} />
+                  </View>
+                </View>
+                <View style={[styles.emptyOrb, styles.emptyOrbRight]}>
+                  <ChefHat size={15} color={Colors.orange} />
+                </View>
+                <View style={[styles.emptyOrb, styles.emptyOrbLeft]}>
+                  <BookOpen size={13} color="#8b5cf6" />
+                </View>
               </View>
               <Text style={styles.emptyTitle}>Your kitchen awaits</Text>
               <Text style={styles.emptySubtitle}>
-                Paste a recipe link above or explore new recipes in the Discover
-                tab to get started.
+                Start your cooking journey by adding recipes or scanning pantry items.
               </Text>
-              <TouchableOpacity
-                style={styles.emptyButton}
-                onPress={() => router.push("/(tabs)/discover")}
-              >
-                <Text style={styles.emptyButtonText}>Explore Recipes</Text>
-              </TouchableOpacity>
+
+              <View style={styles.emptyActionsContainer}>
+                <TouchableOpacity
+                  style={styles.emptyActionRow}
+                  onPress={() => router.push("/(tabs)/discover")}
+                  activeOpacity={0.8}
+                >
+                  <View style={[styles.emptyActionIcon, { backgroundColor: Colors.primary + '1A' }]}>
+                    <Search size={20} color={Colors.primary} />
+                  </View>
+                  <View style={styles.emptyActionTextContainer}>
+                    <Text style={styles.emptyActionTitle}>Discover Recipes</Text>
+                    <Text style={styles.emptyActionDesc}>Personalized to your taste</Text>
+                  </View>
+                  <ChevronRight size={16} color={Colors.textMuted} />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.emptyActionRow}
+                  onPress={() => router.push("/scanner")}
+                  activeOpacity={0.8}
+                >
+                  <View style={[styles.emptyActionIcon, { backgroundColor: Colors.orange + '1A' }]}>
+                    <ScanLine size={20} color={Colors.orange} />
+                  </View>
+                  <View style={styles.emptyActionTextContainer}>
+                    <Text style={styles.emptyActionTitle}>Scan Your Pantry</Text>
+                    <Text style={styles.emptyActionDesc}>Track ingredients automatically</Text>
+                  </View>
+                  <ChevronRight size={16} color={Colors.textMuted} />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.emptyActionRow}
+                  activeOpacity={0.8}
+                >
+                  <View style={[styles.emptyActionIcon, { backgroundColor: '#8b5cf6' + '1A' }]}>
+                    <Link size={20} color="#8b5cf6" />
+                  </View>
+                  <View style={styles.emptyActionTextContainer}>
+                    <Text style={styles.emptyActionTitle}>Paste a Link</Text>
+                    <Text style={styles.emptyActionDesc}>Convert any recipe URL above</Text>
+                  </View>
+                  <ChevronRight size={16} color={Colors.textMuted} />
+                </TouchableOpacity>
+              </View>
             </View>
           )}
 
@@ -654,41 +707,102 @@ const styles = StyleSheet.create({
   },
   emptyState: {
     alignItems: "center",
-    paddingHorizontal: 32,
-    paddingVertical: 48,
+    paddingHorizontal: 16,
+    paddingVertical: 32,
   },
-  emptyIconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: Colors.primary + "15",
+  emptyIllustration: {
+    width: 150,
+    height: 150,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 20,
+    marginBottom: 24,
+    position: "relative" as const,
+  },
+  emptyMainCircle: {
+    width: 110,
+    height: 110,
+    borderRadius: 55,
+    backgroundColor: Colors.primary + "12",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1.5,
+    borderColor: Colors.primary + "25",
+  },
+  emptyInnerCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: Colors.primary + "1A",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  emptyOrb: {
+    position: "absolute" as const,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: Colors.cardGlass,
+    borderWidth: 1,
+    borderColor: Colors.cardGlassBorder,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  emptyOrbRight: {
+    top: 16,
+    right: 4,
+  },
+  emptyOrbLeft: {
+    bottom: 20,
+    left: 8,
   },
   emptyTitle: {
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: "700" as const,
     color: Colors.white,
     marginBottom: 8,
+    letterSpacing: -0.3,
   },
   emptySubtitle: {
     fontSize: 15,
     color: Colors.textSecondary,
     textAlign: "center",
     lineHeight: 22,
-    marginBottom: 24,
+    marginBottom: 28,
+    maxWidth: 280,
   },
-  emptyButton: {
-    backgroundColor: Colors.primary,
-    paddingHorizontal: 28,
-    paddingVertical: 14,
-    borderRadius: 14,
+  emptyActionsContainer: {
+    width: "100%",
+    gap: 10,
   },
-  emptyButtonText: {
+  emptyActionRow: {
+    flexDirection: "row" as const,
+    alignItems: "center",
+    backgroundColor: Colors.cardGlass,
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: Colors.cardGlassBorder,
+    gap: 14,
+  },
+  emptyActionIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 13,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  emptyActionTextContainer: {
+    flex: 1,
+  },
+  emptyActionTitle: {
     fontSize: 15,
     fontWeight: "700" as const,
-    color: Colors.backgroundDark,
+    color: Colors.white,
+    marginBottom: 2,
+  },
+  emptyActionDesc: {
+    fontSize: 12,
+    color: Colors.textMuted,
   },
   loadingContainer: {
     paddingVertical: 48,
