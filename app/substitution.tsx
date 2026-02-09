@@ -93,7 +93,18 @@ export default function SubstitutionScreen() {
 
       const data = await response.json();
       const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "[]";
-      const cleaned = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+
+      // Robust JSON cleaning
+      let cleaned = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+
+      // Attempt to fix unquoted keys if simple parse fails
+      try {
+        JSON.parse(cleaned);
+      } catch (e) {
+        // Fix unquoted keys: { key: "value" } -> { "key": "value" }
+        cleaned = cleaned.replace(/([{,]\s*)([a-zA-Z0-9_]+?)\s*:/g, '$1"$2":');
+      }
+
       const parsed = JSON.parse(cleaned);
 
       if (parsed.length === 0 && isLoadMore) {
