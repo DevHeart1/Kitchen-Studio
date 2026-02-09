@@ -26,13 +26,24 @@ serve(async (req) => {
             throw new Error("GEMINI_API_KEY not configured");
         }
 
+        // Helper to extract video ID from various YouTube URL formats
+        const extractVideoId = (url: string) => {
+            const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?|shorts)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
+            const match = url.match(regex);
+            return match ? match[1] : null;
+        };
+
+        const videoId = extractVideoId(videoUrl);
+        console.log(`[ExtractRecipe] Extracted Video ID: ${videoId}`);
+
         console.log(`[ExtractRecipe] Processing URL: ${videoUrl}`);
 
         // 1. Fetch Transcript using youtube-transcript package
         let transcriptText = "";
         try {
             // Deno npm compatibility might require some node polyfills, usually handled automatically
-            const transcriptItems = await YoutubeTranscript.fetchTranscript(videoUrl);
+            if (!videoId) throw new Error("Could not extract YouTube Video ID");
+            const transcriptItems = await YoutubeTranscript.fetchTranscript(videoId);
             transcriptText = transcriptItems.map((item: any) => item.text).join(" ");
         } catch (transcriptError) {
             console.warn("Transcribing failed, attempting fallback or direct analysis:", transcriptError);
@@ -72,7 +83,7 @@ Output ONLY valid JSON. No markdown.
 
 {
   "provenance": {
-    "model": "gemini-1.5-pro",
+    "model": "gemini-3-flash-preview",
     "timestamp": "${new Date().toISOString()}",
     "agent_version": "culinara-v1-edge"
   },
@@ -83,7 +94,7 @@ Output ONLY valid JSON. No markdown.
   "calories": "string (Estimated kcal)",
   "tags": ["string"],
   "ingredients": [
-    "string (Qty Unit Ingredient, e.g. '200g Salmon')"
+    { "id": "string (slug-style)", "name": "string", "amount": "string (e.g. 500g)", "unsplashPhotoId": "string (optional Unsplash ID)" }
   ],
   "instructions": [
     {
