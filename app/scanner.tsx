@@ -1038,7 +1038,7 @@ export default function ScannerScreen() {
               horizontal
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.itemsList}
-              style={{ maxHeight: 150, marginBottom: 8 }}
+              style={{ flexGrow: 0, flexShrink: 1, marginBottom: 8 }}
             >
               {detectedItems.length === 0 ? (
                 <View style={styles.emptyState}>
@@ -1531,7 +1531,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginTop: -60,
-    marginBottom: 300,
+    marginBottom: 360,
   },
   scanningTitle: {
     marginTop: 32,
@@ -1610,7 +1610,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderBottomWidth: 0,
     borderColor: Colors.cardGlassBorder,
-    maxHeight: 280,
+    maxHeight: 350,
     paddingTop: 8,
     ...Platform.select({
       ios: {
@@ -1720,8 +1720,8 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   detectedItemCard: {
-    width: 110,
-    height: 140,
+    width: 100,
+    height: 120,
     borderRadius: 14,
     overflow: "hidden",
     borderWidth: 1,
