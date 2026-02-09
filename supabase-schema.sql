@@ -119,9 +119,16 @@ ALTER TABLE user_profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE shared_recipes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE saved_recipes ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Allow all inventory operations" ON inventory_items;
 CREATE POLICY "Allow all inventory operations" ON inventory_items FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow all profile operations" ON user_profiles;
 CREATE POLICY "Allow all profile operations" ON user_profiles FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow all shared recipes operations" ON shared_recipes;
 CREATE POLICY "Allow all shared recipes operations" ON shared_recipes FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow all saved recipes operations" ON saved_recipes;
 CREATE POLICY "Allow all saved recipes operations" ON saved_recipes FOR ALL USING (true) WITH CHECK (true);
 
 -- ============================================
