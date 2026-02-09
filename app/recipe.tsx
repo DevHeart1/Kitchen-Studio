@@ -8,7 +8,7 @@ import {
   Image,
   Modal,
 } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   ArrowLeft,
@@ -87,18 +87,30 @@ const VIDEO_DURATION = "8:42 min";
 export default function RecipeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { saveRecipe, isRecipeSaved } = useSavedRecipes();
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const { savedRecipes, saveRecipe, isRecipeSaved } = useSavedRecipes();
   const { checkIngredientInPantry } = useInventory();
   const [isSaving, setIsSaving] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
 
+  // Find the recipe by ID or use a default/fallback
+  const recipe = savedRecipes.find((r) => r.id === id);
+
+  // If no recipe found (e.g. accessed directly or error), we could show an error or fallback
+  // For now, if no recipe, we'll use the hardcoded salmon data as a fallback to prevent crash,
+  // but in a real app better to show "Recipe not found"
+  const currentIngredients = recipe?.ingredients || BASE_INGREDIENTS;
+  const currentTitle = recipe?.title || RECIPE_TITLE;
+  const currentThumbnail = recipe?.videoThumbnail || VIDEO_THUMBNAIL;
+  const currentDuration = recipe?.videoDuration || VIDEO_DURATION;
+
   const ingredients = useMemo((): Ingredient[] => {
-    return BASE_INGREDIENTS.map((baseIngredient) => {
+    return currentIngredients.map((baseIngredient) => {
       const pantryCheck = checkIngredientInPantry(baseIngredient.name);
-      
+
       let status: Ingredient["status"];
       let substituteSuggestion = baseIngredient.substituteSuggestion;
-      
+
       if (pantryCheck.found) {
         status = "in_pantry";
         substituteSuggestion = undefined;
@@ -108,35 +120,36 @@ export default function RecipeScreen() {
       } else {
         status = "missing";
       }
-      
+
       return {
         ...baseIngredient,
         status,
         substituteSuggestion,
       };
     });
-  }, [checkIngredientInPantry]);
+  }, [checkIngredientInPantry, currentIngredients]);
 
   const readyCount = ingredients.filter((i) => i.status === "in_pantry").length;
   const totalCount = ingredients.length;
-  const readinessPercent = Math.round((readyCount / totalCount) * 100);
-  const isSaved = isRecipeSaved(RECIPE_TITLE);
+  const readinessPercent = totalCount > 0 ? Math.round((readyCount / totalCount) * 100) : 0;
+  const isSaved = isRecipeSaved(currentTitle);
 
   const handleSaveForLater = async () => {
     if (isSaved) {
       setShowSaveModal(true);
       return;
     }
-    
+
     setIsSaving(true);
     const success = await saveRecipe({
-      title: RECIPE_TITLE,
-      videoThumbnail: VIDEO_THUMBNAIL,
-      videoDuration: VIDEO_DURATION,
-      ingredients: BASE_INGREDIENTS,
+      title: currentTitle,
+      videoThumbnail: currentThumbnail,
+      videoDuration: currentDuration,
+      ingredients: currentIngredients,
+      instructions: recipe?.instructions, // Pass instructions if saving from here (though usually it's already saved)
     });
     setIsSaving(false);
-    
+
     if (success) {
       setShowSaveModal(true);
     }
@@ -286,7 +299,7 @@ export default function RecipeScreen() {
                       style={[
                         styles.ingredientImage,
                         ingredient.status !== "in_pantry" &&
-                          styles.ingredientImageFaded,
+                        styles.ingredientImageFaded,
                       ]}
                     />
                     <View style={styles.ingredientInfo}>
@@ -354,7 +367,12 @@ export default function RecipeScreen() {
           <TouchableOpacity
             style={styles.primaryButton}
             activeOpacity={0.8}
-            onPress={() => router.push("/ar-cooking")}
+            onPress={() =>
+              router.push({
+                pathname: "/ar-cooking",
+                params: { id: id || recipe?.id },
+              })
+            }
             testID="start-ar-cooking-button"
           >
             <Box size={20} color={Colors.backgroundDark} />

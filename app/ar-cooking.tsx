@@ -29,6 +29,8 @@ import {
 } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
 import Colors from "@/constants/colors";
+import { useCookingHistory } from "@/contexts/CookingHistoryContext";
+import { RecentCook } from "@/types";
 
 interface CookingStep {
   id: number;
@@ -137,6 +139,9 @@ export default function ARCookingScreen() {
   const [showCompletion, setShowCompletion] = useState(false);
   const [showInstructions, setShowInstructions] = useState(false);
 
+  const { addSession, updateSession, inProgressSessions } = useCookingHistory();
+  const [sessionId, setSessionId] = useState<string | null>(null);
+
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const slideAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -164,6 +169,49 @@ export default function ARCookingScreen() {
 
   const step = steps[currentStep] || steps[0];
   const progress = ((currentStep + 1) / steps.length) * 100;
+
+  // Initialize or resume session
+  useEffect(() => {
+    const initSession = async () => {
+      // Check for existing session for this recipe
+      const existingSession = inProgressSessions.find(s => s.recipeId === recipe.id);
+
+      if (existingSession) {
+        console.log("Resuming session:", existingSession.id);
+        setSessionId(existingSession.id);
+        if (existingSession.currentStep && existingSession.currentStep > 0) {
+          setCurrentStep(existingSession.currentStep - 1);
+        }
+      } else {
+        // Create new session
+        const newId = Date.now().toString();
+        const newSession: RecentCook = {
+          id: newId,
+          recipeId: recipe.id,
+          title: recipe.title,
+          image: recipe.videoThumbnail || "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=800",
+          progress: 0,
+          startedAt: new Date().toISOString(),
+          totalSteps: steps.length,
+          currentStep: 1,
+        };
+        await addSession(newSession);
+        setSessionId(newId);
+      }
+    };
+
+    initSession();
+  }, []); // Run once on mount
+
+  // Update session progress when step changes
+  useEffect(() => {
+    if (sessionId) {
+      updateSession(sessionId, {
+        currentStep: currentStep + 1,
+        progress: Math.round(((currentStep + 1) / steps.length) * 100),
+      });
+    }
+  }, [currentStep, sessionId]);
 
   useEffect(() => {
     const animation = Animated.loop(
@@ -261,6 +309,13 @@ export default function ARCookingScreen() {
     } else {
       setShowCompletion(true);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      // Mark session as complete
+      if (sessionId) {
+        updateSession(sessionId, {
+          progress: 100,
+          completedDate: new Date().toISOString(),
+        });
+      }
     }
   };
 

@@ -23,6 +23,7 @@ export interface RecentCook {
   steps?: CookingStep[];
   rating?: number;
   notes?: string;
+  recipeId?: string;
 }
 
 export interface CookingStep {
@@ -35,7 +36,7 @@ export interface CookingStep {
   tip?: string;
 }
 
-export type NotificationType = 
+export type NotificationType =
   | 'recipe_suggestion'
   | 'cooking_reminder'
   | 'ingredient_alert'
