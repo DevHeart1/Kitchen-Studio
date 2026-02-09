@@ -1025,6 +1025,34 @@ export default function ScannerScreen() {
           </View>
         </View>
 
+        {/* Action buttons at top, right after header */}
+        <View style={styles.actionButtonsContainer}>
+          <TouchableOpacity
+            style={[styles.actionButton, styles.scanNextButton]}
+            onPress={handleScanMore}
+            activeOpacity={0.8}
+          >
+            <Plus size={18} color={Colors.white} />
+            <Text style={styles.actionButtonText}>Scan Next</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.actionButton,
+              styles.finishButton,
+              (detectedItems.length === 0 || confirmedCount === 0) && styles.finishButtonDisabled,
+            ]}
+            onPress={handleFinishScan}
+            activeOpacity={0.8}
+            disabled={detectedItems.length === 0 || confirmedCount === 0}
+          >
+            <CheckCheck size={18} color={Colors.backgroundDark} strokeWidth={2.5} />
+            <Text style={styles.finishButtonText}>
+              Add ({confirmedCount})
+            </Text>
+          </TouchableOpacity>
+        </View>
+
         <View style={{ flex: 1, width: '100%' }}>
           {isScanning ? (
             <View style={styles.loadingContainer}>
@@ -1038,20 +1066,20 @@ export default function ScannerScreen() {
               horizontal
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.itemsList}
-              style={{ flexGrow: 0, flexShrink: 1, marginBottom: 8 }}
+              style={{ flexGrow: 0, flexShrink: 1 }}
             >
               {detectedItems.length === 0 ? (
                 <View style={styles.emptyState}>
                   {scanError ? (
                     <>
-                      <AlertCircle size={32} color="#FF6B6B" />
+                      <AlertCircle size={28} color="#FF6B6B" />
                       <Text style={[styles.emptyStateText, { color: '#FF6B6B' }]}>
                         {scanError}
                       </Text>
                     </>
                   ) : (
                     <>
-                      <Scan size={32} color={Colors.textSecondary} />
+                      <Scan size={28} color={Colors.textSecondary} />
                       <Text style={styles.emptyStateText}>
                         Tap scan to detect items
                       </Text>
@@ -1158,67 +1186,39 @@ export default function ScannerScreen() {
             </ScrollView>
           )}
 
-          <View style={styles.trayContent}>
-            {showExpiryPrompt && (
-              <View style={styles.expiryPromptContainer}>
-                <View style={styles.expiryPromptCard}>
-                  <View style={styles.expiryPromptIcon}>
-                    <CalendarClock size={22} color={Colors.orange} />
-                  </View>
-                  <View style={styles.expiryPromptTextContainer}>
-                    <Text style={styles.expiryPromptTitle}>Packaged Items Detected</Text>
-                    <Text style={styles.expiryPromptMessage}>
-                      Show the expiry date on the package to the camera
-                    </Text>
-                  </View>
+          {/* Expiry prompt at bottom if needed */}
+          {showExpiryPrompt && (
+            <View style={styles.expiryPromptContainer}>
+              <View style={styles.expiryPromptCard}>
+                <View style={styles.expiryPromptIcon}>
+                  <CalendarClock size={20} color={Colors.orange} />
                 </View>
-                <View style={styles.expiryPromptButtons}>
-                  <TouchableOpacity
-                    style={styles.expiryPromptSkip}
-                    onPress={handleSkipExpiryScan}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={styles.expiryPromptSkipText}>Skip</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.expiryPromptScan}
-                    onPress={handleExpiryDateScan}
-                    activeOpacity={0.8}
-                  >
-                    <CalendarClock size={16} color={Colors.backgroundDark} />
-                    <Text style={styles.expiryPromptScanText}>Scan Expiry Date</Text>
-                  </TouchableOpacity>
+                <View style={styles.expiryPromptTextContainer}>
+                  <Text style={styles.expiryPromptTitle}>Packaged Items Detected</Text>
+                  <Text style={styles.expiryPromptMessage}>
+                    Show the expiry date on the package to the camera
+                  </Text>
                 </View>
               </View>
-            )}
-
-            <View style={styles.actionButtonsContainer}>
-              <TouchableOpacity
-                style={[styles.actionButton, styles.scanNextButton]}
-                onPress={handleScanMore}
-                activeOpacity={0.8}
-              >
-                <Plus size={20} color={Colors.white} />
-                <Text style={styles.actionButtonText}>Scan Next</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.actionButton,
-                  styles.finishButton,
-                  (detectedItems.length === 0 || confirmedCount === 0) && styles.finishButtonDisabled,
-                ]}
-                onPress={handleFinishScan}
-                activeOpacity={0.8}
-                disabled={detectedItems.length === 0 || confirmedCount === 0}
-              >
-                <CheckCheck size={20} color={Colors.backgroundDark} strokeWidth={2.5} />
-                <Text style={styles.finishButtonText}>
-                  Add ({confirmedCount})
-                </Text>
-              </TouchableOpacity>
+              <View style={styles.expiryPromptButtons}>
+                <TouchableOpacity
+                  style={styles.expiryPromptSkip}
+                  onPress={handleSkipExpiryScan}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.expiryPromptSkipText}>Skip</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.expiryPromptScan}
+                  onPress={handleExpiryDateScan}
+                  activeOpacity={0.8}
+                >
+                  <CalendarClock size={14} color={Colors.backgroundDark} />
+                  <Text style={styles.expiryPromptScanText}>Scan Expiry</Text>
+                </TouchableOpacity>
+              </View>
             </View>
-          </View>
+          )}
         </View>
       </View>
     </View>
