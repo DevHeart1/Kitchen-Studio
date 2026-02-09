@@ -18,8 +18,9 @@ import {
 } from "lucide-react-native";
 import Colors from "@/constants/colors";
 import { ActivityIndicator } from "react-native";
+import { supabase } from "@/lib/supabase";
 
-const GEMINI_API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
+// const GEMINI_API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY; // Managed on server now
 
 interface Substitute {
   id: string;
@@ -60,52 +61,35 @@ export default function SubstitutionScreen() {
 
     setError(null);
 
-    if (!GEMINI_API_KEY) {
-      setError("AI service unavailable");
-      setIsLoading(false);
-      setIsLoadingMore(false);
-      return;
-    }
+    // AI service availability is now handled by the edge function request
+    // if (!GEMINI_API_KEY) check removed
 
     try {
-      const existingNames = substitutes.map(s => s.name).join(", ");
-      const prompt = isLoadMore
-        ? `Find 2-3 MORE diverse kitchen substitutions for "${amount} of ${name}". 
-           IMPORTANT: Do NOT suggest any of these already listed items: ${existingNames}. 
-           Return ONLY a JSON array of objects with this structure: [{ id, name, ratio, matchPercent (number 0-100), explanation, unsplashPhotoId }]. Do not include markdown code blocks.`
-        : `Find 2-3 common kitchen substitutions for "${amount} of ${name}". Return ONLY a JSON array of objects with this structure: [{ id, name, ratio (e.g. "Use 1:1 ratio", "Use 1/2 the amount"), matchPercent (number 0-100), explanation (1-2 sentences explaining why it works), unsplashPhotoId (a specific Unsplash photo ID for this ingredient, e.g. 'photo-1508747703725-719777637510') }]. Do not include markdown code blocks.`;
-
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${GEMINI_API_KEY}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: {
-              temperature: 0.8,
-              maxOutputTokens: 1024,
-              responseMimeType: "application/json"
-            },
-          }),
-        }
-      );
-
-      const data = await response.json();
-      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "[]";
-
-      // Robust JSON cleaning
-      let cleaned = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-
-      // Attempt to fix unquoted keys if simple parse fails
-      try {
-        JSON.parse(cleaned);
-      } catch (e) {
-        // Fix unquoted keys: { key: "value" } -> { "key": "value" }
-        cleaned = cleaned.replace(/([{,]\s*)([a-zA-Z0-9_]+?)\s*:/g, '$1"$2":');
+      if (isLoadMore) {
+        console.log("Loading more substitutes for:", name);
+      } else {
+        console.log("Fetching substitutes for:", name);
       }
 
-      const parsed = JSON.parse(cleaned);
+      const { data, error } = await supabase.functions.invoke('get-ingredient-substitutes', {
+        body: {
+          name,
+          amount,
+          existingSubstitutes: isLoadMore ? substitutes : []
+        }
+      });
+
+      if (error) {
+        console.error("Substitutes Edge Function Error:", error);
+        throw error;
+      }
+
+      if (!data || !data.substitutes) {
+        console.error("No data returned from Edge Function");
+        throw new Error("No substitutes found");
+      }
+
+      const parsed = data.substitutes;
 
       if (parsed.length === 0 && isLoadMore) {
         setNoMoreAlternatives(true);
