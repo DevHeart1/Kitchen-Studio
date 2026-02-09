@@ -388,7 +388,15 @@ export default function RecipeScreen() {
               const isClickable = ingredient.status === "substitute" || ingredient.status === "missing";
               const CardWrapper = isClickable ? TouchableOpacity : View;
               const cardProps = isClickable ? {
-                onPress: () => router.push(`/substitution?id=${ingredient.id}`),
+                onPress: () => router.push({
+                  pathname: "/substitution",
+                  params: {
+                    id: ingredient.id,
+                    name: ingredient.name,
+                    amount: ingredient.amount,
+                    image: ingredient.image
+                  },
+                }),
                 activeOpacity: 0.7,
                 testID: `ingredient-${ingredient.id}`,
               } : {};
