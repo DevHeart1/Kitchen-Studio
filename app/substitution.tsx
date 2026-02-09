@@ -85,6 +85,7 @@ export default function SubstitutionScreen() {
             generationConfig: {
               temperature: 0.8,
               maxOutputTokens: 1024,
+              responseMimeType: "application/json"
             },
           }),
         }

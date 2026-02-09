@@ -131,7 +131,10 @@ Output ONLY valid JSON. No markdown.
 
         // 3. Call Gemini
         const genAI = new GoogleGenerativeAI(apiKey);
-        const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
+        const model = genAI.getGenerativeModel({
+            model: "gemini-3-flash-preview",
+            generationConfig: { responseMimeType: "application/json" }
+        });
 
         const result = await model.generateContent(prompt);
         const responseText = result.response.text();
@@ -151,7 +154,7 @@ Output ONLY valid JSON. No markdown.
         // Add extra metadata expected by the frontend
         const finalRecipe = {
             id: `video-${Date.now()}`,
-            image: "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=800", // Placeholder or fetch thumbnail via another API
+            image: videoId ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg` : "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=800",
             videoUrl: videoUrl, // Ensure videoUrl is passed back so we can play it
             ...recipeData
         };
