@@ -1,32 +1,25 @@
-// @ts-ignore
-import { YoutubeTranscript } from 'youtube-transcript';
+import { supabase } from '@/lib/supabase';
 import { DiscoverRecipe } from '@/app/(tabs)/discover';
 
-const GEMINI_API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY || "";
-
 export async function extractRecipeFromVideoUrl(url: string): Promise<DiscoverRecipe | null> {
-    if (!GEMINI_API_KEY) {
-        console.log("[Extraction] No Gemini API key found");
-        return null;
-    }
-
     try {
-        // 1. Fetch Transcript Client-Side (Trem-inspired Robustness)
-        let transcriptText = "";
-        try {
-            const transcriptItems = await YoutubeTranscript.fetchTranscript(url);
-            transcriptText = transcriptItems.map((item: any) => item.text).join(" ");
-        } catch (transcriptError) {
-            console.warn("Transcribing failed, attempting direct Gemini analysis of URL metadata:", transcriptError);
-            // Fallback behavior
-            transcriptText = "TRANSCRIPT_UNAVAILABLE. Analyze based on video metadata/title only.";
+        console.log("[Extraction] Invoking Edge Function for:", url);
+
+        const { data, error } = await supabase.functions.invoke('extract-recipe-from-video', {
+            body: { videoUrl: url },
+        });
+
+        if (error) {
+            console.error("[Extraction] Edge Function Error:", error);
+            throw error;
         }
 
-        // 2. Advanced System Prompt (Culinara Engine)
-        const prompt = `
-# Identity
-You are **Culinara**, a highly advanced Culinary Intelligence Engine. Your purpose is to deconstruct cooking videos into precise, AR-ready recipe data with quantified ingredients and timed instructions.
+        if (!data) {
+            console.error("[Extraction] No data returned from Edge Function");
+            return null;
+        }
 
+<<<<<<< HEAD
 ## Core Capabilities
 - **Technique Analysis**: Distinguishing "sauté" from "sear".
 - **Implicit Measurement**: converting "a pinch" to "1/8 tsp", "a handful" to "1/2 cup".
@@ -103,9 +96,12 @@ Output ONLY valid JSON. No markdown.
             image: "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=800",
             ...result,
         };
+=======
+        return data as DiscoverRecipe;
+>>>>>>> 697a6dac0490f8895dd5ad3c8c2fa72b91978dd7
 
     } catch (error) {
-        console.error("Culinara Engine error:", error);
+        console.error("Culinara Engine error (Edge):", error);
         return null;
     }
 }
