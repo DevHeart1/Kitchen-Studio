@@ -806,10 +806,19 @@ export default function ScannerScreen() {
 
       await new Promise(resolve => setTimeout(resolve, 100));
 
-      if (router.canGoBack()) {
-        router.back();
-      } else {
+      // On web, canGoBack() is not supported, so just use replace
+      if (Platform.OS === 'web') {
         router.replace('/(tabs)/kitchen');
+      } else {
+        try {
+          if (router.canGoBack()) {
+            router.back();
+          } else {
+            router.replace('/(tabs)/kitchen');
+          }
+        } catch {
+          router.replace('/(tabs)/kitchen');
+        }
       }
     } catch (e) {
       console.error("Failed to finish scan:", e);
@@ -818,10 +827,19 @@ export default function ScannerScreen() {
   }, [detectedItems, addItem, router]);
 
   const handleClose = () => {
-    if (router.canGoBack()) {
-      router.back();
-    } else {
+    // On web, canGoBack() is not supported
+    if (Platform.OS === 'web') {
       router.replace('/(tabs)/kitchen');
+    } else {
+      try {
+        if (router.canGoBack()) {
+          router.back();
+        } else {
+          router.replace('/(tabs)/kitchen');
+        }
+      } catch {
+        router.replace('/(tabs)/kitchen');
+      }
     }
   };
 
@@ -1576,6 +1594,10 @@ const styles = StyleSheet.create({
     color: Colors.white,
   },
   bottomTray: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
     backgroundColor: Colors.cardGlass,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
@@ -1590,6 +1612,9 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: -10 },
         shadowOpacity: 0.3,
         shadowRadius: 20,
+      },
+      android: {
+        elevation: 20,
       },
       web: {
         backdropFilter: "blur(12px)",
