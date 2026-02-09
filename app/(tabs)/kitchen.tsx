@@ -129,7 +129,10 @@ export default function KitchenScreen() {
   };
 
   const handleRecipePress = (recipe: SavedRecipe) => {
-    router.push("/recipe");
+    router.push({
+      pathname: "/recipe",
+      params: { id: recipe.id },
+    });
   };
 
   const handleRemoveRecipe = (recipeId: string) => {

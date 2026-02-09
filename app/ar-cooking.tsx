@@ -1,4 +1,6 @@
-import React, { useState, useEffect, useRef } from "react";
+import { useRouter, useLocalSearchParams } from "expo-router";
+import { useSavedRecipes } from "@/contexts/SavedRecipesContext";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   View,
   Text,
@@ -10,7 +12,6 @@ import {
   ScrollView,
   Platform,
 } from "react-native";
-import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   X,
@@ -28,6 +29,8 @@ import {
 } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
 import Colors from "@/constants/colors";
+import { useCookingHistory } from "@/contexts/CookingHistoryContext";
+import { RecentCook } from "@/types";
 
 interface CookingStep {
   id: number;
@@ -122,6 +125,12 @@ const cookingSteps: CookingStep[] = [
 export default function ARCookingScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const { savedRecipes } = useSavedRecipes();
+  // Find recipe by ID or default to first saved recipe for testing
+  // In a real app, we'd handle the "not found" case more gracefully
+  const recipe = savedRecipes.find((r) => r.id === id) || savedRecipes[0];
+
   const [currentStep, setCurrentStep] = useState(0);
   const [isListening, setIsListening] = useState(false);
   const [showTimer, setShowTimer] = useState(false);
@@ -130,13 +139,79 @@ export default function ARCookingScreen() {
   const [showCompletion, setShowCompletion] = useState(false);
   const [showInstructions, setShowInstructions] = useState(false);
 
+  const { addSession, updateSession, inProgressSessions } = useCookingHistory();
+  const [sessionId, setSessionId] = useState<string | null>(null);
+
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const slideAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const feedbackAnim = useRef(new Animated.Value(0)).current;
 
-  const step = cookingSteps[currentStep];
-  const progress = ((currentStep + 1) / cookingSteps.length) * 100;
+  // Transform recipe instructions to CookingStep format
+  // If no instructions exist (legacy recipes), provide a fallback
+  const steps: CookingStep[] = useMemo(() => {
+    if (recipe?.instructions && recipe.instructions.length > 0) {
+      return recipe.instructions.map((inst, index) => ({
+        id: index + 1,
+        title: `Step ${inst.step}`,
+        instruction: inst.text,
+        duration: inst.time ? `${Math.ceil(inst.time / 60)} min` : "2 min",
+        // Use recipe image for all steps as fallback, or random placeholder if needed
+        image: recipe.videoThumbnail || "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=800",
+        feedback: index === 0 ? "Let's get started!" : "Keep up the good work!",
+        feedbackType: "success",
+        timerSeconds: inst.time,
+      }));
+    }
+    // Fallback for recipes without instructions
+    return cookingSteps;
+  }, [recipe]);
+
+  const step = steps[currentStep] || steps[0];
+  const progress = ((currentStep + 1) / steps.length) * 100;
+
+  // Initialize or resume session
+  useEffect(() => {
+    const initSession = async () => {
+      // Check for existing session for this recipe
+      const existingSession = inProgressSessions.find(s => s.recipeId === recipe.id);
+
+      if (existingSession) {
+        console.log("Resuming session:", existingSession.id);
+        setSessionId(existingSession.id);
+        if (existingSession.currentStep && existingSession.currentStep > 0) {
+          setCurrentStep(existingSession.currentStep - 1);
+        }
+      } else {
+        // Create new session
+        const newId = Date.now().toString();
+        const newSession: RecentCook = {
+          id: newId,
+          recipeId: recipe.id,
+          title: recipe.title,
+          image: recipe.videoThumbnail || "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=800",
+          progress: 0,
+          startedAt: new Date().toISOString(),
+          totalSteps: steps.length,
+          currentStep: 1,
+        };
+        await addSession(newSession);
+        setSessionId(newId);
+      }
+    };
+
+    initSession();
+  }, []); // Run once on mount
+
+  // Update session progress when step changes
+  useEffect(() => {
+    if (sessionId) {
+      updateSession(sessionId, {
+        currentStep: currentStep + 1,
+        progress: Math.round(((currentStep + 1) / steps.length) * 100),
+      });
+    }
+  }, [currentStep, sessionId]);
 
   useEffect(() => {
     const animation = Animated.loop(
@@ -195,7 +270,7 @@ export default function ARCookingScreen() {
   const handleNextStep = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-    if (currentStep < cookingSteps.length - 1) {
+    if (currentStep < steps.length - 1) {
       Animated.parallel([
         Animated.timing(fadeAnim, {
           toValue: 0,
@@ -212,7 +287,7 @@ export default function ARCookingScreen() {
         setIsTimerRunning(false);
         setShowTimer(false);
 
-        const nextStep = cookingSteps[currentStep + 1];
+        const nextStep = steps[currentStep + 1];
         if (nextStep?.timerSeconds) {
           setTimerSeconds(nextStep.timerSeconds);
         }
@@ -234,6 +309,13 @@ export default function ARCookingScreen() {
     } else {
       setShowCompletion(true);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      // Mark session as complete
+      if (sessionId) {
+        updateSession(sessionId, {
+          progress: 100,
+          completedDate: new Date().toISOString(),
+        });
+      }
     }
   };
 
@@ -283,7 +365,7 @@ export default function ARCookingScreen() {
   };
 
   if (!step) {
-    console.error(`[ARCooking] Step not found. currentStep: ${currentStep}, total: ${cookingSteps.length}`);
+    console.error(`[ARCooking] Step not found. currentStep: ${currentStep}, total: ${steps.length}`);
     return (
       <View style={[styles.container, { justifyContent: "center", alignItems: "center" }]}>
         <Text style={{ color: Colors.white }}>Loading step...</Text>
@@ -305,7 +387,7 @@ export default function ARCookingScreen() {
             </View>
             <Text style={styles.completionTitle}>Dish Complete!</Text>
             <Text style={styles.completionSubtitle}>
-              Garlic Butter Pan-Seared Salmon
+              {recipe?.title || "Delicious Meal"}
             </Text>
 
             <View style={styles.statsContainer}>
@@ -395,7 +477,7 @@ export default function ARCookingScreen() {
                     {step.title}
                   </Animated.Text>
                   <Text style={styles.stepCounter}>
-                    STEP {currentStep + 1} OF {cookingSteps.length}
+                    STEP {currentStep + 1} OF {steps.length}
                   </Text>
                 </View>
                 <View style={styles.headerSpacer} />
@@ -542,7 +624,7 @@ export default function ARCookingScreen() {
                 testID="next-step-button"
               >
                 <Text style={styles.nextButtonText}>
-                  {currentStep === cookingSteps.length - 1 ? "Finish" : "Next Step"}
+                  {currentStep === steps.length - 1 ? "Finish" : "Next Step"}
                 </Text>
                 <ArrowRight size={20} color={Colors.backgroundDark} />
               </TouchableOpacity>
@@ -568,7 +650,7 @@ export default function ARCookingScreen() {
               </TouchableOpacity>
             </View>
             <ScrollView style={styles.stepsList} showsVerticalScrollIndicator={false}>
-              {cookingSteps.map((s, index) => (
+              {steps.map((s, index) => (
                 <TouchableOpacity
                   key={s.id}
                   style={[

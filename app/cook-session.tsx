@@ -66,11 +66,17 @@ export default function CookSessionScreen() {
   const totalSteps = cook.steps?.length || 0;
 
   const handleResumeCooking = () => {
-    router.push("/ar-cooking");
+    router.push({
+      pathname: "/ar-cooking",
+      params: { id: cook?.recipeId },
+    });
   };
 
   const handleRestartCooking = () => {
-    router.push("/ar-cooking");
+    router.push({
+      pathname: "/ar-cooking",
+      params: { id: cook?.recipeId },
+    });
   };
 
   const formatDate = (dateString: string) => {

@@ -119,9 +119,16 @@ ALTER TABLE user_profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE shared_recipes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE saved_recipes ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Allow all inventory operations" ON inventory_items;
 CREATE POLICY "Allow all inventory operations" ON inventory_items FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow all profile operations" ON user_profiles;
 CREATE POLICY "Allow all profile operations" ON user_profiles FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow all shared recipes operations" ON shared_recipes;
 CREATE POLICY "Allow all shared recipes operations" ON shared_recipes FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow all saved recipes operations" ON saved_recipes;
 CREATE POLICY "Allow all saved recipes operations" ON saved_recipes FOR ALL USING (true) WITH CHECK (true);
 
 -- ============================================
@@ -141,5 +148,9 @@ BEGIN
 
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'inventory_items' AND column_name = 'unit') THEN
         ALTER TABLE inventory_items ADD COLUMN unit TEXT DEFAULT 'pcs';
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'saved_recipes' AND column_name = 'instructions') THEN
+        ALTER TABLE saved_recipes ADD COLUMN instructions JSONB DEFAULT '[]';
     END IF;
 END $$;
