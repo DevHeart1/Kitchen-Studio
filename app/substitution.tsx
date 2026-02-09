@@ -43,8 +43,10 @@ export default function SubstitutionScreen() {
   }>();
 
   const [isLoading, setIsLoading] = React.useState(true);
+  const [isLoadingMore, setIsLoadingMore] = React.useState(false);
   const [substitutes, setSubstitutes] = React.useState<Substitute[]>([]);
   const [error, setError] = React.useState<string | null>(null);
+  const [noMoreAlternatives, setNoMoreAlternatives] = React.useState(false);
 
   React.useEffect(() => {
     if (name) {
@@ -52,18 +54,26 @@ export default function SubstitutionScreen() {
     }
   }, [name]);
 
-  const fetchSubstitutions = async () => {
-    setIsLoading(true);
+  const fetchSubstitutions = async (isLoadMore = false) => {
+    if (isLoadMore) setIsLoadingMore(true);
+    else setIsLoading(true);
+
     setError(null);
 
     if (!GEMINI_API_KEY) {
       setError("AI service unavailable");
       setIsLoading(false);
+      setIsLoadingMore(false);
       return;
     }
 
     try {
-      const prompt = `Find 2-3 common kitchen substitutions for "${amount} of ${name}". Return ONLY a JSON array of objects with this structure: [{ id, name, ratio (e.g. "Use 1:1 ratio", "Use 1/2 the amount"), matchPercent (number 0-100), explanation (1-2 sentences explaining why it works), unsplashPhotoId (a specific Unsplash photo ID for this ingredient, e.g. 'photo-1508747703725-719777637510') }]. Do not include markdown code blocks.`;
+      const existingNames = substitutes.map(s => s.name).join(", ");
+      const prompt = isLoadMore
+        ? `Find 2-3 MORE diverse kitchen substitutions for "${amount} of ${name}". 
+           IMPORTANT: Do NOT suggest any of these already listed items: ${existingNames}. 
+           Return ONLY a JSON array of objects with this structure: [{ id, name, ratio, matchPercent (number 0-100), explanation, unsplashPhotoId }]. Do not include markdown code blocks.`
+        : `Find 2-3 common kitchen substitutions for "${amount} of ${name}". Return ONLY a JSON array of objects with this structure: [{ id, name, ratio (e.g. "Use 1:1 ratio", "Use 1/2 the amount"), matchPercent (number 0-100), explanation (1-2 sentences explaining why it works), unsplashPhotoId (a specific Unsplash photo ID for this ingredient, e.g. 'photo-1508747703725-719777637510') }]. Do not include markdown code blocks.`;
 
       const response = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
@@ -73,7 +83,7 @@ export default function SubstitutionScreen() {
           body: JSON.stringify({
             contents: [{ parts: [{ text: prompt }] }],
             generationConfig: {
-              temperature: 0.7,
+              temperature: 0.8,
               maxOutputTokens: 1024,
             },
           }),
@@ -85,25 +95,43 @@ export default function SubstitutionScreen() {
       const cleaned = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
       const parsed = JSON.parse(cleaned);
 
+      if (parsed.length === 0 && isLoadMore) {
+        setNoMoreAlternatives(true);
+      }
+
       const mapped = parsed.map((s: any) => ({
         ...s,
+        id: s.id || `sub-${Date.now()}-${Math.random()}`,
         image: s.unsplashPhotoId
           ? `https://images.unsplash.com/${s.unsplashPhotoId}?auto=format&fit=crop&w=200&q=80`
           : "https://images.unsplash.com/photo-1606787366850-de6330128bfc?auto=format&fit=crop&w=200&q=80"
       }));
 
-      setSubstitutes(mapped);
+      if (isLoadMore) {
+        setSubstitutes(prev => [...prev, ...mapped]);
+        if (mapped.length === 0) setNoMoreAlternatives(true);
+      } else {
+        setSubstitutes(mapped);
+      }
     } catch (err) {
       console.error("Substitution fetch error:", err);
       setError("Failed to load substitutions");
     } finally {
       setIsLoading(false);
+      setIsLoadingMore(false);
     }
   };
 
   const handleSelectSubstitute = (substitute: Substitute) => {
-    console.log("Selected substitute:", substitute.name);
-    router.back();
+    router.navigate({
+      pathname: "/recipe",
+      params: {
+        substitutedId: id,
+        newName: substitute.name,
+        newAmount: substitute.ratio.replace(/Use /g, ""),
+        newImage: substitute.image
+      }
+    });
   };
 
   return (
@@ -164,7 +192,7 @@ export default function SubstitutionScreen() {
         ) : error ? (
           <View style={styles.errorState}>
             <Text style={styles.errorText}>{error}</Text>
-            <TouchableOpacity onPress={fetchSubstitutions} style={styles.retryButton}>
+            <TouchableOpacity onPress={() => fetchSubstitutions()} style={styles.retryButton}>
               <Text style={styles.retryText}>Retry</Text>
             </TouchableOpacity>
           </View>
@@ -229,6 +257,19 @@ export default function SubstitutionScreen() {
             ))}
           </View>
         )}
+
+        {isLoadingMore && (
+          <View style={[styles.loadingState, { padding: 20 }]}>
+            <ActivityIndicator size="small" color={Colors.primary} />
+            <Text style={styles.loadingText}>Finding more options...</Text>
+          </View>
+        )}
+
+        {noMoreAlternatives && !isLoadingMore && (
+          <View style={[styles.loadingState, { padding: 20 }]}>
+            <Text style={styles.loadingText}>No more unique alternatives found.</Text>
+          </View>
+        )}
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
@@ -240,12 +281,19 @@ export default function SubstitutionScreen() {
           style={styles.storeButton}
           activeOpacity={0.8}
           testID="find-in-store-button"
+          onPress={() => router.push("/coming-soon" as any)}
         >
           <ShoppingCart size={20} color={Colors.white} />
           <Text style={styles.storeButtonText}>Find in Store</Text>
         </TouchableOpacity>
-        <TouchableOpacity testID="keep-looking-button">
-          <Text style={styles.alternativesLink}>Keep looking for alternatives</Text>
+        <TouchableOpacity
+          testID="keep-looking-button"
+          onPress={() => fetchSubstitutions(true)}
+          disabled={isLoadingMore || noMoreAlternatives}
+        >
+          <Text style={[styles.alternativesLink, (isLoadingMore || noMoreAlternatives) && { opacity: 0.5 }]}>
+            {noMoreAlternatives ? "No more alternatives" : "Keep looking for alternatives"}
+          </Text>
         </TouchableOpacity>
       </View>
     </View>
