@@ -23,6 +23,8 @@ import {
 import Colors from "@/constants/colors";
 import { useSavedRecipes, RecipeIngredient } from "@/contexts/SavedRecipesContext";
 import { useInventory } from "@/contexts/InventoryContext";
+import { extractRecipeFromVideoUrl, DiscoverRecipe } from "./(tabs)/discover";
+import { ActivityIndicator } from "react-native";
 
 interface Ingredient {
   id: string;
@@ -87,22 +89,78 @@ const VIDEO_DURATION = "8:42 min";
 export default function RecipeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, recipeData, videoUrl } = useLocalSearchParams<{ id: string; recipeData: string; videoUrl: string }>();
   const { savedRecipes, saveRecipe, isRecipeSaved } = useSavedRecipes();
   const { checkIngredientInPantry } = useInventory();
+
   const [isSaving, setIsSaving] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
 
-  // Find the recipe by ID or use a default/fallback
-  const recipe = savedRecipes.find((r) => r.id === id);
+  const [isLoading, setIsLoading] = useState(false);
+  const [extractionError, setExtractionError] = useState<string | null>(null);
+  const [extractedRecipe, setExtractedRecipe] = useState<DiscoverRecipe | null>(null);
 
-  // If no recipe found (e.g. accessed directly or error), we could show an error or fallback
-  // For now, if no recipe, we'll use the hardcoded salmon data as a fallback to prevent crash,
-  // but in a real app better to show "Recipe not found"
-  const currentIngredients = recipe?.ingredients || BASE_INGREDIENTS;
-  const currentTitle = recipe?.title || RECIPE_TITLE;
-  const currentThumbnail = recipe?.videoThumbnail || VIDEO_THUMBNAIL;
-  const currentDuration = recipe?.videoDuration || VIDEO_DURATION;
+  // Parse recipeData if provided (from Discovery tab)
+  const parsedRecipeData = useMemo(() => {
+    if (recipeData) {
+      try {
+        return JSON.parse(recipeData) as DiscoverRecipe;
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  }, [recipeData]);
+
+  // Extract recipe from video URL using Gemini
+  React.useEffect(() => {
+    if (videoUrl && !id && !recipeData) {
+      extractFromVideoUrl(videoUrl);
+    }
+  }, [videoUrl, id, recipeData]);
+
+  const extractFromVideoUrl = async (url: string) => {
+    setIsLoading(true);
+    setExtractionError(null);
+    try {
+      const result = await extractRecipeFromVideoUrl(url);
+      if (result) {
+        setExtractedRecipe(result);
+      } else {
+        setExtractionError("Failed to extract recipe from video. Please try again.");
+      }
+    } catch (err) {
+      setExtractionError("An error occurred during extraction.");
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Priority: ID (saved) > recipeData (from discovery) > extractedRecipe (from video URL)
+  const savedRecipe = savedRecipes.find((r) => r.id === id);
+  const activeRecipe = savedRecipe || parsedRecipeData || extractedRecipe;
+
+  // For data mapping
+  const currentTitle = activeRecipe?.title || (isLoading ? "Analyzing video..." : RECIPE_TITLE);
+  const currentThumbnail = (activeRecipe as any)?.image || (activeRecipe as any)?.videoThumbnail || VIDEO_THUMBNAIL;
+  const currentDuration = (activeRecipe as any)?.cookTime || (activeRecipe as any)?.videoDuration || VIDEO_DURATION;
+
+  // Map ingredients from DiscoverRecipe (strings) or SavedRecipe (RecipeIngredient[])
+  const rawIngredients: RecipeIngredient[] = useMemo(() => {
+    if (parsedRecipeData || extractedRecipe) {
+      const source = parsedRecipeData || extractedRecipe;
+      return (source?.ingredients || []).map((ing: string, idx: number) => ({
+        id: `dyn-${idx}`,
+        name: ing,
+        amount: "",
+        image: "https://images.unsplash.com/photo-1606787366850-de6330128bfc?auto=format&fit=crop&w=100&q=80",
+      }));
+    }
+    return savedRecipe?.ingredients || BASE_INGREDIENTS;
+  }, [parsedRecipeData, extractedRecipe, savedRecipe]);
+
+  const currentIngredients = rawIngredients;
 
   const ingredients = useMemo((): Ingredient[] => {
     return currentIngredients.map((baseIngredient) => {
@@ -146,7 +204,7 @@ export default function RecipeScreen() {
       videoThumbnail: currentThumbnail,
       videoDuration: currentDuration,
       ingredients: currentIngredients,
-      instructions: recipe?.instructions, // Pass instructions if saving from here (though usually it's already saved)
+      instructions: activeRecipe?.instructions || savedRecipe?.instructions,
     });
     setIsSaving(false);
 
@@ -221,146 +279,153 @@ export default function RecipeScreen() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={[
-          styles.scrollContent,
-          { paddingBottom: insets.bottom + 140 },
-        ]}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.videoCard}>
-          <View style={styles.videoThumbnail}>
-            <Image
-              source={{ uri: VIDEO_THUMBNAIL }}
-              style={styles.thumbnailImage}
-            />
-            <View style={styles.playOverlay}>
-              <Play size={20} color={Colors.white} fill={Colors.white} />
+      {isLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+          <Text style={styles.loadingText}>Analyzing recipe with Gemini AI...</Text>
+        </View>
+      ) : (
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingBottom: insets.bottom + 140 },
+          ]}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.videoCard}>
+            <View style={styles.videoThumbnail}>
+              <Image
+                source={{ uri: VIDEO_THUMBNAIL }}
+                style={styles.thumbnailImage}
+              />
+              <View style={styles.playOverlay}>
+                <Play size={20} color={Colors.white} fill={Colors.white} />
+              </View>
+            </View>
+            <View style={styles.videoInfo}>
+              <Text style={styles.videoTitle} numberOfLines={1}>
+                {RECIPE_TITLE}
+              </Text>
+              <Text style={styles.videoMeta}>{VIDEO_DURATION} • Extracted via AI</Text>
             </View>
           </View>
-          <View style={styles.videoInfo}>
-            <Text style={styles.videoTitle} numberOfLines={1}>
-              {RECIPE_TITLE}
-            </Text>
-            <Text style={styles.videoMeta}>{VIDEO_DURATION} • Extracted via AI</Text>
-          </View>
-        </View>
 
-        <View style={styles.readinessSection}>
-          <View style={styles.readinessHeader}>
-            <Text style={styles.readinessLabel}>Pantry Readiness</Text>
-            <Text style={styles.readinessPercent}>{readinessPercent}%</Text>
+          <View style={styles.readinessSection}>
+            <View style={styles.readinessHeader}>
+              <Text style={styles.readinessLabel}>Pantry Readiness</Text>
+              <Text style={styles.readinessPercent}>{readinessPercent}%</Text>
+            </View>
+            <View style={styles.progressBar}>
+              <View
+                style={[styles.progressFill, { width: `${readinessPercent}%` }]}
+              />
+            </View>
+            <View style={styles.readinessStatus}>
+              <CheckCircle size={14} color={Colors.primary} />
+              <Text style={styles.readinessText}>
+                {readyCount}/{totalCount} ingredients ready
+              </Text>
+            </View>
           </View>
-          <View style={styles.progressBar}>
-            <View
-              style={[styles.progressFill, { width: `${readinessPercent}%` }]}
-            />
-          </View>
-          <View style={styles.readinessStatus}>
-            <CheckCircle size={14} color={Colors.primary} />
-            <Text style={styles.readinessText}>
-              {readyCount}/{totalCount} ingredients ready
-            </Text>
-          </View>
-        </View>
 
-        <View style={styles.ingredientsHeader}>
-          <Text style={styles.ingredientsTitle}>Extracted Ingredients</Text>
-          <View style={styles.aiBadge}>
-            <Text style={styles.aiBadgeText}>AI Verified</Text>
+          <View style={styles.ingredientsHeader}>
+            <Text style={styles.ingredientsTitle}>Extracted Ingredients</Text>
+            <View style={styles.aiBadge}>
+              <Text style={styles.aiBadgeText}>AI Verified</Text>
+            </View>
           </View>
-        </View>
 
-        <View style={styles.ingredientsList}>
-          {ingredients.map((ingredient) => {
-            const isClickable = ingredient.status === "substitute" || ingredient.status === "missing";
-            const CardWrapper = isClickable ? TouchableOpacity : View;
-            const cardProps = isClickable ? {
-              onPress: () => router.push(`/substitution?id=${ingredient.id}`),
-              activeOpacity: 0.7,
-              testID: `ingredient-${ingredient.id}`,
-            } : {};
+          <View style={styles.ingredientsList}>
+            {ingredients.map((ingredient) => {
+              const isClickable = ingredient.status === "substitute" || ingredient.status === "missing";
+              const CardWrapper = isClickable ? TouchableOpacity : View;
+              const cardProps = isClickable ? {
+                onPress: () => router.push(`/substitution?id=${ingredient.id}`),
+                activeOpacity: 0.7,
+                testID: `ingredient-${ingredient.id}`,
+              } : {};
 
-            return (
-              <CardWrapper
-                key={ingredient.id}
-                style={[
-                  styles.ingredientCard,
-                  ingredient.status === "substitute" && styles.substituteCard,
-                  ingredient.status === "missing" && styles.missingCard,
-                ]}
-                {...cardProps}
-              >
-                <View style={styles.ingredientMain}>
-                  <View style={styles.ingredientLeft}>
-                    <Image
-                      source={{ uri: ingredient.image }}
-                      style={[
-                        styles.ingredientImage,
-                        ingredient.status !== "in_pantry" &&
-                        styles.ingredientImageFaded,
-                      ]}
-                    />
-                    <View style={styles.ingredientInfo}>
-                      <Text style={styles.ingredientName}>{ingredient.name}</Text>
-                      <Text style={styles.ingredientAmount}>
-                        {ingredient.amount}
+              return (
+                <CardWrapper
+                  key={ingredient.id}
+                  style={[
+                    styles.ingredientCard,
+                    ingredient.status === "substitute" && styles.substituteCard,
+                    ingredient.status === "missing" && styles.missingCard,
+                  ]}
+                  {...cardProps}
+                >
+                  <View style={styles.ingredientMain}>
+                    <View style={styles.ingredientLeft}>
+                      <Image
+                        source={{ uri: ingredient.image }}
+                        style={[
+                          styles.ingredientImage,
+                          ingredient.status !== "in_pantry" &&
+                          styles.ingredientImageFaded,
+                        ]}
+                      />
+                      <View style={styles.ingredientInfo}>
+                        <Text style={styles.ingredientName}>{ingredient.name}</Text>
+                        <Text style={styles.ingredientAmount}>
+                          {ingredient.amount}
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={styles.ingredientRight}>
+                      <Text
+                        style={[
+                          styles.statusText,
+                          { color: getStatusColor(ingredient.status) },
+                        ]}
+                      >
+                        {getStatusText(ingredient.status)}
                       </Text>
+                      <View
+                        style={[
+                          styles.statusDot,
+                          {
+                            backgroundColor: `${getStatusColor(ingredient.status)}33`,
+                          },
+                        ]}
+                      >
+                        <View
+                          style={[
+                            styles.statusDotInner,
+                            { backgroundColor: getStatusColor(ingredient.status) },
+                          ]}
+                        />
+                      </View>
                     </View>
                   </View>
-                  <View style={styles.ingredientRight}>
-                    <Text
-                      style={[
-                        styles.statusText,
-                        { color: getStatusColor(ingredient.status) },
-                      ]}
-                    >
-                      {getStatusText(ingredient.status)}
-                    </Text>
+                  {ingredient.substituteSuggestion && (
                     <View
                       style={[
-                        styles.statusDot,
+                        styles.suggestionBox,
                         {
-                          backgroundColor: `${getStatusColor(ingredient.status)}33`,
+                          backgroundColor: `${getStatusColor(ingredient.status)}15`,
+                          borderColor: `${getStatusColor(ingredient.status)}20`,
                         },
                       ]}
                     >
-                      <View
+                      <Info size={14} color={getStatusColor(ingredient.status)} />
+                      <Text
                         style={[
-                          styles.statusDotInner,
-                          { backgroundColor: getStatusColor(ingredient.status) },
+                          styles.suggestionText,
+                          { color: getStatusColor(ingredient.status) },
                         ]}
-                      />
+                      >
+                        AI suggests: {ingredient.substituteSuggestion}
+                      </Text>
                     </View>
-                  </View>
-                </View>
-                {ingredient.substituteSuggestion && (
-                  <View
-                    style={[
-                      styles.suggestionBox,
-                      {
-                        backgroundColor: `${getStatusColor(ingredient.status)}15`,
-                        borderColor: `${getStatusColor(ingredient.status)}20`,
-                      },
-                    ]}
-                  >
-                    <Info size={14} color={getStatusColor(ingredient.status)} />
-                    <Text
-                      style={[
-                        styles.suggestionText,
-                        { color: getStatusColor(ingredient.status) },
-                      ]}
-                    >
-                      AI suggests: {ingredient.substituteSuggestion}
-                    </Text>
-                  </View>
-                )}
-              </CardWrapper>
-            );
-          })}
-        </View>
-      </ScrollView>
+                  )}
+                </CardWrapper>
+              );
+            })}
+          </View>
+        </ScrollView>
+      )}
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
         <View style={styles.footerButtons}>
@@ -370,7 +435,7 @@ export default function RecipeScreen() {
             onPress={() =>
               router.push({
                 pathname: "/ar-cooking",
-                params: { id: id || recipe?.id },
+                params: { id: id || (activeRecipe as any)?.id },
               })
             }
             testID="start-ar-cooking-button"
@@ -742,5 +807,16 @@ const styles = StyleSheet.create({
     fontWeight: "700" as const,
     color: Colors.backgroundDark,
     textAlign: "center",
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 16,
+  },
+  loadingText: {
+    color: Colors.white,
+    fontSize: 16,
+    fontWeight: "600",
   },
 });
