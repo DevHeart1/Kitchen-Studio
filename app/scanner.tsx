@@ -840,7 +840,8 @@ export default function ScannerScreen() {
     );
   }
 
-  if (!permission.granted) {
+  // On web, skip permission check and show camera fallback
+  if (!permission.granted && Platform.OS !== 'web') {
     return (
       <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
         <Camera size={64} color={Colors.primary} />
