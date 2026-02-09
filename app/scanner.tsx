@@ -1604,7 +1604,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderBottomWidth: 0,
     borderColor: Colors.cardGlassBorder,
-    minHeight: 280,
+    minHeight: 200,
     paddingTop: 8,
     ...Platform.select({
       ios: {
