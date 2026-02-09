@@ -125,11 +125,24 @@ const cookingSteps: CookingStep[] = [
 export default function ARCookingScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, recipeData } = useLocalSearchParams<{ id: string; recipeData: string }>();
   const { savedRecipes } = useSavedRecipes();
-  // Find recipe by ID or default to first saved recipe for testing
-  // In a real app, we'd handle the "not found" case more gracefully
-  const recipe = savedRecipes.find((r) => r.id === id) || savedRecipes[0];
+
+  // Parse passed recipe data if available
+  const passedRecipe = useMemo(() => {
+    if (recipeData) {
+      try {
+        return JSON.parse(recipeData);
+      } catch (e) {
+        console.error("Failed to parse recipeData", e);
+        return null;
+      }
+    }
+    return null;
+  }, [recipeData]);
+
+  // Find recipe by ID, or use passed data, or default to first saved recipe for testing
+  const recipe = savedRecipes.find((r) => r.id === id) || passedRecipe || savedRecipes[0];
 
   const [currentStep, setCurrentStep] = useState(0);
   const [isListening, setIsListening] = useState(false);

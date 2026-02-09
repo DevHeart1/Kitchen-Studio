@@ -533,7 +533,10 @@ export default function RecipeScreen() {
             onPress={() =>
               router.push({
                 pathname: "/ar-cooking",
-                params: { id: id || (activeRecipe as any)?.id },
+                params: {
+                  id: id || (activeRecipe as any)?.id,
+                  recipeData: activeRecipe ? JSON.stringify(activeRecipe) : undefined
+                },
               })
             }
             testID="start-ar-cooking-button"
