@@ -35,56 +35,11 @@ interface Ingredient {
   substituteSuggestion?: string;
 }
 
-const BASE_INGREDIENTS: RecipeIngredient[] = [
-  {
-    id: "1",
-    name: "Extra Virgin Olive Oil",
-    amount: "2 tbsp",
-    image: "https://lh3.googleusercontent.com/aida-public/AB6AXuBA-7sCtfjffeCbyNeMwxGx0ZAwPeGwFGrM3RfQtcU-2AZ9Vk6mleSdAYDLzy5Ow6sT31SJbvBvJQwIbcmYi2s9dKyp9fMcvnm13h_1Drc5CMYo9EjX6gCQK6U7nthgiA4oLqh1kad8_TgtELWCvGz6L5Gr5KAHLh7y_hIQbqOyrtVB2QFqTM0l_Mih6P2wMFDqM5yCyGV8pljXtNn_E5hSz57MWjKZCAGYd7vS4HXs_zR8i7YzfK7pPj0ZdcsSalaY2Q-yCdhxow",
-  },
-  {
-    id: "2",
-    name: "Salmon Fillets",
-    amount: "2 large pieces",
-    image: "https://lh3.googleusercontent.com/aida-public/AB6AXuARg6uLtked95kTG0C5p5SRtNryHxrdaIGcD1hMIRwlCp2H0Xnt9NIZnbi01naMTFFqqzLxaf97lrt4L4QA-pQA6EXeU4etHmHrYKHgF16LkIENW2mramX5I8INSM_6hI81K7DAmysd4xv2NbQGtqZuLs2L6rNYSE3qvr6MaXqHHVIqAEcPvRDDdpTrF6qHyQe8fBtD409m2x9mwyvuz_w7ivtFS5Abn1DcDGnfASmo3lYm7u62cXCvbvAoDxgvTtTiM3DFdZrZmQ",
-  },
-  {
-    id: "3",
-    name: "Kosher Salt",
-    amount: "1 tsp",
-    image: "https://lh3.googleusercontent.com/aida-public/AB6AXuAFWdfhVmHNyvkuecLVPnjD8di1NBUCgXaA-UhHv4zk6Nxe8SKYPzL2yzaQiC0bdl_Q5RwisCbFyufK-64zyy0Fox8hsSoGTeeNcGznltPl2ERVaKppby2N38TUOYROOLvY2E5-qOqOJ1NFdKwJ-djhGtDKZrF62oAvd3ug4kBnsWFq5YphCZ3auWCYyqQrse3iuJ4cCgQFf8pL3g0vN6jMh1fMtNtkMezF5yZvtaix5neJLw3jI6EFNh7LikaPx4LQmwt5NcfUtQ",
-    substituteSuggestion: "Use Table Salt (3/4 tsp)",
-  },
-  {
-    id: "4",
-    name: "Fresh Garlic",
-    amount: "4 cloves, minced",
-    image: "https://lh3.googleusercontent.com/aida-public/AB6AXuDI2f3PaNs2pX7MthcwlQW9PE5bM9Rz8wvXaEmVQvfHHDlKbiText-bJ5YBxIkXLjUW5PTm6ceYLESQdLcEAx3_6SzarUqcCmyoGgjwxLXhpf_5TRqFgRfZXAuWwrqZhEzZ8JE9spU63HbLyCCGR3vrGhuf5_qldjzOQ-pVOHgcRIN1gEgSI5s07sgP9FkJDXHskw8kEJOl3Fa-LmTPV6qnpwgK_Nd1KOLGwnJ8DwYSod9fPzTPQon-nDQh1nVcB-hhWAOn_CH1vg",
-  },
-  {
-    id: "5",
-    name: "Unsalted Butter",
-    amount: "3 tbsp",
-    image: "https://images.unsplash.com/photo-1589985270826-4b7bb135bc9d?w=200",
-  },
-  {
-    id: "6",
-    name: "Fresh Lemon",
-    amount: "1 whole",
-    image: "https://images.unsplash.com/photo-1582087463261-ddea03f80f5d?w=200",
-  },
-  {
-    id: "7",
-    name: "Fresh Parsley",
-    amount: "2 tbsp, chopped",
-    image: "https://images.unsplash.com/photo-1599438099655-1e40f359ca1d?w=200",
-    substituteSuggestion: "Use Dried Parsley (1 tsp) or Fresh Cilantro",
-  },
-];
+const BASE_INGREDIENTS: RecipeIngredient[] = [];
 
-const RECIPE_TITLE = "Garlic Butter Pan-Seared Salmon";
-const VIDEO_THUMBNAIL = "https://lh3.googleusercontent.com/aida-public/AB6AXuBl4IEulb0Sr42Sz0eGt_Pe88SfKEOFNBpkVh0KzP_BHswiHkNKGGJmt0vLDWxJdJj4_sT1sgnjt8yEltOIDsfAXvq37k6XCMTG28E2dU8AE8WVy0MUJemFr2KrddIqaEaxjpXKgW54ddhMI7b8hsZz9agaS5Jg5ym47lTXSaxUgAOW_1Bzwq72MsMA4dzJvx6BIG5Mn_r1euv6KhMu9HWUO_KqGqyn7K2jLLdIn5lQys0a3IMZ9uBZ_3cXR_izKH2LtZKAVEk55g";
-const VIDEO_DURATION = "8:42 min";
+const RECIPE_TITLE = "Recipe Details";
+const VIDEO_THUMBNAIL = "https://images.unsplash.com/photo-1495521821757-a1efb6729352?w=400";
+const VIDEO_DURATION = "--:--";
 
 export default function RecipeScreen() {
   const router = useRouter();

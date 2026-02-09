@@ -62,8 +62,11 @@ export default function HomeScreen() {
     });
   };
 
-  const handleRecipePress = () => {
-    router.push("/recipe");
+  const handleRecipePress = (recipeId: string) => {
+    router.push({
+      pathname: "/recipe",
+      params: { id: recipeId },
+    });
   };
 
   const getGreeting = () => {
@@ -247,7 +250,7 @@ export default function HomeScreen() {
                 <TouchableOpacity
                   key={recipe.id}
                   style={styles.recipeCard}
-                  onPress={handleRecipePress}
+                  onPress={() => handleRecipePress(recipe.id)}
                   activeOpacity={0.85}
                 >
                   <View style={styles.recipeImageContainer}>
