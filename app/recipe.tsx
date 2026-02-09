@@ -296,7 +296,7 @@ export default function RecipeScreen() {
           <View style={styles.videoCard}>
             <View style={styles.videoThumbnail}>
               <Image
-                source={{ uri: VIDEO_THUMBNAIL }}
+                source={{ uri: currentThumbnail }}
                 style={styles.thumbnailImage}
               />
               <View style={styles.playOverlay}>
@@ -305,9 +305,9 @@ export default function RecipeScreen() {
             </View>
             <View style={styles.videoInfo}>
               <Text style={styles.videoTitle} numberOfLines={1}>
-                {RECIPE_TITLE}
+                {currentTitle}
               </Text>
-              <Text style={styles.videoMeta}>{VIDEO_DURATION} • Extracted via AI</Text>
+              <Text style={styles.videoMeta}>{currentDuration} • Extracted via AI</Text>
             </View>
           </View>
 
