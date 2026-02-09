@@ -47,8 +47,27 @@ export default function HomeScreen() {
     return inventory.filter((item) => item.status === "expiring");
   }, [inventory]);
 
-  const handleConvert = (url: string) => {
-    console.log("Converting URL:", url);
+  const statsData = useMemo(() => {
+    return {
+      totalCooks: cookingSessions.length,
+      inProgress: inProgressSessions.length,
+      completed: completedSessions.length,
+      pantryItems: getTotalCount,
+      savedCount: savedRecipes.length,
+    };
+  }, [cookingSessions, inProgressSessions, completedSessions, getTotalCount, savedRecipes]);
+
+  const handleConvert = async (url: string) => {
+    // Basic validation for YouTube
+    if (!url.includes("youtube.com") && !url.includes("youtu.be")) {
+      alert("Only YouTube links are supported for AI extraction.");
+      return;
+    }
+
+    router.push({
+      pathname: "/recipe",
+      params: { videoUrl: url },
+    });
   };
 
   const handleViewAllRecentCooks = () => {
@@ -90,16 +109,6 @@ export default function HomeScreen() {
     }
   };
 
-  const statsData = useMemo(() => {
-    return {
-      totalCooks: cookingSessions.length,
-      inProgress: inProgressSessions.length,
-      completed: completedSessions.length,
-      pantryItems: getTotalCount,
-      savedCount: savedRecipes.length,
-    };
-  }, [cookingSessions, inProgressSessions, completedSessions, getTotalCount, savedRecipes]);
-
   return (
     <View style={styles.container}>
       <ScrollView
@@ -127,7 +136,11 @@ export default function HomeScreen() {
           <Text style={styles.goalMessage}>{getGoalMessage()}</Text>
         </View>
 
-        <LinkInput onConvert={handleConvert} />
+        <LinkInput
+          onConvert={handleConvert}
+          placeholder="Paste YouTube Video URL"
+          hint="Only YouTube links supported currently"
+        />
 
         {/* Quick Stats */}
         <View style={styles.quickStats}>
@@ -463,6 +476,7 @@ const styles = StyleSheet.create({
   },
   headlineAccent: {
     color: Colors.primary,
+    backgroundColor: 'transparent',
   },
   goalMessage: {
     fontSize: 14,

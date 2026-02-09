@@ -126,45 +126,11 @@ export async function extractRecipeFromImage(imageUri: string): Promise<Discover
   }
 }
 
-export async function extractRecipeFromVideoUrl(url: string): Promise<DiscoverRecipe | null> {
-  if (!GEMINI_API_KEY) {
-    console.log("[Discover] No Gemini API key found");
-    return null;
-  }
+import { extractRecipeFromVideoUrl } from '@/services/RecipeExtractionService';
 
-  try {
-    const prompt = `Analyze this recipe source: ${url}. Extract the detailed recipe and return ONLY a JSON object with this structure: { title, description (max 80 chars), cookTime, difficulty (Easy/Medium/Hard), calories, tags (2-3 tags), ingredients: [{ name: string, amount: string, unsplashPhotoId: string (a relevant photo ID from unsplash.com like 'photo-1512621776951-a57141f2eefd') }], instructions: [{ step: number, text: string, time: optional number in seconds }] }. Do not include markdown code blocks.`;
+// Re-export for compatibility if needed, or simply remove if not used elsewhere directly
+export { extractRecipeFromVideoUrl };
 
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.7,
-            maxOutputTokens: 2048,
-          },
-        }),
-      }
-    );
-
-    const data = await response.json();
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
-    const cleaned = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-    const recipe = JSON.parse(cleaned);
-
-    return {
-      id: `video-${Date.now()}`,
-      image: "https://images.unsplash.com/photo-1495521821757-a1efb6729352?w=400",
-      ...recipe,
-    };
-  } catch (error) {
-    console.error("Gemini video extraction error:", error);
-    return null;
-  }
-}
 
 async function fetchRecipesFromGemini(
   category: string,

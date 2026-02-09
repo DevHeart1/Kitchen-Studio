@@ -13,39 +13,44 @@ import ConvertLoadingOverlay from "@/components/ConvertLoadingOverlay";
 
 interface LinkInputProps {
   onConvert?: (url: string) => void;
+  placeholder?: string;
+  hint?: string;
 }
 
-export default function LinkInput({ onConvert }: LinkInputProps) {
+export default function LinkInput({ onConvert, placeholder, hint }: LinkInputProps) {
   const router = useRouter();
   const [url, setUrl] = useState("");
   const [isFocused, setIsFocused] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
+  // ... (handleConvert logic remains similar but remove auto-navigation if we want parent to handle it, 
+  // or keep it if parent doesn't return anything. 
+  // Wait, the parent `index.tsx` Navigates. `LinkInput` seems to have its own loading overlay and nav logic?
+  // Let's defer navigation to parent if provided, or keep `onConvert` as just the trigger.
+  // The current `LinkInput` navigates to `/recipe` in `handleLoadingComplete`.
+  // If `index.tsx` also navigates, we have a double nav.
+  // I should remove the internal navigation in `LinkInput` if `onConvert` handles it, OR update `LinkInput` to simply call `onConvert` and let parent handle flow.
+  // Given `index.tsx` logic: `router.push({ pathname: "/recipe", ... })`, the internal `LinkInput` navigation is redundant or conflicting.
+  // I will make `LinkInput` purely a UI component that calls `onConvert` and clears input.
+
   const handleConvert = () => {
     if (url.trim()) {
-      setIsLoading(true);
+      // setIsLoading(true); // Don't use internal loading state if parent handles it
       onConvert?.(url);
+      setUrl(""); // Clear input
     }
-  };
-
-  const handleLoadingComplete = () => {
-    setIsLoading(false);
-    router.push("/recipe");
   };
 
   return (
     <View style={styles.container}>
-      <ConvertLoadingOverlay
-        visible={isLoading}
-        onComplete={handleLoadingComplete}
-      />
+      {/* Removed internal ConvertLoadingOverlay as the parent (or recipe screen) handles loading state now */}
       <View style={[styles.inputContainer, isFocused && styles.inputFocused]}>
         <View style={styles.iconContainer}>
           <Link2 size={20} color={Colors.textMuted} />
         </View>
         <TextInput
           style={styles.input}
-          placeholder="Paste TikTok, IG, or YT link..."
+          placeholder={placeholder || "Paste TikTok, IG, or YT link..."}
           placeholderTextColor={Colors.textMuted}
           value={url}
           onChangeText={setUrl}
@@ -64,7 +69,7 @@ export default function LinkInput({ onConvert }: LinkInputProps) {
         </TouchableOpacity>
       </View>
       <Text style={styles.hint}>
-        AI-powered AR analysis takes about 10 seconds.
+        {hint || "AI-powered AR analysis takes about 10 seconds."}
       </Text>
     </View>
   );
