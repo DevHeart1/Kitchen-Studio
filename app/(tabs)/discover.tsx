@@ -40,7 +40,7 @@ export interface DiscoverRecipe {
   calories: string;
   image: string;
   tags: string[];
-  ingredients: string[];
+  ingredients: { name: string; amount?: string; unsplashPhotoId?: string }[];
   instructions: { step: number; text: string; time?: number }[];
 }
 
@@ -67,7 +67,7 @@ export async function extractRecipeFromImage(imageUri: string): Promise<Discover
   }
 
   try {
-    const prompt = "Analyze this food image and extract a detailed recipe. Return ONLY a JSON object with this structure: { title, description (max 80 chars), cookTime, difficulty (Easy/Medium/Hard), calories, tags (2-3 tags), ingredients (list of strings), instructions: [{ step: number, text: string, time: optional number in seconds }] }. Do not include markdown code blocks.";
+    const prompt = `Analyze this food image and extract the detailed recipe. Return ONLY a JSON object with this structure: { title, description (max 80 chars), cookTime, difficulty (Easy/Medium/Hard), calories, tags (2-3 tags), ingredients: [{ name: string, amount: string, unsplashPhotoId: string (a relevant photo ID from unsplash.com like 'photo-1546069901-ba9599a7e63c') }], instructions: [{ step: number, text: string, time: optional number in seconds }] }. Do not include markdown code blocks.`;
 
     // For Gemini 1.5 Flash with image, we need to send the image data. 
     // Since we can't easily upload binary in this environment without a backend proxy or complex blob handling in RN sometimes,
@@ -133,7 +133,7 @@ export async function extractRecipeFromVideoUrl(url: string): Promise<DiscoverRe
   }
 
   try {
-    const prompt = `Analyze this recipe source: ${url}. Extract the detailed recipe and return ONLY a JSON object with this structure: { title, description (max 80 chars), cookTime, difficulty (Easy/Medium/Hard), calories, tags (2-3 tags), ingredients (list of strings), instructions: [{ step: number, text: string, time: optional number in seconds }] }. Do not include markdown code blocks.`;
+    const prompt = `Analyze this recipe source: ${url}. Extract the detailed recipe and return ONLY a JSON object with this structure: { title, description (max 80 chars), cookTime, difficulty (Easy/Medium/Hard), calories, tags (2-3 tags), ingredients: [{ name: string, amount: string, unsplashPhotoId: string (a relevant photo ID from unsplash.com like 'photo-1512621776951-a57141f2eefd') }], instructions: [{ step: number, text: string, time: optional number in seconds }] }. Do not include markdown code blocks.`;
 
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
@@ -223,7 +223,7 @@ Each recipe must have these fields:
 - difficulty: string ("Easy", "Medium", or "Hard")
 - calories: string (e.g. "350 cal")
 - tags: string[] (2-3 tags like "vegetarian", "high-protein", "one-pot")
-- ingredients: string[] (5-8 main ingredients)
+- ingredients: { name: string, amount: string, unsplashPhotoId: string (specific Unsplash ID) }[] (5-8 main ingredients)
 - instructions: { step: number, text: string, time?: number }[] (5-8 step-by-step instructions. "time" is optional duration in seconds for that step, e.g. 120 for 2 mins)
 
 Return ONLY the JSON array, no markdown, no explanation.`;
@@ -261,7 +261,7 @@ Return ONLY the JSON array, no markdown, no explanation.`;
       difficulty: string;
       calories: string;
       tags: string[];
-      ingredients: string[];
+      ingredients: { name: string; amount: string; unsplashPhotoId: string }[];
       instructions: { step: number; text: string; time?: number }[];
     }[];
 
@@ -381,7 +381,7 @@ export default function DiscoverScreen() {
         difficulty: string;
         calories: string;
         tags: string[];
-        ingredients: string[];
+        ingredients: { name: string; amount: string; unsplashPhotoId: string }[];
         instructions: { step: number; text: string; time?: number }[];
       }[];
 
@@ -413,11 +413,13 @@ export default function DiscoverScreen() {
         title: recipe.title,
         videoThumbnail: recipe.image,
         videoDuration: recipe.cookTime,
-        ingredients: recipe.ingredients.map((name, idx) => ({
+        ingredients: recipe.ingredients.map((ing, idx) => ({
           id: `ing-${idx}`,
-          name,
-          amount: "",
-          image: "",
+          name: ing.name,
+          amount: ing.amount || "",
+          image: ing.unsplashPhotoId
+            ? `https://images.unsplash.com/${ing.unsplashPhotoId}?auto=format&fit=crop&w=200&q=80`
+            : "",
         })),
         instructions: recipe.instructions,
       });

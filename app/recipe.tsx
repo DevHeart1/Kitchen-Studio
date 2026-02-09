@@ -47,6 +47,43 @@ const RECIPE_TITLE = "Recipe Details";
 const VIDEO_THUMBNAIL = "https://images.unsplash.com/photo-1495521821757-a1efb6729352?w=400";
 const VIDEO_DURATION = "--:--";
 
+const COMMON_INGREDIENT_IMAGES: Record<string, string> = {
+  onion: "photo-1508747703725-719777637510",
+  garlic: "photo-1581065114138-16477dbe8f66",
+  salt: "photo-1615485290382-441e4d019cb0",
+  pepper: "photo-1606787366850-de6330128bfc",
+  oil: "photo-1474979266404-7eaacbadb8c5",
+  water: "photo-1548839140-29a749e1cf4d",
+  chicken: "photo-1587593810167-a84920ea0781",
+  beef: "photo-1588168333986-5078d3ae3971",
+  tomato: "photo-1518977676601-b53f02bad177",
+  lettuce: "photo-1622205313162-be1d5712a43f",
+  cheese: "photo-1486297678162-eb2a19b0a32d",
+  egg: "photo-1582722872445-44c507c31885",
+  flour: "photo-1509440159596-0249088772ff",
+  sugar: "photo-1581441363689-1f3c3c414635",
+  milk: "photo-1563636619-e910009355dc",
+  butter: "photo-1589985270826-4b7bb135bc9d",
+  bread: "photo-1509440159596-0249088772ff",
+  rice: "photo-1586201375761-83865001e31c",
+  pasta: "photo-1473093226795-af9932fe5856",
+};
+
+const getUnsplashImage = (name: string, photoId?: string) => {
+  if (photoId) {
+    return `https://images.unsplash.com/${photoId}?auto=format&fit=crop&w=200&q=80`;
+  }
+
+  const lowerName = name.toLowerCase();
+  for (const [key, id] of Object.entries(COMMON_INGREDIENT_IMAGES)) {
+    if (lowerName.includes(key)) {
+      return `https://images.unsplash.com/${id}?auto=format&fit=crop&w=200&q=80`;
+    }
+  }
+
+  return "https://images.unsplash.com/photo-1606787366850-de6330128bfc?auto=format&fit=crop&w=200&q=80";
+};
+
 export default function RecipeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -117,12 +154,18 @@ export default function RecipeScreen() {
 
     if (parsedRecipeData || extractedRecipe) {
       const source = parsedRecipeData || extractedRecipe;
-      return (source?.ingredients || []).map((ing: string, idx: number) => ({
-        id: `dyn-${idx}`,
-        name: ing,
-        amount: "",
-        image: "https://images.unsplash.com/photo-1606787366850-de6330128bfc?auto=format&fit=crop&w=100&q=80",
-      }));
+      return (source?.ingredients || []).map((ing, idx: number) => {
+        const name = typeof ing === "string" ? ing : ing.name;
+        const amount = typeof ing === "string" ? "" : (ing.amount || "");
+        const photoId = typeof ing === "string" ? undefined : ing.unsplashPhotoId;
+
+        return {
+          id: `dyn-${idx}`,
+          name,
+          amount,
+          image: getUnsplashImage(name, photoId),
+        };
+      });
     }
     return savedRecipe?.ingredients || BASE_INGREDIENTS;
   }, [parsedRecipeData, extractedRecipe, savedRecipe, manualIngredients]);
