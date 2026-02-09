@@ -1581,6 +1581,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderBottomWidth: 0,
     borderColor: Colors.cardGlassBorder,
+    minHeight: 280,
+    paddingTop: 8,
     ...Platform.select({
       ios: {
         shadowColor: "#000",
