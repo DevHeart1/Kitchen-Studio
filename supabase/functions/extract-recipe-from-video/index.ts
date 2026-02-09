@@ -46,8 +46,31 @@ serve(async (req) => {
             const transcriptItems = await YoutubeTranscript.fetchTranscript(videoId);
             transcriptText = transcriptItems.map((item: any) => item.text).join(" ");
         } catch (transcriptError) {
-            console.warn("Transcribing failed, attempting fallback or direct analysis:", transcriptError);
-            transcriptText = "TRANSCRIPT_UNAVAILABLE. Analyze based on video metadata/title only.";
+            console.warn("Transcribing failed, attempting metadata fetch fallback:", transcriptError);
+
+            // Fallback: Fetch Title and Description from the YouTube page
+            try {
+                const response = await fetch(videoUrl, {
+                    headers: {
+                        "User-Agent": "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"
+                    }
+                });
+                const html = await response.text();
+
+                const titleMatch = html.match(/<title>(.*?)<\/title>/);
+                const descMatch = html.match(/<meta name="description" content="(.*?)">/) ||
+                    html.match(/<meta property="og:description" content="(.*?)">/);
+
+                const title = titleMatch ? titleMatch[1].replace(" - YouTube", "") : "Unknown Title";
+                const desc = descMatch ? descMatch[1] : "No description available";
+
+                const videoMetadata = `Title: ${title}\nDescription: ${desc}`;
+                transcriptText = `TRANSCRIPT_UNAVAILABLE.\n\nENRICHED METADATA:\n${videoMetadata}`;
+                console.log("[ExtractRecipe] Fallback Metadata Extracted:", title);
+            } catch (metadataError) {
+                console.error("Metadata fetch failed as well:", metadataError);
+                transcriptText = "TRANSCRIPT_UNAVAILABLE. Analyze based on URL only.";
+            }
         }
 
         // 2. Construct the Prompt (Same as client-side Version)
