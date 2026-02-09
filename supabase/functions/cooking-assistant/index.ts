@@ -28,7 +28,7 @@ serve(async (req) => {
     }
 
     const ai = new GoogleGenAI({ apiKey });
-    const model = "models/gemini-2.0-flash-exp"; // Using a known public model for live preview
+    const model = "models/gemini-3-flash-preview"; // Using a known public model for live preview
 
     const config = {
         responseModalities: [Modality.AUDIO],

@@ -97,7 +97,7 @@ Output ONLY valid JSON. No markdown.
 
         // 3. Call Gemini
         const genAI = new GoogleGenerativeAI(apiKey);
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
+        const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
 
         const result = await model.generateContent(prompt);
         const responseText = result.response.text();

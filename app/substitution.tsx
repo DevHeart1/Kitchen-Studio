@@ -76,7 +76,7 @@ export default function SubstitutionScreen() {
         : `Find 2-3 common kitchen substitutions for "${amount} of ${name}". Return ONLY a JSON array of objects with this structure: [{ id, name, ratio (e.g. "Use 1:1 ratio", "Use 1/2 the amount"), matchPercent (number 0-100), explanation (1-2 sentences explaining why it works), unsplashPhotoId (a specific Unsplash photo ID for this ingredient, e.g. 'photo-1508747703725-719777637510') }]. Do not include markdown code blocks.`;
 
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${GEMINI_API_KEY}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
