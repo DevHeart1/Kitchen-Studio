@@ -156,7 +156,7 @@ export const [InventoryProvider, useInventory] = createContextHook(() => {
     async (item: Omit<InventoryItem, "id" | "normalizedName">) => {
       try {
         if (useSupabase) {
-          const dbItem = frontendToDb(item, DEMO_USER_ID);
+          const dbItem = frontendToDb(item, userId || DEMO_USER_ID);
           const { data, error } = await supabase
             .from("inventory_items")
             .insert(dbItem)
@@ -191,7 +191,7 @@ export const [InventoryProvider, useInventory] = createContextHook(() => {
         return false;
       }
     },
-    [inventory, useSupabase]
+    [inventory, useSupabase, userId]
   );
 
   const removeItem = useCallback(
