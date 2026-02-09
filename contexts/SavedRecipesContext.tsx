@@ -17,6 +17,7 @@ export interface SavedRecipe {
   videoThumbnail: string;
   videoDuration: string;
   ingredients: RecipeIngredient[];
+  instructions?: { step: number; text: string; time?: number }[];
   savedAt: string;
 }
 
@@ -36,6 +37,7 @@ const dbToFrontend = (item: DbSavedRecipe): SavedRecipe => ({
   videoThumbnail: item.video_thumbnail || "",
   videoDuration: item.video_duration || "",
   ingredients: item.ingredients || [],
+  instructions: item.instructions || [],
   savedAt: item.saved_at,
 });
 
@@ -94,6 +96,7 @@ export const [SavedRecipesProvider, useSavedRecipes] = createContextHook(() => {
             video_thumbnail: recipe.videoThumbnail,
             video_duration: recipe.videoDuration,
             ingredients: recipe.ingredients,
+            instructions: recipe.instructions,
           })
           .select()
           .single();

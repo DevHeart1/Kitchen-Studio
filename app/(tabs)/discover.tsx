@@ -41,6 +41,7 @@ interface DiscoverRecipe {
   image: string;
   tags: string[];
   ingredients: string[];
+  instructions: { step: number; text: string; time?: number }[];
 }
 
 interface RecipeCategory {
@@ -117,6 +118,7 @@ Each recipe must have these fields:
 - calories: string (e.g. "350 cal")
 - tags: string[] (2-3 tags like "vegetarian", "high-protein", "one-pot")
 - ingredients: string[] (5-8 main ingredients)
+- instructions: { step: number, text: string, time?: number }[] (5-8 step-by-step instructions. "time" is optional duration in seconds for that step, e.g. 120 for 2 mins)
 
 Return ONLY the JSON array, no markdown, no explanation.`;
 
@@ -154,6 +156,7 @@ Return ONLY the JSON array, no markdown, no explanation.`;
       calories: string;
       tags: string[];
       ingredients: string[];
+      instructions: { step: number; text: string; time?: number }[];
     }[];
 
     const FOOD_IMAGES = [
@@ -253,7 +256,7 @@ export default function DiscoverScreen() {
               {
                 parts: [
                   {
-                    text: `Generate 4 recipe suggestions for: "${searchQuery}". Return ONLY a JSON array. Each recipe: { "title": string, "description": string (max 80 chars), "cookTime": string, "difficulty": string, "calories": string, "tags": string[], "ingredients": string[] }`,
+                    text: `Generate 4 recipe suggestions for: "${searchQuery}". Return ONLY a JSON array. Each recipe: { "title": string, "description": string (max 80 chars), "cookTime": string, "difficulty": string, "calories": string, "tags": string[], "ingredients": string[], "instructions": { "step": number, "text": string, "time": number }[] }`,
                   },
                 ],
               },
@@ -273,6 +276,7 @@ export default function DiscoverScreen() {
         calories: string;
         tags: string[];
         ingredients: string[];
+        instructions: { step: number; text: string; time?: number }[];
       }[];
 
       const SEARCH_IMAGES = [
@@ -309,6 +313,7 @@ export default function DiscoverScreen() {
           amount: "",
           image: "",
         })),
+        instructions: recipe.instructions,
       });
       console.log("[Discover] Saved recipe:", recipe.title);
     },

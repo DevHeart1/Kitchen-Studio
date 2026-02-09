@@ -1023,7 +1023,9 @@ export default function ScannerScreen() {
               )}
             </View>
           </View>
+        </View>
 
+        <View style={{ flex: 1, width: '100%' }}>
           {isScanning ? (
             <View style={styles.loadingContainer}>
               <View style={styles.loadingRing}>
@@ -1036,6 +1038,7 @@ export default function ScannerScreen() {
               horizontal
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.itemsList}
+              style={{ maxHeight: 180, marginBottom: 12 }}
             >
               {detectedItems.length === 0 ? (
                 <View style={styles.emptyState}>
@@ -1155,64 +1158,66 @@ export default function ScannerScreen() {
             </ScrollView>
           )}
 
-          {showExpiryPrompt && (
-            <View style={styles.expiryPromptContainer}>
-              <View style={styles.expiryPromptCard}>
-                <View style={styles.expiryPromptIcon}>
-                  <CalendarClock size={22} color={Colors.orange} />
+          <View style={styles.trayContent}>
+            {showExpiryPrompt && (
+              <View style={styles.expiryPromptContainer}>
+                <View style={styles.expiryPromptCard}>
+                  <View style={styles.expiryPromptIcon}>
+                    <CalendarClock size={22} color={Colors.orange} />
+                  </View>
+                  <View style={styles.expiryPromptTextContainer}>
+                    <Text style={styles.expiryPromptTitle}>Packaged Items Detected</Text>
+                    <Text style={styles.expiryPromptMessage}>
+                      Show the expiry date on the package to the camera
+                    </Text>
+                  </View>
                 </View>
-                <View style={styles.expiryPromptTextContainer}>
-                  <Text style={styles.expiryPromptTitle}>Packaged Items Detected</Text>
-                  <Text style={styles.expiryPromptMessage}>
-                    Show the expiry date on the package to the camera for accurate tracking
-                  </Text>
+                <View style={styles.expiryPromptButtons}>
+                  <TouchableOpacity
+                    style={styles.expiryPromptSkip}
+                    onPress={handleSkipExpiryScan}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.expiryPromptSkipText}>Skip</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.expiryPromptScan}
+                    onPress={handleExpiryDateScan}
+                    activeOpacity={0.8}
+                  >
+                    <CalendarClock size={16} color={Colors.backgroundDark} />
+                    <Text style={styles.expiryPromptScanText}>Scan Expiry Date</Text>
+                  </TouchableOpacity>
                 </View>
               </View>
-              <View style={styles.expiryPromptButtons}>
-                <TouchableOpacity
-                  style={styles.expiryPromptSkip}
-                  onPress={handleSkipExpiryScan}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.expiryPromptSkipText}>Skip</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.expiryPromptScan}
-                  onPress={handleExpiryDateScan}
-                  activeOpacity={0.8}
-                >
-                  <CalendarClock size={16} color={Colors.backgroundDark} />
-                  <Text style={styles.expiryPromptScanText}>Scan Expiry Date</Text>
-                </TouchableOpacity>
-              </View>
+            )}
+
+            <View style={styles.actionButtonsContainer}>
+              <TouchableOpacity
+                style={[styles.actionButton, styles.scanNextButton]}
+                onPress={handleScanMore}
+                activeOpacity={0.8}
+              >
+                <Plus size={20} color={Colors.white} />
+                <Text style={styles.actionButtonText}>Scan Next</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.actionButton,
+                  styles.finishButton,
+                  (detectedItems.length === 0 || confirmedCount === 0) && styles.finishButtonDisabled,
+                ]}
+                onPress={handleFinishScan}
+                activeOpacity={0.8}
+                disabled={detectedItems.length === 0 || confirmedCount === 0}
+              >
+                <CheckCheck size={20} color={Colors.backgroundDark} strokeWidth={2.5} />
+                <Text style={styles.finishButtonText}>
+                  Add ({confirmedCount})
+                </Text>
+              </TouchableOpacity>
             </View>
-          )}
-
-          <View style={styles.actionButtonsContainer}>
-            <TouchableOpacity
-              style={[styles.actionButton, styles.scanNextButton]}
-              onPress={handleScanMore}
-              activeOpacity={0.8}
-            >
-              <Plus size={20} color={Colors.white} />
-              <Text style={styles.actionButtonText}>Scan Next</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.actionButton,
-                styles.finishButton,
-                (detectedItems.length === 0 || confirmedCount === 0) && styles.finishButtonDisabled,
-              ]}
-              onPress={handleFinishScan}
-              activeOpacity={0.8}
-              disabled={detectedItems.length === 0 || confirmedCount === 0}
-            >
-              <CheckCheck size={20} color={Colors.backgroundDark} strokeWidth={2.5} />
-              <Text style={styles.finishButtonText}>
-                Add ({confirmedCount})
-              </Text>
-            </TouchableOpacity>
           </View>
         </View>
       </View>
@@ -1636,6 +1641,11 @@ const styles = StyleSheet.create({
     alignItems: "flex-end",
     paddingHorizontal: 20,
     paddingVertical: 12,
+  },
+  trayContent: {
+    paddingHorizontal: 20,
+    gap: 16,
+    paddingBottom: 20,
   },
   trayTitle: {
     fontSize: 18,

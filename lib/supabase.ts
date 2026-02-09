@@ -87,5 +87,10 @@ export interface DbSavedRecipe {
         image: string;
         substituteSuggestion?: string;
     }[];
+    instructions?: {
+        step: number;
+        text: string;
+        time?: number;
+    }[];
     saved_at: string;
 }
