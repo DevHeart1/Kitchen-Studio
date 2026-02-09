@@ -200,7 +200,7 @@ export default function SubstitutionScreen() {
           <View style={styles.substitutesList}>
             {substitutes.map((substitute, index) => (
               <View
-                key={substitute.id}
+                key={`${substitute.id}-${index}`}
                 style={[
                   styles.substituteCard,
                   index === 0 && styles.primarySubstituteCard,

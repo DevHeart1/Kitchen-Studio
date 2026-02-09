@@ -148,7 +148,7 @@ export default function RecipeScreen() {
 
   // Handle ingredient substitution from params
   React.useEffect(() => {
-    if (substitutedId && newName) {
+    if (substitutedId !== undefined && newName) {
       const baseIngredients = manualIngredients || (parsedRecipeData || extractedRecipe)?.ingredients.map((ing, idx: number) => {
         const name = typeof ing === "string" ? ing : ing.name;
         const amount = typeof ing === "string" ? "" : (ing.amount || "");
@@ -159,7 +159,10 @@ export default function RecipeScreen() {
           amount,
           image: getUnsplashImage(name, photoId),
         };
-      }) || savedRecipe?.ingredients || [];
+      }) || savedRecipe?.ingredients.map((ing, idx) => ({
+        ...ing,
+        id: ing.id || `saved-${idx}`
+      })) || [];
 
       const updated = baseIngredients.map((ing: any) => {
         if (ing.id === substitutedId) {
@@ -210,7 +213,12 @@ export default function RecipeScreen() {
         };
       });
     }
-    return savedRecipe?.ingredients || BASE_INGREDIENTS;
+    // Heal ingredients from savedRecipe if they are missing IDs
+    const ingredients = savedRecipe?.ingredients || BASE_INGREDIENTS;
+    return ingredients.map((ing, idx) => ({
+      ...ing,
+      id: ing.id || `saved-${idx}`
+    }));
   }, [parsedRecipeData, extractedRecipe, savedRecipe, manualIngredients]);
 
   const currentIngredients = rawIngredients;

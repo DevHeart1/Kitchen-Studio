@@ -66,7 +66,7 @@ Output ONLY valid JSON. No markdown.
   "calories": "string (Estimated kcal)",
   "tags": ["string"],
   "ingredients": [
-    "string (Qty Unit Ingredient, e.g. '200g Salmon')"
+    { "name": "string", "amount": "string", "unsplashPhotoId": "string (relevant ID)" }
   ],
   "instructions": [
     {
