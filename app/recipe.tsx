@@ -7,6 +7,9 @@ import {
   TouchableOpacity,
   Image,
   Modal,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -19,6 +22,9 @@ import {
   Info,
   Bookmark,
   BookmarkCheck,
+  Plus,
+  Trash2,
+  X,
 } from "lucide-react-native";
 import Colors from "@/constants/colors";
 import { useSavedRecipes, RecipeIngredient } from "@/contexts/SavedRecipesContext";
@@ -54,6 +60,9 @@ export default function RecipeScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [extractionError, setExtractionError] = useState<string | null>(null);
   const [extractedRecipe, setExtractedRecipe] = useState<DiscoverRecipe | null>(null);
+
+  const [isEditModalVisible, setIsEditModalVisible] = useState(false);
+  const [manualIngredients, setManualIngredients] = useState<RecipeIngredient[] | null>(null);
 
   // Parse recipeData if provided (from Discovery tab)
   const parsedRecipeData = useMemo(() => {
@@ -103,6 +112,9 @@ export default function RecipeScreen() {
 
   // Map ingredients from DiscoverRecipe (strings) or SavedRecipe (RecipeIngredient[])
   const rawIngredients: RecipeIngredient[] = useMemo(() => {
+    // If user has manually edited, use those
+    if (manualIngredients) return manualIngredients;
+
     if (parsedRecipeData || extractedRecipe) {
       const source = parsedRecipeData || extractedRecipe;
       return (source?.ingredients || []).map((ing: string, idx: number) => ({
@@ -113,7 +125,7 @@ export default function RecipeScreen() {
       }));
     }
     return savedRecipe?.ingredients || BASE_INGREDIENTS;
-  }, [parsedRecipeData, extractedRecipe, savedRecipe]);
+  }, [parsedRecipeData, extractedRecipe, savedRecipe, manualIngredients]);
 
   const currentIngredients = rawIngredients;
 
@@ -166,6 +178,43 @@ export default function RecipeScreen() {
     if (success) {
       setShowSaveModal(true);
     }
+  };
+
+  const handleOpenEditModal = () => {
+    setManualIngredients(rawIngredients);
+    setIsEditModalVisible(true);
+  };
+
+  const addIngredientToEdit = () => {
+    if (manualIngredients) {
+      setManualIngredients([
+        ...manualIngredients,
+        {
+          id: `new-${Date.now()}`,
+          name: "",
+          amount: "",
+          image: "https://images.unsplash.com/photo-1606787366850-de6330128bfc?auto=format&fit=crop&w=100&q=80",
+        },
+      ]);
+    }
+  };
+
+  const removeIngredientFromEdit = (id: string) => {
+    if (manualIngredients) {
+      setManualIngredients(manualIngredients.filter((ing) => ing.id !== id));
+    }
+  };
+
+  const updateIngredientInEdit = (id: string, field: "name" | "amount", value: string) => {
+    if (manualIngredients) {
+      setManualIngredients(
+        manualIngredients.map((ing) => (ing.id === id ? { ...ing, [field]: value } : ing))
+      );
+    }
+  };
+
+  const handleSaveEdit = () => {
+    setIsEditModalVisible(false);
   };
 
   const getStatusColor = (status: Ingredient["status"]) => {
@@ -421,10 +470,77 @@ export default function RecipeScreen() {
             </Text>
           </TouchableOpacity>
         </View>
-        <TouchableOpacity>
+        <TouchableOpacity onPress={handleOpenEditModal}>
           <Text style={styles.editLink}>Edit Ingredients List</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Ingredient Edit Modal */}
+      <Modal
+        visible={isEditModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setIsEditModalVisible(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={{ flex: 1 }}
+        >
+          <View style={styles.editModalOverlay}>
+            <View style={styles.editModalContent}>
+              <View style={styles.editModalHeader}>
+                <Text style={styles.editModalTitle}>Edit Ingredients</Text>
+                <TouchableOpacity onPress={() => setIsEditModalVisible(false)}>
+                  <X size={24} color={Colors.white} />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView style={styles.editModalList} showsVerticalScrollIndicator={false}>
+                {manualIngredients?.map((ing) => (
+                  <View key={ing.id} style={styles.editIngredientRow}>
+                    <View style={styles.editInputs}>
+                      <TextInput
+                        style={styles.editInputName}
+                        placeholder="Ingredient name"
+                        placeholderTextColor="rgba(255,255,255,0.3)"
+                        value={ing.name}
+                        onChangeText={(text) => updateIngredientInEdit(ing.id, "name", text)}
+                      />
+                      <TextInput
+                        style={styles.editInputAmount}
+                        placeholder="Amount (e.g. 2 tbsp)"
+                        placeholderTextColor="rgba(255,255,255,0.3)"
+                        value={ing.amount}
+                        onChangeText={(text) => updateIngredientInEdit(ing.id, "amount", text)}
+                      />
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => removeIngredientFromEdit(ing.id)}
+                      style={styles.removeBtn}
+                    >
+                      <Trash2 size={20} color="#EF4444" />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+
+                <TouchableOpacity style={styles.addBtn} onPress={addIngredientToEdit}>
+                  <Plus size={20} color={Colors.primary} />
+                  <Text style={styles.addBtnText}>Add Ingredient</Text>
+                </TouchableOpacity>
+              </ScrollView>
+
+              <View style={styles.editModalFooter}>
+                <TouchableOpacity
+                  style={[styles.modalButton, { width: "100%" }]}
+                  onPress={handleSaveEdit}
+                >
+                  <Text style={styles.modalButtonText}>Done Editing</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 }
@@ -773,5 +889,88 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontSize: 16,
     fontWeight: "600",
+  },
+  editModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.8)",
+    justifyContent: "flex-end",
+  },
+  editModalContent: {
+    backgroundColor: "#162215",
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    height: "85%",
+    padding: 24,
+    borderWidth: 1,
+    borderColor: "rgba(43, 238, 91, 0.2)",
+    borderBottomWidth: 0,
+  },
+  editModalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 24,
+  },
+  editModalTitle: {
+    fontSize: 24,
+    fontWeight: "700" as const,
+    color: Colors.white,
+  },
+  editModalList: {
+    flex: 1,
+  },
+  editIngredientRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255,255,255,0.05)",
+    borderRadius: 16,
+    padding: 12,
+    marginBottom: 12,
+    gap: 12,
+  },
+  editInputs: {
+    flex: 1,
+    gap: 8,
+  },
+  editInputName: {
+    fontSize: 16,
+    fontWeight: "600" as const,
+    color: Colors.white,
+    padding: 0,
+  },
+  editInputAmount: {
+    fontSize: 14,
+    color: "#92c9a0",
+    padding: 0,
+  },
+  removeBtn: {
+    width: 44,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(239, 68, 68, 0.1)",
+    borderRadius: 12,
+  },
+  addBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(43, 238, 91, 0.05)",
+    borderWidth: 1,
+    borderStyle: "dashed",
+    borderColor: Colors.primary + "40",
+    borderRadius: 16,
+    padding: 16,
+    marginTop: 8,
+    marginBottom: 40,
+    gap: 8,
+  },
+  addBtnText: {
+    fontSize: 15,
+    fontWeight: "600" as const,
+    color: Colors.primary,
+  },
+  editModalFooter: {
+    paddingTop: 16,
   },
 });
