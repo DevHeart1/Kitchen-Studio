@@ -1038,7 +1038,7 @@ export default function ScannerScreen() {
               horizontal
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.itemsList}
-              style={{ maxHeight: 180, marginBottom: 12 }}
+              style={{ maxHeight: 150, marginBottom: 8 }}
             >
               {detectedItems.length === 0 ? (
                 <View style={styles.emptyState}>
@@ -1531,7 +1531,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginTop: -60,
-    marginBottom: 220,
+    marginBottom: 300,
   },
   scanningTitle: {
     marginTop: 32,
@@ -1610,7 +1610,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderBottomWidth: 0,
     borderColor: Colors.cardGlassBorder,
-    minHeight: 200,
+    maxHeight: 280,
     paddingTop: 8,
     ...Platform.select({
       ios: {
@@ -1689,8 +1689,8 @@ const styles = StyleSheet.create({
   loadingContainer: {
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 40,
-    gap: 16,
+    paddingVertical: 20,
+    gap: 12,
   },
   loadingRing: {
     padding: 8,
@@ -1705,9 +1705,9 @@ const styles = StyleSheet.create({
   emptyState: {
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 32,
+    paddingVertical: 16,
     paddingHorizontal: 48,
-    gap: 12,
+    gap: 8,
   },
   emptyStateText: {
     fontSize: 14,
@@ -1720,9 +1720,9 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   detectedItemCard: {
-    width: 130,
-    height: 170,
-    borderRadius: 16,
+    width: 110,
+    height: 140,
+    borderRadius: 14,
     overflow: "hidden",
     borderWidth: 1,
   },
@@ -1846,18 +1846,18 @@ const styles = StyleSheet.create({
   },
   actionButtonsContainer: {
     flexDirection: "row",
-    gap: 12,
+    gap: 10,
     paddingHorizontal: 16,
-    marginTop: 8,
+    marginTop: 4,
   },
   actionButton: {
     flex: 1,
-    height: 54,
-    borderRadius: 27,
+    height: 44,
+    borderRadius: 22,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
+    gap: 6,
   },
   scanNextButton: {
     backgroundColor: "rgba(255, 255, 255, 0.1)",
