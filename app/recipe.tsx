@@ -87,7 +87,15 @@ const getUnsplashImage = (name: string, photoId?: string) => {
 export default function RecipeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { id, recipeData, videoUrl } = useLocalSearchParams<{ id: string; recipeData: string; videoUrl: string }>();
+  const { id, recipeData, videoUrl, substitutedId, newName, newAmount, newImage } = useLocalSearchParams<{
+    id: string;
+    recipeData: string;
+    videoUrl: string;
+    substitutedId?: string;
+    newName?: string;
+    newAmount?: string;
+    newImage?: string;
+  }>();
   const { savedRecipes, saveRecipe, isRecipeSaved } = useSavedRecipes();
   const { checkIngredientInPantry } = useInventory();
 
@@ -137,6 +145,41 @@ export default function RecipeScreen() {
       setIsLoading(false);
     }
   };
+
+  // Handle ingredient substitution from params
+  React.useEffect(() => {
+    if (substitutedId && newName) {
+      const baseIngredients = manualIngredients || (parsedRecipeData || extractedRecipe)?.ingredients.map((ing, idx: number) => {
+        const name = typeof ing === "string" ? ing : ing.name;
+        const amount = typeof ing === "string" ? "" : (ing.amount || "");
+        const photoId = typeof ing === "string" ? undefined : ing.unsplashPhotoId;
+        return {
+          id: `dyn-${idx}`,
+          name,
+          amount,
+          image: getUnsplashImage(name, photoId),
+        };
+      }) || savedRecipe?.ingredients || [];
+
+      const updated = baseIngredients.map((ing: any) => {
+        if (ing.id === substitutedId) {
+          return {
+            ...ing,
+            name: newName,
+            amount: newAmount || ing.amount,
+            image: newImage || ing.image,
+            status: 'in_pantry' // Count as ready once substituted
+          };
+        }
+        return ing;
+      });
+
+      setManualIngredients(updated);
+
+      // Clear params to avoid re-triggering (Expo Router doesn't clear them automatically on goBack)
+      router.setParams({ substitutedId: undefined, newName: undefined, newAmount: undefined, newImage: undefined });
+    }
+  }, [substitutedId, newName, newAmount, newImage]);
 
   // Priority: ID (saved) > recipeData (from discovery) > extractedRecipe (from video URL)
   const savedRecipe = savedRecipes.find((r) => r.id === id);
