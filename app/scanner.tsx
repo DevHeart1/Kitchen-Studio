@@ -1531,6 +1531,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginTop: -60,
+    marginBottom: 220,
   },
   scanningTitle: {
     marginTop: 32,
