@@ -3,7 +3,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import createContextHook from "@nkzw/create-context-hook";
 import { supabase, DbInventoryItem } from "@/lib/supabase";
 import { useAuth } from "./AuthContext";
-import { toSystemUnit, normalizeUnit, checkAvailability as serviceCheckAvailability } from "@/services/UnitConversionService";
+import { toSystemUnit, normalizeUnit, checkAvailability as serviceCheckAvailability, UsageEvent } from "@/services/UnitConversionService";
 
 export interface InventoryItem {
   id: string;
@@ -15,8 +15,10 @@ export interface InventoryItem {
   status: "good" | "low" | "expiring";
   stockPercentage: number;
   quantity?: number;
+  originalQuantity?: number;
   unit?: string;
   expiresIn?: string;
+  usageHistory?: UsageEvent[];
 }
 
 const STORAGE_KEY = "pantry_inventory";
@@ -58,8 +60,10 @@ const dbToFrontend = (item: DbInventoryItem): InventoryItem => ({
   status: item.status,
   stockPercentage: item.stock_percentage,
   quantity: item.quantity,
+  originalQuantity: item.original_quantity,
   unit: item.unit,
   expiresIn: item.expires_in || undefined,
+  usageHistory: item.usage_history ? (typeof item.usage_history === 'string' ? JSON.parse(item.usage_history) : item.usage_history) : [],
 });
 
 // Convert frontend item to DB item
@@ -76,8 +80,10 @@ const frontendToDb = (
   status: item.status,
   stock_percentage: item.stockPercentage,
   quantity: item.quantity || 1,
-  unit: item.unit || "pcs",
+  original_quantity: item.originalQuantity || item.quantity || 1,
+  unit: item.unit || "count",
   expires_in: item.expiresIn || null,
+  usage_history: item.usageHistory ? JSON.stringify(item.usageHistory) : '[]',
 });
 
 export const [InventoryProvider, useInventory] = createContextHook(() => {
@@ -388,6 +394,69 @@ export const [InventoryProvider, useInventory] = createContextHook(() => {
     }
   }, [inventory, checkIngredientInPantry]);
 
+  /* 
+   * CONSUME INGREDIENTS Logic
+   * Deducts quantity, updates usage history, and checks for low stock.
+   */
+  const consumeIngredients = useCallback(
+    async (recipeAmount: number, recipeUnit: string, ingredientName: string) => {
+      try {
+        const { item } = checkIngredientInPantry(ingredientName);
+        if (!item) return false;
+
+        // 1. Convert consumption amount to system unit
+        const consumed = toSystemUnit(recipeAmount, recipeUnit, ingredientName);
+        const currentQty = item.quantity || 0;
+        const currentUnit = item.unit || "count";
+
+        // Ensure units match (simple check)
+        if (consumed.unit !== currentUnit) {
+          console.warn(`Unit mismatch in consume: ${consumed.unit} vs ${currentUnit}`);
+          return false;
+        }
+
+        // 2. Calculate new quantity
+        const newQty = Math.max(0, currentQty - consumed.amount);
+
+        // 3. Update Usage History
+        const newEvent: UsageEvent = {
+          timestamp: new Date().toISOString(),
+          amount: consumed.amount
+        };
+        const updatedHistory = [...(item.usageHistory || []), newEvent];
+
+        // 4. Update Status & Stock Percentage
+        const originalQty = item.originalQuantity || (item.quantity && item.quantity > newQty ? item.quantity : newQty) || 1;
+        // If originalQuantity wasn't set (legacy items), assume previous qty was original if it was higher? 
+        // Or just use new max. Let's try to be smart.
+
+        const newPercentage = Math.round((newQty / originalQty) * 100);
+        let newStatus: "good" | "low" | "expiring" = "good";
+
+        if (newPercentage <= 25) newStatus = "low";
+        if (item.expiresIn && new Date(item.expiresIn) < new Date()) newStatus = "expiring";
+
+        // 5. Save Updates
+        await updateItem(item.id, {
+          quantity: newQty,
+          stockPercentage: newPercentage,
+          status: newStatus,
+          usageHistory: updatedHistory,
+          originalQuantity: originalQty
+          // ensure originalQuantity is preserved or set
+        });
+
+        console.log(`Consumed ${consumed.amount}${consumed.unit} of ${item.name}. Remaining: ${newQty}`);
+        return true;
+
+      } catch (error) {
+        console.error("Error consuming ingredients:", error);
+        return false;
+      }
+    },
+    [checkIngredientInPantry, updateItem]
+  );
+
   const getTotalCount = useMemo(() => inventory.length, [inventory]);
 
   const getExpiringCount = useMemo(
@@ -404,6 +473,7 @@ export const [InventoryProvider, useInventory] = createContextHook(() => {
       updateItem,
       checkIngredientInPantry,
       checkAvailability,
+      consumeIngredients,
       getTotalCount,
       getExpiringCount,
       refreshInventory: loadInventory,
@@ -415,6 +485,7 @@ export const [InventoryProvider, useInventory] = createContextHook(() => {
       removeItem,
       updateItem,
       checkIngredientInPantry,
+      consumeIngredients,
       getTotalCount,
       getExpiringCount,
     ]

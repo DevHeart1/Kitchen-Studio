@@ -36,7 +36,7 @@ import {
 import * as Haptics from "expo-haptics";
 import Colors from "@/constants/colors";
 import { useInventory, InventoryItem } from "@/contexts/InventoryContext";
-import { toHumanUnit } from "@/services/UnitConversionService";
+import { toHumanUnit, getDaysRemaining } from "@/services/UnitConversionService";
 
 type FilterType = "all" | "expiring" | "low" | "favorites";
 
@@ -466,6 +466,13 @@ export default function InventoryScreen() {
                 <Text style={{ color: Colors.textMuted, fontSize: 14 }}>
                   Remaining: {toHumanUnit(selectedItem.quantity || 0, selectedItem.unit || "count", selectedItem.name)}
                 </Text>
+                {selectedItem.usageHistory && selectedItem.usageHistory.length >= 2 && (
+                  <Text style={{ color: Colors.primary, fontSize: 12, marginTop: 4, fontWeight: "600" }}>
+                    {getDaysRemaining(selectedItem.quantity || 0, selectedItem.usageHistory!) !== null
+                      ? `Est. run out in ~${getDaysRemaining(selectedItem.quantity || 0, selectedItem.usageHistory!)} days`
+                      : "Tracking usage..."}
+                  </Text>
+                )}
               </View>
 
               {editingStock && (

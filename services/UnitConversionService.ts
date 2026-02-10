@@ -30,43 +30,48 @@ const UNIT_DEFINITIONS: Record<string, UnitDefinition> = {
     count: { type: "count", baseUnit: "count", factor: 1 },
     pcs: { type: "count", baseUnit: "count", factor: 1 },
     each: { type: "count", baseUnit: "count", factor: 1 },
-    clove: { type: "count", baseUnit: "count", factor: 1 }, // Special handling in density map if needed
+    clove: { type: "count", baseUnit: "count", factor: 1 },
     bulb: { type: "count", baseUnit: "count", factor: 1 },
+    bowl: { type: "count", baseUnit: "g", factor: 300 }, // Approximating 'bowl' as unit? Or volume?
 };
 
-// Density map: how many grams are in 1 unit of VOLUME (usually 1 cup / ~240ml) or 1 COUNT
-// For volume items, value = grams per ml (g/ml)
-// For count items (clove, onion), value = grams per 1 count
-// For "cup" specific mapping, we derive g/ml from the "g per cup" user provided.
-// 1 Cup ~ 236.6 ml.
-const DENSITY_MAP: Record<string, { gPerMl?: number; gPerCount?: number }> = {
-    // --- Nigerian / Local Staples (User Provided) ---
-    garri: { gPerMl: 160 / 236.6 }, // 160g per cup
-    egusi: { gPerMl: 120 / 236.6 }, // 120g per cup
-    ogbono: { gPerMl: 130 / 236.6 }, // 130g per cup
-    beans: { gPerMl: 200 / 236.6 }, // 200g per cup
-    rice: { gPerMl: 190 / 236.6 }, // 190g per cup
-    flour: { gPerMl: 120 / 236.6 }, // 120g per cup
-    sugar: { gPerMl: 200 / 236.6 }, // 200g per cup
-    salt: { gPerMl: 280 / 236.6 }, // 280g per cup (Heavy!)
-    "palm oil": { gPerMl: 0.92 }, // ~220ml implies density, but oil is usually ~0.92 g/ml
-    "vegetable oil": { gPerMl: 0.92 },
-    "stock fish": { gPerMl: 300 / 500 }, // "1 bowl" is vague, let's assume bowl ~ 500ml? Or treat as weight directly.
-    // If user says "1 bowl", we need to know bowl size.
-    // Let's standardise "bowl" -> 300g for now if used as unit.
-    "dried fish": { gPerMl: 120 / 236.6 }, // 120g per cup
+// Density map: Values based on specific USER REQUEST table
+// We convert user's "1 Cup = X grams" into g/ml ratio (assuming 1 Cup ~ 236.6 ml)
+// For items with mL base unit (oils), we stick to ml.
+const STANDARD_CUP_ML = 236.6;
 
-    // --- Common Counts (User Provided) ---
-    garlic: { gPerCount: 5 }, // 1 clove = 5g
-    onion: { gPerCount: 110 }, // 1 medium onion = 110g
-    tomato: { gPerCount: 120 }, // medium tomato
-    potato: { gPerCount: 150 }, // medium potato
-    egg: { gPerCount: 50 }, // standard large egg
+const DENSITY_MAP: Record<string, { gPerMl?: number; gPerCount?: number }> = {
+    // --- Nigerian / Local Staples (User Provided Table) ---
+    garri: { gPerMl: 160 / STANDARD_CUP_ML },
+    egusi: { gPerMl: 120 / STANDARD_CUP_ML },
+    ogbono: { gPerMl: 130 / STANDARD_CUP_ML },
+    rice: { gPerMl: 190 / STANDARD_CUP_ML },
+    beans: { gPerMl: 200 / STANDARD_CUP_ML },
+    "yam flour": { gPerMl: 130 / STANDARD_CUP_ML },
+    elubo: { gPerMl: 130 / STANDARD_CUP_ML },
+    semolina: { gPerMl: 150 / STANDARD_CUP_ML },
+    "wheat flour": { gPerMl: 120 / STANDARD_CUP_ML },
+    "ground crayfish": { gPerMl: 100 / STANDARD_CUP_ML },
+    crayfish: { gPerMl: 100 / STANDARD_CUP_ML },
+    "ground pepper": { gPerMl: 120 / STANDARD_CUP_ML },
+    pepper: { gPerMl: 120 / STANDARD_CUP_ML },
+    salt: { gPerMl: 280 / STANDARD_CUP_ML },
+    sugar: { gPerMl: 200 / STANDARD_CUP_ML },
+    "dried fish": { gPerMl: 120 / STANDARD_CUP_ML },
+    "stock fish": { gPerMl: 140 / STANDARD_CUP_ML }, // Table says 140g/cup
+    onion: { gPerMl: 160 / STANDARD_CUP_ML, gPerCount: 110 }, // 160g/cup chopped, ~110g per whole
+    tomato: { gPerMl: 240 / STANDARD_CUP_ML, gPerCount: 120 }, // 240g/cup blended, ~120g per whole
+
+    // Liquids (User provided mL per cup also, which matches ~standard, but let's be explicit if needed)
+    // Palm oil 220ml per cup -> Density approx 0.93 g/ml if we tracked in g, but base is ml so density=1 effectively for volume-volume
+    // But if we ever need mass <-> vol for oil:
+    "palm oil": { gPerMl: 0.93 },
+    "vegetable oil": { gPerMl: 0.92 },
 
     // --- Defaults ---
     water: { gPerMl: 1 },
-    milk: { gPerMl: 1.03 },
-    butter: { gPerMl: 0.911 }, // ~215g per cup
+    flour: { gPerMl: 120 / STANDARD_CUP_ML }, // Fallback generic
+    butter: { gPerMl: 0.911 },
     honey: { gPerMl: 1.42 },
 };
 
@@ -86,12 +91,22 @@ const BASE_UNIT_MAP: Record<string, string> = {
     egusi: "g",
     ogbono: "g",
     beans: "g",
-    "stock fish": "g",
+    "yam flour": "g",
+    elubo: "g",
+    semolina: "g",
+    "wheat flour": "g",
+    "ground crayfish": "g",
+    crayfish: "g",
+    "ground pepper": "g",
+    pepper: "g",
     "dried fish": "g",
+    "stock fish": "g",
 
     // Volume-tracked items (Liquids)
     milk: "ml",
     oil: "ml",
+    "palm oil": "ml",
+    "vegetable oil": "ml",
     water: "ml",
     vinegar: "ml",
     sauce: "ml",
@@ -99,22 +114,23 @@ const BASE_UNIT_MAP: Record<string, string> = {
     broth: "ml",
     cream: "ml",
 
-    // Count-tracked items (Discrete)
+    // Count-tracked (or hybrid if strictly count like eggs)
     egg: "count",
-    // Produce can be fuzzy. User said "Garlic -> 5 cloves -> 25g". 
-    // So strictly speaking, garlic should be "g" internally for precision?
-    // Let's stick to "g" for anything convertible to weight, "count" for strictly things like "eggs" or "cans".
-    garlic: "g",
+    garlic: "g", // User explicitly mentioned 5 cloves = 25g
     onion: "g",
     tomato: "g",
     potato: "g",
     carrot: "g",
 };
 
+export interface UsageEvent {
+    timestamp: string; // ISO date
+    amount: number; // Amount used in BASE UNIT
+}
+
 export function normalizeUnit(unit: string): string {
     if (!unit) return "count";
     const lower = unit.toLowerCase().trim();
-    // Handle some plurals and aliases
     if (lower.endsWith("s") && !["s", "pcs"].includes(lower) && !UNIT_DEFINITIONS[lower]) {
         const singular = lower.slice(0, -1);
         if (UNIT_DEFINITIONS[singular]) return singular;
@@ -127,27 +143,18 @@ export function getBaseUnitForIngredient(ingredientName: string): string {
     for (const [key, base] of Object.entries(BASE_UNIT_MAP)) {
         if (lowerName.includes(key)) return base;
     }
-    // Default fallback: if it sounds like a liquid? 
-    return "count"; // Safe default
+    return "count";
 }
 
 function getDensity(ingredientName: string): { gPerMl?: number; gPerCount?: number } {
     const lowerName = ingredientName.toLowerCase();
-    // Try exact match first
     if (DENSITY_MAP[lowerName]) return DENSITY_MAP[lowerName];
-
-    // Try partial match
     for (const [key, val] of Object.entries(DENSITY_MAP)) {
         if (lowerName.includes(key)) return val;
     }
-
-    return { gPerMl: 1 }; // Default to water density for volume, undefined for count
+    return { gPerMl: 1 };
 }
 
-/**
- * Converts ANY human input (3 cups) to SYSTEM storage unit (grams/ml/count).
- * "Golden Rule: Input in Cups -> Store in Grams"
- */
 export function toSystemUnit(
     amount: number,
     unit: string,
@@ -158,19 +165,14 @@ export function toSystemUnit(
     const targetBase = getBaseUnitForIngredient(ingredientName);
     const density = getDensity(ingredientName);
 
-    // If unit unknown, store as is
     if (!def) {
         return { amount, unit: normUnit, originalUnit: unit, originalAmount: amount };
     }
 
-    // 1. Convert to its own base first (e.g. cup -> ml)
     let baseAmount = amount * def.factor; // now in ml or g or count
     let currentBase = def.baseUnit;
 
-    // 2. Align with Target Base
-    // Case A: Mass -> Mass (g -> g) or Volume -> Volume (ml -> ml)
     if (currentBase === targetBase) {
-        // No conversion needed, maybe just floating point cleanup
         return {
             amount: parseFloat(baseAmount.toFixed(1)),
             unit: targetBase,
@@ -179,8 +181,6 @@ export function toSystemUnit(
         };
     }
 
-    // Case B: Volume -> Mass (ml -> g) e.g. "3 cups egusi" -> ml -> g
-    // formula: mass (g) = volume (ml) * density (g/ml)
     if (currentBase === "ml" && targetBase === "g") {
         const gPerMl = density.gPerMl || 1;
         const finalGrams = baseAmount * gPerMl;
@@ -192,8 +192,6 @@ export function toSystemUnit(
         };
     }
 
-    // Case C: Mass -> Volume (g -> ml) e.g. "500g water" -> ml
-    // formula: volume (ml) = mass (g) / density (g/ml)
     if (currentBase === "g" && targetBase === "ml") {
         const gPerMl = density.gPerMl || 1;
         const finalMl = baseAmount / gPerMl;
@@ -205,7 +203,6 @@ export function toSystemUnit(
         };
     }
 
-    // Case D: Count -> Mass (count -> g) e.g. "5 cloves garlic" -> g
     if (currentBase === "count" && targetBase === "g") {
         const gPerCount = density.gPerCount;
         if (gPerCount) {
@@ -217,36 +214,23 @@ export function toSystemUnit(
                 originalAmount: amount
             };
         }
-        // If no count density, fallback to keeping as count?
-        // User wants "Garlic" stored as 25g.
-        // If we assume default weight? Or fail?
-        // Let's fallback to returning as count if we can't convert.
-        return { amount, unit: "count", originalUnit: unit, originalAmount: amount };
     }
 
-    // Fallback
     return { amount: baseAmount, unit: currentBase, originalUnit: unit, originalAmount: amount };
 }
 
-/**
- * Converts SYSTEM storage unit (g) back to HUMAN readable unit (cups/tbsp) if meaningful.
- * Or returns a smart string like "300g (approx 2.5 cups)"
- */
 export function toHumanUnit(
     systemAmount: number,
     systemUnit: string,
     ingredientName: string,
-    preferredUnit?: string // e.g., if user originally added in cups, try to show cups
+    preferredUnit?: string
 ): string {
-    // If we have a preferred unit, try to convert to it.
     if (preferredUnit) {
         const normPref = normalizeUnit(preferredUnit);
         const prefDef = UNIT_DEFINITIONS[normPref];
         const density = getDensity(ingredientName);
 
         if (prefDef) {
-            // Reverse conversion: System -> Human
-            // 1. Convert System Base (e.g. g) -> Pref Base (e.g. ml) if needed
             let targetBaseAmount = systemAmount;
 
             if (systemUnit === "g" && prefDef.baseUnit === "ml") {
@@ -254,21 +238,15 @@ export function toHumanUnit(
                 targetBaseAmount = systemAmount / gPerMl;
             } else if (systemUnit === "ml" && prefDef.baseUnit === "g") {
                 const gPerMl = density.gPerMl || 1;
-                targetBaseAmount = systemAmount * gPerMl; // ml shouldn't convert to g usually for display, but mathematically valid
+                targetBaseAmount = systemAmount * gPerMl;
             }
 
-            // 2. Convert Pref Base -> Pref Unit (e.g. ml -> cup)
-            // factor converts TO base, so divide by factor to get FROM base
             const finalAmount = targetBaseAmount / prefDef.factor;
-
-            // Round nicely
             const rounded = Math.round(finalAmount * 10) / 10;
             return `${systemAmount}${systemUnit} (approx. ${rounded} ${preferredUnit})`;
         }
     }
 
-    // Automatic "Smart" formatting
-    // e.g. if > 1000g, show kg
     if (systemUnit === "g") {
         if (systemAmount >= 1000) return `${(systemAmount / 1000).toFixed(2)} kg`;
         return `${Math.round(systemAmount)} g`;
@@ -283,7 +261,7 @@ export function toHumanUnit(
 
 export function calculateRemainingServings(
     pantryAmount: number,
-    pantryUnit: string, // should be base unit (g/ml)
+    pantryUnit: string,
     recipeAmount: number,
     recipeUnit: string,
     ingredientName: string
@@ -291,8 +269,6 @@ export function calculateRemainingServings(
     const convertedRecipe = toSystemUnit(recipeAmount, recipeUnit, ingredientName);
 
     if (convertedRecipe.unit !== pantryUnit) {
-        // Unit Mismatch despite attempted conversion? 
-        // Maybe trying to cook "count" from "grams"?
         return 0;
     }
 
@@ -308,15 +284,65 @@ export function checkAvailability(
     pantryUnit: string,
     ingredientName: string
 ): boolean {
-    // Convert both to the target base unit for this ingredient
     const recipeBase = toSystemUnit(recipeAmount, recipeUnit, ingredientName);
-    // Pantry amount is likely already in system unit if coming from DB, but let's ensure
     const pantryBase = toSystemUnit(pantryAmount, pantryUnit, ingredientName);
 
     if (recipeBase.unit !== pantryBase.unit) {
         return false;
     }
 
-    // buffer for Float precision issues?
     return pantryBase.amount >= recipeBase.amount * 0.95;
+}
+
+/**
+ * Predicts the date when an ingredient will run out based on usage history.
+ * @param currentAmount Current quantity in pantry (System Unit)
+ * @param usageHistory Array of usage events (must be in Base Unit)
+ * @returns Date string (ISO) or null if not enough data
+ */
+export function predictRunOutDate(
+    currentAmount: number,
+    usageHistory: UsageEvent[]
+): string | null {
+    if (!usageHistory || usageHistory.length < 2) return null;
+
+    // 1. Sort history by date
+    const sorted = [...usageHistory].sort((a, b) =>
+        new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+    );
+
+    // 2. Calculate average daily consumption
+    const firstDate = new Date(sorted[0].timestamp);
+    const lastDate = new Date(sorted[sorted.length - 1].timestamp);
+
+    const daysDiff = (lastDate.getTime() - firstDate.getTime()) / (1000 * 3600 * 24);
+
+    if (daysDiff < 1) return null; // Need slightly longer data span
+
+    const totalUsed = sorted.reduce((sum, e) => sum + e.amount, 0);
+    const avgPerDay = totalUsed / daysDiff;
+
+    if (avgPerDay <= 0) return null;
+
+    // 3. Project remaining life
+    const daysRemaining = currentAmount / avgPerDay;
+
+    const projectedDate = new Date();
+    projectedDate.setDate(projectedDate.getDate() + daysRemaining);
+
+    return projectedDate.toISOString();
+}
+
+export function getDaysRemaining(
+    currentAmount: number,
+    usageHistory: UsageEvent[]
+): number | null {
+    const dateStr = predictRunOutDate(currentAmount, usageHistory);
+    if (!dateStr) return null;
+
+    const target = new Date(dateStr);
+    const now = new Date();
+    const diffTime = target.getTime() - now.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
 }

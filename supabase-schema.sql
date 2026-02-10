@@ -14,8 +14,10 @@ CREATE TABLE IF NOT EXISTS inventory_items (
   added_date TEXT NOT NULL,
   status TEXT CHECK (status IN ('good', 'low', 'expiring')) DEFAULT 'good',
   stock_percentage INTEGER DEFAULT 100,
+  usage_history JSONB DEFAULT '[]'::jsonb,
+  original_quantity REAL,
   quantity REAL DEFAULT 1,
-  unit TEXT DEFAULT 'pcs',
+  unit TEXT DEFAULT 'count',
   expires_in TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
