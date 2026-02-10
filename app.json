@@ -43,7 +43,13 @@
         }
       ],
       "expo-font",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "@jamsch/expo-speech-recognition",
+        {
+          "microphonePermission": "Allow Kitchen Studio to assist you with voice commands while cooking."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

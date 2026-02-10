@@ -8,8 +8,6 @@ import {
   TouchableOpacity,
   Animated,
   ImageBackground,
-  Modal,
-  ScrollView,
   Platform,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -19,24 +17,15 @@ import {
   Mic,
   BookOpen,
   Timer,
-  Settings,
   CheckCircle,
   Award,
-  Star,
-  Home,
-  Share2,
-  ChefHat,
   Volume2,
-  VolumeX,
 } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
-import { Audio } from 'expo-av';
-import * as FileSystem from 'expo-file-system';
 import Colors from "@/constants/colors";
 import { useCookingHistory } from "@/contexts/CookingHistoryContext";
 import { RecentCook } from "@/types";
-import { DiscoverRecipe } from "@/app/(tabs)/discover";
-import { supabase } from "@/lib/supabase";
+import { useVoiceControl } from "@/hooks/useVoiceControl";
 
 interface CookingStep {
   id: number;
@@ -59,7 +48,6 @@ const cookingSteps: CookingStep[] = [
     feedback: "Great seasoning coverage!",
     feedbackType: "success",
   },
-  // ... (Other steps omitted for brevity, assuming they exist or utilize dynamic steps)
 ];
 
 export default function ARCookingScreen() {
@@ -85,28 +73,16 @@ export default function ARCookingScreen() {
   const recipe = savedRecipes.find((r) => r.id === id) || passedRecipe || savedRecipes[0];
 
   const [currentStep, setCurrentStep] = useState(0);
-  const [isListening, setIsListening] = useState(false);
-  const [isSpeaking, setIsSpeaking] = useState(false);
   const [showTimer, setShowTimer] = useState(false);
   const [timerSeconds, setTimerSeconds] = useState(0);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
   const [showCompletion, setShowCompletion] = useState(false);
-  const [showInstructions, setShowInstructions] = useState(false);
 
   const { addSession, updateSession, inProgressSessions } = useCookingHistory();
   const [sessionId, setSessionId] = useState<string | null>(null);
 
-  const fadeAnim = useRef(new Animated.Value(1)).current;
-  const slideAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const feedbackAnim = useRef(new Animated.Value(0)).current;
-
-  // Audio & WebSocket Refs
-  const wsRef = useRef<WebSocket | null>(null);
-  const recordingRef = useRef<Audio.Recording | null>(null);
-  const soundRef = useRef<Audio.Sound | null>(null);
-  const audioQueueRef = useRef<string[]>([]);
-  const isPlayingRef = useRef(false);
 
   // Transform recipe instructions to CookingStep format
   const steps: CookingStep[] = useMemo(() => {
@@ -127,6 +103,85 @@ export default function ARCookingScreen() {
 
   const step = steps[currentStep] || steps[0];
   const progress = ((currentStep + 1) / steps.length) * 100;
+
+  // -- Navigation Helpers --
+  const handleNextStep = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    if (currentStep < steps.length - 1) {
+      setCurrentStep((prev) => prev + 1);
+      setIsTimerRunning(false);
+      setShowTimer(false);
+    } else {
+      setShowCompletion(true);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (sessionId) updateSession(sessionId, { progress: 100, completedDate: new Date().toISOString() });
+    }
+  };
+
+  const handleTimerPress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (step.timerSeconds) {
+      if (!showTimer) {
+        setTimerSeconds(step.timerSeconds);
+        setShowTimer(true);
+      }
+      setIsTimerRunning(!isTimerRunning);
+    }
+  };
+
+  const handleClose = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    router.back();
+  };
+
+  // -- Voice Control Logic --
+  // We define this BEFORE useVoiceControl so it can be passed as a callback
+  const handleVoiceCommand = (text: string) => {
+    const cmd = text.toLowerCase();
+    console.log("Voice Command:", cmd);
+
+    if (cmd.includes("next") || cmd.includes("continue")) {
+      handleNextStep();
+    } else if (cmd.includes("back") || cmd.includes("previous")) {
+      if (currentStep > 0) {
+        setCurrentStep(prev => prev - 1);
+        speak(`Going back to step ${currentStep}. ${steps[currentStep - 1].instruction}`);
+      }
+    } else if (cmd.includes("repeat") || cmd.includes("again")) {
+      speak(step.instruction);
+    } else if (cmd.includes("ingredient") || cmd.includes("what needs")) {
+      const ingredientNames = recipe.ingredients.map((i: any) => i.name || i).join(", ");
+      speak(`You need: ${ingredientNames}`);
+    } else if (cmd.includes("timer") && cmd.includes("start")) {
+      if (step.timerSeconds) {
+        handleTimerPress();
+        speak("Starting timer.");
+      } else {
+        speak("There is no timer for this step.");
+      }
+    }
+  };
+
+  const { isListening, isSpeaking, startListening, stopListening, speak, stopSpeaking } = useVoiceControl({
+    onCommand: handleVoiceCommand,
+  });
+
+  // Auto-speak instructions when step changes
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      speak(`Step ${step.id}. ${step.instruction}`);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [step.id]);
+
+  const toggleListening = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (isListening) {
+      stopListening();
+    } else {
+      startListening();
+    }
+  };
 
   // Initialize or resume session
   useEffect(() => {
@@ -167,195 +222,6 @@ export default function ARCookingScreen() {
       });
     }
   }, [currentStep, sessionId]);
-
-  // Setup Audio & WebSocket
-  useEffect(() => {
-    let isMounted = true;
-
-    const setupAudio = async () => {
-      try {
-        await Audio.requestPermissionsAsync();
-        await Audio.setAudioModeAsync({
-          allowsRecordingIOS: true,
-          playsInSilentModeIOS: true,
-          staysActiveInBackground: false,
-          shouldDuckAndroid: true,
-          playThroughEarpieceAndroid: false,
-        });
-      } catch (e) {
-        console.error("Audio permission error:", e);
-      }
-    };
-
-    const connectWebSocket = () => {
-      // Connect to our Supabase Edge Function
-      const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL?.replace('http', 'ws'); // basic replace
-      const functionUrl = `${supabaseUrl}/functions/v1/cooking-assistant`;
-
-      console.log("Connecting to AI Assistant:", functionUrl);
-      const ws = new WebSocket(functionUrl);
-
-      ws.onopen = () => {
-        console.log("AI Assistant Connected");
-        // Send initial context
-        const contextMessage = {
-          type: "setup_context",
-          content: `You are accompanying the user cooking "${recipe.title}". Current step ${currentStep + 1}: ${step.instruction}. Be helpful, concise, and encouraging.`
-        };
-        ws.send(JSON.stringify(contextMessage));
-      };
-
-      ws.onmessage = async (event) => {
-        try {
-          const message = JSON.parse(event.data);
-
-          if (message.serverContent?.modelTurn?.parts) {
-            const parts = message.serverContent.modelTurn.parts;
-            for (const part of parts) {
-              if (part.inlineData && part.inlineData.mimeType.startsWith('audio')) {
-                // Audio chunk received
-                queueAudio(part.inlineData.data);
-              }
-            }
-          }
-        } catch (e) {
-          console.error("WS Message Error:", e);
-        }
-      };
-
-      ws.onerror = (e) => {
-        console.log("WS Error:", e);
-      };
-
-      ws.onclose = () => {
-        console.log("AI Assistant Disconnected");
-      };
-
-      wsRef.current = ws;
-    };
-
-    setupAudio();
-    connectWebSocket();
-
-    return () => {
-      isMounted = false;
-      if (wsRef.current) wsRef.current.close();
-      if (recordingRef.current) {
-        recordingRef.current.stopAndUnloadAsync();
-      }
-      if (soundRef.current) {
-        soundRef.current.unloadAsync();
-      }
-    };
-  }, []);
-
-  // Update context when step changes
-  useEffect(() => {
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      const contextMessage = {
-        type: "text_input", // Just treating as text input to update context
-        content: `User moved to Step ${currentStep + 1}: ${step.instruction}. Update your guidance.`
-      };
-      wsRef.current.send(JSON.stringify(contextMessage));
-    }
-  }, [currentStep]);
-
-  const queueAudio = async (base64Data: string) => {
-    audioQueueRef.current.push(base64Data);
-    if (!isPlayingRef.current) {
-      playNextAudio();
-    }
-  };
-
-  const playNextAudio = async () => {
-    if (audioQueueRef.current.length === 0) {
-      isPlayingRef.current = false;
-      setIsSpeaking(false);
-      return;
-    }
-
-    isPlayingRef.current = true;
-    setIsSpeaking(true);
-    const audioData = audioQueueRef.current.shift();
-
-    try {
-      // Use cast because cacheDirectory might be missing in types or nullable
-      const cacheDir = (FileSystem as any).cacheDirectory;
-      const fileUri = `${cacheDir}temp_audio_${Date.now()}.wav`;
-
-      await FileSystem.writeAsStringAsync(fileUri, audioData!, {
-        encoding: "base64", // Using string literal "base64" to avoid type errors
-      });
-
-      const { sound } = await Audio.Sound.createAsync({ uri: fileUri });
-      soundRef.current = sound;
-
-      sound.setOnPlaybackStatusUpdate(async (status) => {
-        if (status.isLoaded && status.didJustFinish) {
-          await sound.unloadAsync();
-          await FileSystem.deleteAsync(fileUri, { idempotent: true });
-          playNextAudio();
-        }
-      });
-
-      await sound.playAsync();
-    } catch (e) {
-      console.error("Audio Playback Error:", e);
-      isPlayingRef.current = false;
-      setIsSpeaking(false);
-    }
-  };
-
-  const startRecording = async () => {
-    try {
-      const recording = new Audio.Recording();
-      await recording.prepareToRecordAsync(Audio.RecordingOptionsPresets.LOW_QUALITY);
-
-      recording.setOnRecordingStatusUpdate(async (status) => {
-        // Status updates...
-      });
-
-      await recording.startAsync();
-      recordingRef.current = recording;
-      setIsListening(true);
-      console.log("Recording started");
-    } catch (e) {
-      console.error("Failed to start recording", e);
-    }
-  };
-
-  const stopRecording = async () => {
-    if (!recordingRef.current) return;
-
-    try {
-      setIsListening(false);
-      await recordingRef.current.stopAndUnloadAsync();
-      const uri = recordingRef.current.getURI();
-      recordingRef.current = null;
-
-      if (uri && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-        const base64 = await FileSystem.readAsStringAsync(uri, { encoding: "base64" });
-
-        // Send to Gemini
-        wsRef.current.send(JSON.stringify({
-          type: "user_audio_chunk",
-          content: base64
-        }));
-        console.log("Sent audio chunk");
-      }
-    } catch (e) {
-      console.error("Failed to stop recording", e);
-    }
-  };
-
-  const toggleListening = async () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    if (isListening) {
-      await stopRecording();
-    } else {
-      await startRecording();
-    }
-  };
 
   // Animation Effects
   useEffect(() => {
@@ -413,35 +279,6 @@ export default function ARCookingScreen() {
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
-  const handleNextStep = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    if (currentStep < steps.length - 1) {
-      setCurrentStep((prev) => prev + 1);
-      setIsTimerRunning(false);
-      setShowTimer(false);
-    } else {
-      setShowCompletion(true);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      if (sessionId) updateSession(sessionId, { progress: 100, completedDate: new Date().toISOString() });
-    }
-  };
-
-  const handleTimerPress = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    if (step.timerSeconds) {
-      if (!showTimer) {
-        setTimerSeconds(step.timerSeconds);
-        setShowTimer(true);
-      }
-      setIsTimerRunning(!isTimerRunning);
-    }
-  };
-
-  const handleClose = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    router.back();
-  };
-
   const getFeedbackColor = (type: CookingStep["feedbackType"]) => {
     switch (type) {
       case "success": return Colors.primary;
@@ -489,12 +326,21 @@ export default function ARCookingScreen() {
             <TouchableOpacity style={styles.closeButton} onPress={handleClose}>
               <X size={24} color={Colors.white} />
             </TouchableOpacity>
-            {/* ... Header Text ... */}
+
+            <View style={styles.progressContainer}>
+              <View style={styles.progressBar}>
+                <View style={[styles.progressFill, { width: `${progress}%` }]} />
+              </View>
+              <Text style={styles.stepIndicator}>Step {currentStep + 1}/{steps.length}</Text>
+            </View>
           </View>
 
           <View style={styles.mainContent}>
-            {/* AR Content */}
-            <Text style={styles.instructionText}>{step.instruction}</Text>
+            {/* Instruction Card */}
+            <View style={styles.instructionCard}>
+              <Text style={styles.instructionTitle}>{step.title}</Text>
+              <Text style={styles.instructionText}>{step.instruction}</Text>
+            </View>
           </View>
 
           <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
@@ -514,7 +360,7 @@ export default function ARCookingScreen() {
                   <Mic size={24} color={isListening ? Colors.backgroundDark : Colors.primary} />
                 )}
                 <Text style={[styles.voiceButtonText, (isListening || isSpeaking) && styles.voiceButtonTextActive]}>
-                  {isSpeaking ? "AI Talking..." : isListening ? "Listening..." : "Tap to Speak"}
+                  {isSpeaking ? "Speaking..." : isListening ? "Listening..." : "Tap to Speak"}
                 </Text>
               </TouchableOpacity>
 
@@ -530,28 +376,165 @@ export default function ARCookingScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.backgroundDark },
-  backgroundImage: { flex: 1, width: "100%", height: "100%" },
-  cameraOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.4)" },
-  uiLayer: { flex: 1, justifyContent: "space-between" },
-  header: { padding: 16, flexDirection: 'row', justifyContent: 'space-between' },
-  closeButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center' },
-  mainContent: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
-  instructionText: { fontSize: 24, fontWeight: 'bold', color: 'white', textAlign: 'center', marginBottom: 20, textShadowColor: 'rgba(0,0,0,0.75)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 10 },
-  footer: { padding: 16 },
-  actionButtons: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  voiceButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 20, paddingVertical: 12, borderRadius: 30, gap: 10 },
-  voiceButtonActive: { backgroundColor: Colors.primary },
-  voiceButtonSpeaking: { backgroundColor: '#8b5cf6' }, // Purple when AI speaks
-  voiceButtonText: { color: 'white', fontWeight: 'bold' },
-  voiceButtonTextActive: { color: Colors.backgroundDark },
-  nextButton: { width: 56, height: 56, borderRadius: 28, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center' },
-  completionContainer: { flex: 1 },
-  completionBackground: { flex: 1 },
-  completionOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.7)' },
-  completionContent: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
-  completionBadge: { marginBottom: 20 },
-  completionTitle: { fontSize: 32, fontWeight: 'bold', color: 'white', marginBottom: 10 },
-  homeButton: { backgroundColor: Colors.primary, paddingHorizontal: 30, paddingVertical: 15, borderRadius: 30 },
-  homeButtonText: { fontWeight: 'bold', color: Colors.backgroundDark }
+  container: {
+    flex: 1,
+    backgroundColor: Colors.background,
+  },
+  backgroundImage: {
+    flex: 1,
+    width: "100%",
+    height: "100%",
+  },
+  cameraOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+  },
+  uiLayer: {
+    flex: 1,
+    justifyContent: 'space-between',
+  },
+  header: {
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  closeButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  progressContainer: {
+    flex: 1,
+    gap: 4,
+  },
+  progressBar: {
+    height: 4,
+    backgroundColor: 'rgba(255,255,255,0.3)',
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: Colors.primary,
+  },
+  stepIndicator: {
+    color: Colors.white,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  mainContent: {
+    padding: 20,
+    gap: 20,
+  },
+  instructionCard: {
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    padding: 20,
+    borderRadius: 24,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  instructionTitle: {
+    color: Colors.primary,
+    fontSize: 14,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
+  instructionText: {
+    color: Colors.white,
+    fontSize: 24,
+    fontWeight: '600',
+    lineHeight: 32,
+  },
+  footer: {
+    paddingHorizontal: 20,
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  voiceButton: {
+    flex: 1,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  voiceButtonActive: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  voiceButtonSpeaking: {
+    backgroundColor: Colors.secondary || '#FFC107', // Fallback if secondary undefined
+    borderColor: Colors.secondary || '#FFC107',
+  },
+  voiceButtonText: {
+    color: Colors.white,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  voiceButtonTextActive: {
+    color: Colors.backgroundDark,
+  },
+  nextButton: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: Colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  completionContainer: {
+    flex: 1,
+  },
+  completionBackground: {
+    flex: 1,
+  },
+  completionOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.8)',
+  },
+  completionContent: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+    gap: 24,
+  },
+  completionBadge: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  completionTitle: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: Colors.white,
+    textAlign: 'center',
+  },
+  homeButton: {
+    paddingVertical: 16,
+    paddingHorizontal: 32,
+    backgroundColor: Colors.primary,
+    borderRadius: 16,
+  },
+  homeButtonText: {
+    color: Colors.backgroundDark,
+    fontSize: 18,
+    fontWeight: '600',
+  },
 });
