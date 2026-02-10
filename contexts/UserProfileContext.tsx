@@ -185,10 +185,8 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
 
         if (profileError && profileError.code !== "PGRST116") {
           console.error("[Profile] Supabase error:", profileError.message);
-          // Don't fall back to async storage if auth error, just log it.
-          // Or maybe we should if network fails?
-          // For now, let's assume if authenticated, we want DB data.
-          // If we fail to load from DB, maybe we shouldn't overwrite with default?
+          setIsLoading(false);
+          return; // Abort if legitimate error to avoid duplicate creation attempts
         }
 
         // Load shared recipes
@@ -203,7 +201,7 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
           const dbOnboardingCompleted = profileData.onboarding_completed === true;
           setHasCompletedOnboarding(prev => prev === true ? true : dbOnboardingCompleted);
         } else {
-          // No profile in Supabase, create one
+          // No profile in Supabase (or 404), create one
           if (currentUserId && user) {
             const newProfile = {
               user_id: currentUserId,
@@ -216,7 +214,7 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
               total_xp: 0,
               unlocked_badge_ids: [],
               settings: DEFAULT_SETTINGS,
-              cooking_level: 'beginner',
+              cooking_level: "beginner",
               dietary_preferences: [],
               cooking_interests: [],
               onboarding_completed: false
@@ -230,8 +228,24 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
               .single();
 
             if (createError) {
-              console.error("[Profile] Error creating profile:", JSON.stringify(createError, null, 2));
-              setProfile(DEFAULT_PROFILE);
+              if (createError.code === "23505") {
+                console.log("[Profile] Profile already exists (23505), recovering...");
+                // Recover: Fetch the existing profile
+                const { data: existingProfile } = await supabase
+                  .from("user_profiles")
+                  .select("*")
+                  .eq("user_id", currentUserId)
+                  .single();
+
+                if (existingProfile) {
+                  setProfile(dbToFrontend(existingProfile, recipesData || []));
+                  const dbOnboardingCompleted = existingProfile.onboarding_completed === true;
+                  setHasCompletedOnboarding(prev => prev === true ? true : dbOnboardingCompleted);
+                }
+              } else {
+                console.error("[Profile] Error creating profile:", JSON.stringify(createError, null, 2));
+                setProfile(DEFAULT_PROFILE);
+              }
             } else if (newProfileData) {
               setProfile(dbToFrontend(newProfileData, []));
               setHasCompletedOnboarding(prev => prev === true ? true : false);
