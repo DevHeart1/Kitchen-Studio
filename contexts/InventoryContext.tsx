@@ -174,22 +174,87 @@ export const [InventoryProvider, useInventory] = createContextHook(() => {
    * ADD ITEM Logic (Dual-Unit)
    * 1. Accept User Input (2 cups)
    * 2. Calculate Base System Unit (320g)
-   * 3. Store BOTH
+   * 3. Check for duplicates -> Merge if found
+   * 4. Else -> Create New
    */
   const addItem = useCallback(
     async (item: Omit<InventoryItem, "id" | "normalizedName">) => {
       try {
         const userQty = item.quantity || 1;
         const userUnit = item.unit || "count";
+        const normalizedName = normalizeIngredientName(item.name);
 
-        // Convert to System Unit (Base)
+        // Convert new item to System Unit (Base)
         const conversion = toSystemUnit(userQty, userUnit, item.name);
         // conversion -> { amount: 320, unit: "g" }
 
+        // CHECK FOR DUPLICATES
+        const existingItem = inventory.find(
+          (i) => (i.normalizedName || normalizeIngredientName(i.name)) === normalizedName
+        );
+
+        if (existingItem) {
+          console.log(`[Inventory] Duplicate found for ${item.name}, merging...`);
+
+          // Calculate New Base Totals
+          const currentBaseQty = existingItem.baseQuantity || 0;
+          const newBaseQty = currentBaseQty + conversion.amount;
+
+          // Calculate New Original Quantity (Expand capacity)
+          // If we are adding stock, we assume we are filling up/expanding.
+          const currentOriginalQty = existingItem.originalQuantity || currentBaseQty;
+          const newOriginalQty = currentOriginalQty + conversion.amount;
+
+          // Recalculate User View Quantity
+          // We keep the EXISTING User Unit preference
+          const existingUserUnit = existingItem.unit || "count";
+
+          // Convert newBaseQty (g) back to existingUserUnit (e.g. cups)
+          // We need a reverse conversion or a ratio.
+          // Ratio = currentBaseQty / currentQty
+          let newUserQty = newBaseQty;
+          if (existingItem.quantity && currentBaseQty > 0) {
+            const ratio = currentBaseQty / existingItem.quantity;
+            if (ratio > 0) {
+              newUserQty = parseFloat((newBaseQty / ratio).toFixed(2));
+            }
+          } else {
+            // Fallback: If we can't deduce ratio, assume 1:1 or use base
+            newUserQty = newBaseQty;
+          }
+
+          // Update Status
+          const newPercentage = Math.round((newBaseQty / newOriginalQty) * 100);
+          let newStatus: InventoryItem["status"] = "good";
+          if (newPercentage <= 25) newStatus = "low";
+
+          // Merge Expiry (Keep the nearest one? Or the new one? Let's keep the nearest expiring one to be safe)
+          let newExpiresIn = existingItem.expiresIn;
+          // logic to compare dates omitted for brevity - keeping existing for now is safer than overwriting with null
+          if (item.expiresIn && (!existingItem.expiresIn || new Date(item.expiresIn) < new Date(existingItem.expiresIn))) {
+            newExpiresIn = item.expiresIn;
+            // If new expiration is sooner, status might change
+            if (new Date(newExpiresIn) < new Date()) newStatus = "expiring";
+          } else if (existingItem.expiresIn && new Date(existingItem.expiresIn) < new Date()) {
+            newStatus = "expiring";
+          }
+
+          return await updateItem(existingItem.id, {
+            quantity: newUserQty,
+            baseQuantity: newBaseQty,
+            originalQuantity: newOriginalQty,
+            stockPercentage: newPercentage,
+            status: newStatus,
+            expiresIn: newExpiresIn,
+            // Append usage history? No, adding stock isn't usage.
+          });
+        }
+
+        // NO DUPLICATE -> CREATE NEW
         const newItemData: InventoryItem = {
           ...item,
           id: Date.now().toString(), // Temp ID for fallback, Supabase will overwrite
-          normalizedName: normalizeIngredientName(item.name),
+          normalizedName: normalizedName,
           quantity: userQty,
           unit: userUnit,
           baseQuantity: conversion.amount,
@@ -228,7 +293,7 @@ export const [InventoryProvider, useInventory] = createContextHook(() => {
         return false;
       }
     },
-    [inventory, useSupabase, userId]
+    [inventory, useSupabase, userId, updateItem]
   );
 
   const removeItem = useCallback(
