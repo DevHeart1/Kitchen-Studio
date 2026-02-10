@@ -242,7 +242,7 @@ export default function DiscoverScreen() {
   const [isSearching, setIsSearching] = useState(false);
   const fadeAnim = useRef(new Animated.Value(1)).current;
 
-  const pantryItems = inventory.map((i) => i.name);
+  const pantryItems = inventory.map((i: any) => i.name);
 
   const {
     data: recipes = [],
