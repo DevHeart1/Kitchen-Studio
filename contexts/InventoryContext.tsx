@@ -170,6 +170,100 @@ export const [InventoryProvider, useInventory] = createContextHook(() => {
     }
   };
 
+
+
+
+
+  const removeItem = useCallback(
+    async (itemId: string) => {
+      try {
+        if (useSupabase) {
+          const { error } = await supabase
+            .from("inventory_items")
+            .delete()
+            .eq("id", itemId);
+
+          if (error) {
+            console.error("[Inventory] Delete error:", error.message);
+            return false;
+          }
+
+          setInventory((prev) => prev.filter((item) => item.id !== itemId));
+          console.log("Item removed from inventory");
+          return true;
+        } else {
+          const updated = inventory.filter((item) => item.id !== itemId);
+          setInventory(updated);
+          await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+          console.log("Item removed from inventory");
+          return true;
+        }
+      } catch (error) {
+        console.log("Error removing item:", error);
+        return false;
+      }
+    },
+    [inventory, useSupabase]
+  );
+
+  const updateItem = useCallback(
+    async (itemId: string, updates: Partial<InventoryItem>) => {
+      try {
+        if (useSupabase) {
+          const dbUpdates: Partial<DbInventoryItem> = {};
+          if (updates.name) dbUpdates.name = updates.name;
+          if (updates.normalizedName)
+            dbUpdates.normalized_name = updates.normalizedName;
+          if (updates.image) dbUpdates.image = updates.image;
+          if (updates.category) dbUpdates.category = updates.category;
+          if (updates.addedDate) dbUpdates.added_date = updates.addedDate;
+          if (updates.status) dbUpdates.status = updates.status;
+          if (updates.stockPercentage !== undefined)
+            dbUpdates.stock_percentage = updates.stockPercentage;
+          if (updates.expiresIn !== undefined)
+            dbUpdates.expires_in = updates.expiresIn || null;
+
+          // If manually updating quantity? We'd ideally need to update base too
+          if (updates.quantity !== undefined) dbUpdates.quantity = updates.quantity;
+          if (updates.unit) dbUpdates.unit = updates.unit;
+          if (updates.baseQuantity !== undefined) dbUpdates.base_quantity = updates.baseQuantity;
+          if (updates.baseUnit) dbUpdates.base_unit = updates.baseUnit;
+          if (updates.usageHistory) dbUpdates.usage_history = JSON.stringify(updates.usageHistory);
+          if (updates.originalQuantity) dbUpdates.original_quantity = updates.originalQuantity;
+
+          const { error } = await supabase
+            .from("inventory_items")
+            .update(dbUpdates)
+            .eq("id", itemId);
+
+          if (error) {
+            console.error("[Inventory] Update error:", error.message);
+            return false;
+          }
+
+          setInventory((prev) =>
+            prev.map((item) =>
+              item.id === itemId ? { ...item, ...updates } : item
+            )
+          );
+          return true;
+        } else {
+          const updated = inventory.map((item) =>
+            item.id === itemId ? { ...item, ...updates } : item
+          );
+          setInventory(updated);
+          await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+          return true;
+        }
+      } catch (error) {
+        console.log("Error updating item:", error);
+        return false;
+      }
+    },
+    [inventory, useSupabase]
+  );
+
+
   /*
    * ADD ITEM Logic (Dual-Unit)
    * 1. Accept User Input (2 cups)
@@ -294,95 +388,6 @@ export const [InventoryProvider, useInventory] = createContextHook(() => {
       }
     },
     [inventory, useSupabase, userId, updateItem]
-  );
-
-  const removeItem = useCallback(
-    async (itemId: string) => {
-      try {
-        if (useSupabase) {
-          const { error } = await supabase
-            .from("inventory_items")
-            .delete()
-            .eq("id", itemId);
-
-          if (error) {
-            console.error("[Inventory] Delete error:", error.message);
-            return false;
-          }
-
-          setInventory((prev) => prev.filter((item) => item.id !== itemId));
-          console.log("Item removed from inventory");
-          return true;
-        } else {
-          const updated = inventory.filter((item) => item.id !== itemId);
-          setInventory(updated);
-          await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-          console.log("Item removed from inventory");
-          return true;
-        }
-      } catch (error) {
-        console.log("Error removing item:", error);
-        return false;
-      }
-    },
-    [inventory, useSupabase]
-  );
-
-  const updateItem = useCallback(
-    async (itemId: string, updates: Partial<InventoryItem>) => {
-      try {
-        if (useSupabase) {
-          const dbUpdates: Partial<DbInventoryItem> = {};
-          if (updates.name) dbUpdates.name = updates.name;
-          if (updates.normalizedName)
-            dbUpdates.normalized_name = updates.normalizedName;
-          if (updates.image) dbUpdates.image = updates.image;
-          if (updates.category) dbUpdates.category = updates.category;
-          if (updates.addedDate) dbUpdates.added_date = updates.addedDate;
-          if (updates.status) dbUpdates.status = updates.status;
-          if (updates.stockPercentage !== undefined)
-            dbUpdates.stock_percentage = updates.stockPercentage;
-          if (updates.expiresIn !== undefined)
-            dbUpdates.expires_in = updates.expiresIn || null;
-
-          // If manually updating quantity? We'd ideally need to update base too
-          if (updates.quantity !== undefined) dbUpdates.quantity = updates.quantity;
-          if (updates.unit) dbUpdates.unit = updates.unit;
-          if (updates.baseQuantity !== undefined) dbUpdates.base_quantity = updates.baseQuantity;
-          if (updates.baseUnit) dbUpdates.base_unit = updates.baseUnit;
-          if (updates.usageHistory) dbUpdates.usage_history = JSON.stringify(updates.usageHistory);
-          if (updates.originalQuantity) dbUpdates.original_quantity = updates.originalQuantity;
-
-          const { error } = await supabase
-            .from("inventory_items")
-            .update(dbUpdates)
-            .eq("id", itemId);
-
-          if (error) {
-            console.error("[Inventory] Update error:", error.message);
-            return false;
-          }
-
-          setInventory((prev) =>
-            prev.map((item) =>
-              item.id === itemId ? { ...item, ...updates } : item
-            )
-          );
-          return true;
-        } else {
-          const updated = inventory.map((item) =>
-            item.id === itemId ? { ...item, ...updates } : item
-          );
-          setInventory(updated);
-          await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-          return true;
-        }
-      } catch (error) {
-        console.log("Error updating item:", error);
-        return false;
-      }
-    },
-    [inventory, useSupabase]
   );
 
   const checkIngredientInPantry = useCallback(
