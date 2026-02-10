@@ -1,75 +1,171 @@
-# Kitchen Studio
+# Kitchen Studio 🍳✨
 
-Kitchen Studio is a comprehensive companion app for modern home cooks, blending smart inventory management, recipe discovery, and augmented reality cooking assistance. Built with React Native and Expo, it offers a seamless experience across iOS, Android, and Web.
+**The Future of Cooking is Here.**
 
-## Features
+Kitchen Studio (Culinara) is a next-generation culinary assistant that blends **Augmented Reality (AR)**, **Artificial Intelligence (AI)**, and **Voice Interaction** to transform how you cook. Powered by **Google Gemini 3 Flash Preview** and **Supabase**, it provides real-time, hands-free guidance, intelligent recipe extraction, and smart pantry management.
 
-### 🍳 Smart Kitchen Management
-- **Inventory Tracker**. Keep track of your pantry items, expiration dates, and quantity.
-- **Scanner**. Quickly add items to your inventory using the built-in barcode and visual food scanner.
-- **Substitution Guide**. Instantly find alternatives for missing ingredients during your cook.
+![Banner](https://images.unsplash.com/photo-1556910103-1c02745a30bf?auto=format&fit=crop&w=1200&q=80) 
+*(Note: Replace with actual app screenshot)*
 
-### 🍱 Recipe Discovery & Cooking
-- **Discover Recipes**. Browse a curated collection of recipes tailored to your available ingredients.
-- **AR Cooking**. Experience immersive cooking instructions with Augmented Reality overlays.
-- **Cook Session**. Step-by-step guided cooking with timers and voice prompts.
-- **Recent Cooks**. innovative log of your culinary history.
+## 🚀 Key Features
 
-### 👤 Personalization & Gamification
-- **Profile & Stats**. Track your cooking streaks, favorite cuisines, and skill level.
-- **Achievements**. Unlock badges and levels as you master new recipes and techniques.
-- **Progression Map**. Visualise your culinary journey and skill growth.
+### 🤖 AI Chef Assistant (Live Voice)
+Experience a hands-free cooking companion that listens and talks back.
+- **Real-time Voice Guidance:** Ask "What's next?", "How much salt?", or "Set a timer" without touching your screen.
+- **Powered by Gemini 3 Flash:** Utilizes the latest multimodal model for ultra-fast, context-aware responses.
+- **Continuous Context:** The AI knows exactly which step you are on and adapts its advice accordingly.
 
-## Getting Started
+### 👓 AR Cooking Mode
+Layer digital instructions onto your physical workspace.
+- **Step-by-Step Overlay:**See quantities and timers floating next to your ingredients using the camera view.
+- **Visual Timers:** Holographic-style countdowns for precise cooking.
+
+### 📥 Intelligent Recipe Extraction
+Turn any video into a structured cooking session.
+- **Universal Import:** Paste a YouTube URL, and our AI extracts ingredients, steps, and timings.
+- **Reasoning Engine:** Fills in gaps (e.g., "Season to taste") and converts vague amounts (e.g., "a pinch") into precise metrics.
+
+### 📦 Smart Pantry & Inventory
+Manage your kitchen with computer vision.
+- **Scan to Add:** Point your camera at groceries to automatically identify and add them to your inventory.
+- **Expiry Tracking:** Get alerts before food goes bad.
+- **Recipe Matching:** Suggests recipes based on what you already have.
+
+---
+
+## 🛠️ Tech Stack
+
+### Frontend (Mobile)
+- **Framework:** [Expo SDK 54](https://expo.dev) & [React Native 0.81](https://reactnative.dev)
+- **Language:** [TypeScript](https://www.typescriptlang.org/)
+- **Navigation:** [Expo Router v4](https://docs.expo.dev/router/introduction/)
+- **State Management:** [Zustand](https://github.com/pmndrs/zustand) & [TanStack Query](https://tanstack.com/query/latest)
+- **UI/Styling:** StyleSheet, Lucide React Native, Reanimated
+- **Hardware Access:** `expo-camera`, `expo-av`, `expo-haptics`, `expo-file-system`
+
+### Backend & Cloud
+- **Platform:** [Supabase](https://supabase.com)
+- **Database:** PostgreSQL
+- **Edge Functions:** Deno (TypeScript)
+- **Auth:** Supabase Auth
+
+### Artificial Intelligence
+- **Models:** Google Gemini 3 Flash Preview, Gemini 1.5 Pro
+- **SDK:** `@google/genai`
+- **Capabilities:** Multimodal (Text, Audio, Vision)
+
+---
+
+## 🏗️ Architecture
+
+```mermaid
+graph TD
+    User[📱 User / Mobile App]
+    
+    subgraph "Frontend Layer"
+        UI[React Native UI]
+        State[Zustand / React Query]
+        AV[Audio/Camera Modules]
+    end
+
+    subgraph "Supabase Backend"
+        Auth[Authentication]
+        DB[(PostgreSQL Database)]
+        Storage[Bucket Storage]
+        
+        subgraph "Edge Functions"
+            EF_Chef[cooking-assistant (WebSocket)]
+            EF_Extract[extract-recipe-from-video]
+            EF_Scan[pantry-scan]
+        end
+    end
+
+    subgraph "AI Services"
+        Gemini[✨ Google Gemini API]
+    end
+
+    User <--> UI
+    UI <--> AV
+    UI <--> State
+    State <--> Auth
+    State <--> DB
+    State <--> EF_Extract
+    State <--> EF_Scan
+    AV <--> EF_Chef
+    
+    EF_Chef <-->|Stream Audio/Text| Gemini
+    EF_Extract <-->|Vision/Reasoning| Gemini
+    EF_Scan <-->|Vision Analysis| Gemini
+```
+
+---
+
+## ⚡ Getting Started
 
 ### Prerequisites
-
-- Node.js & npm (or bun)
-- Expo Go app on your mobile device (for testing)
+- Node.js (v18+)
+- npm or yarn
+- Supabase CLI (optional, for local backend)
+- Expo Go app on your physical device
 
 ### Installation
 
-1. Clone the repository:
-   ```bash
-   git clone <YOUR_GIT_URL>
-   cd Kitchen-Studio
-   ```
+1.  **Clone the repository:**
+    ```bash
+    git clone https://github.com/your-username/kitchen-studio.git
+    cd kitchen-studio
+    ```
 
-2. Install dependencies:
-   ```bash
-   npm install --legacy-peer-deps
-   ```
+2.  **Install dependencies:**
+    ```bash
+    npm install
+    # or
+    yarn install
+    ```
 
-3. Configure Environment:
-   Create a `.env` file in the root directory:
-   ```env
-   EXPO_PUBLIC_RORK_API_BASE_URL=http://localhost:8081
-   ```
+3.  **Environment Setup:**
+    Create a `.env` file in the root directory:
+    ```env
+    EXPO_PUBLIC_SUPABASE_URL=your_supabase_url
+    EXPO_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+    ```
 
-### Running the App
+4.  **Run the app:**
+    ```bash
+    npx expo start
+    ```
+    Scan the QR code with your phone (Camera app on iOS, Expo Go on Android).
 
-Start the development server:
+---
 
-```bash
-npm run start-web
-```
-Or for mobile:
-```bash
-npx expo start
-```
+## ☁️ Edge Functions
 
-- **Web**: Open [http://localhost:8081](http://localhost:8081) in your browser.
-- **Mobile**: Scan the QR code with the Expo Go app (Android) or Camera app (iOS).
+This project relies on several Supabase Edge Functions for AI processing.
 
-## built With
+| Function Name | Trigger | Description |
+| :--- | :--- | :--- |
+| `cooking-assistant` | WebSocket | Handles real-time audio streaming and conversation with Gemini 3 Flash. |
+| `extract-recipe-from-video` | HTTP POST | Downloads video transcript/metadata and uses Gemini Reasoning to structure it. |
+| `pantry-scan` | HTTP POST | Analyzes images of groceries to identify items and expiry dates. |
+| `get-starter-recipes` | HTTP GET | Seeds the database with initial curated recipes. |
 
-- **Framework**: [Expo](https://expo.dev) & React Native
-- **Routing**: Expo Router
-- **Styling**: NativeWind / Tailwind CSS
-- **State Management**: React Query & Zustand
-- **Backend**: tRPC & Hono
+---
 
-## Troubleshooting
+## 🤝 Contributing
 
-- **Environment Errors**: Ensure your `.env` file is set up correctly as described above.
-- **Dependency Issues**: Use `npm install --legacy-peer-deps` if you encounter ERESOLVE errors.
+Contributions are welcome! Please follow these steps:
+1.  Fork the project.
+2.  Create your feature branch (`git checkout -b feature/AmazingFeature`).
+3.  Commit your changes (`git commit -m 'Add some AmazingFeature'`).
+4.  Push to the branch (`git push origin feature/AmazingFeature`).
+5.  Open a Pull Request.
+
+---
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
+
+Made with ❤️ by the Kitchen Studio Team.
