@@ -464,12 +464,13 @@ export default function InventoryScreen() {
 
               <View style={{ marginTop: 8, alignItems: 'center' }}>
                 <Text style={{ color: Colors.textMuted, fontSize: 14 }}>
-                  Remaining: {toHumanUnit(selectedItem.quantity || 0, selectedItem.unit || "count", selectedItem.name)}
+                  Remaining: {selectedItem.quantity} {selectedItem.unit}
+                  {selectedItem.baseQuantity ? ` (${selectedItem.baseQuantity}${selectedItem.baseUnit})` : ''}
                 </Text>
                 {selectedItem.usageHistory && selectedItem.usageHistory.length >= 2 && (
                   <Text style={{ color: Colors.primary, fontSize: 12, marginTop: 4, fontWeight: "600" }}>
-                    {getDaysRemaining(selectedItem.quantity || 0, selectedItem.usageHistory!) !== null
-                      ? `Est. run out in ~${getDaysRemaining(selectedItem.quantity || 0, selectedItem.usageHistory!)} days`
+                    {getDaysRemaining(selectedItem.baseQuantity || selectedItem.quantity || 0, selectedItem.usageHistory!) !== null
+                      ? `Est. run out in ~${getDaysRemaining(selectedItem.baseQuantity || selectedItem.quantity || 0, selectedItem.usageHistory!)} days`
                       : "Tracking usage..."}
                   </Text>
                 )}

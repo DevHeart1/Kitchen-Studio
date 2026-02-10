@@ -14,13 +14,27 @@ CREATE TABLE IF NOT EXISTS inventory_items (
   added_date TEXT NOT NULL,
   status TEXT CHECK (status IN ('good', 'low', 'expiring')) DEFAULT 'good',
   stock_percentage INTEGER DEFAULT 100,
+  stock_percentage INTEGER DEFAULT 100,
   usage_history JSONB DEFAULT '[]'::jsonb,
   original_quantity REAL,
   quantity REAL DEFAULT 1,
   unit TEXT DEFAULT 'count',
+  base_quantity REAL,
+  base_unit TEXT,
   expires_in TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Ingredient Profiles for precise unit conversion
+CREATE TABLE IF NOT EXISTS ingredient_profiles (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  name TEXT UNIQUE,
+  base_unit TEXT DEFAULT 'g',
+  gram_per_cup REAL,
+  gram_per_tbsp REAL,
+  gram_per_tsp REAL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- ============================================

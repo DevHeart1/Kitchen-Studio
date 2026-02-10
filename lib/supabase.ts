@@ -31,6 +31,8 @@ export interface DbInventoryItem {
     original_quantity?: number;
     quantity?: number;
     unit?: string;
+    base_quantity?: number;
+    base_unit?: string;
     expires_in: string | null;
     created_at: string;
     updated_at: string;

@@ -3,7 +3,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import createContextHook from "@nkzw/create-context-hook";
 import { supabase, DbInventoryItem } from "@/lib/supabase";
 import { useAuth } from "./AuthContext";
-import { toSystemUnit, normalizeUnit, checkAvailability as serviceCheckAvailability, UsageEvent } from "@/services/UnitConversionService";
+import { toSystemUnit, normalizeUnit, checkAvailability as serviceCheckAvailability, UsageEvent, toHumanUnit } from "@/services/UnitConversionService";
 
 export interface InventoryItem {
   id: string;
@@ -14,9 +14,16 @@ export interface InventoryItem {
   addedDate: string;
   status: "good" | "low" | "expiring";
   stockPercentage: number;
+
+  // User View (What they typed)
   quantity?: number;
-  originalQuantity?: number;
   unit?: string;
+
+  // System View (Math)
+  baseQuantity?: number;
+  baseUnit?: string;
+
+  originalQuantity?: number;
   expiresIn?: string;
   usageHistory?: UsageEvent[];
 }
@@ -60,8 +67,10 @@ const dbToFrontend = (item: DbInventoryItem): InventoryItem => ({
   status: item.status,
   stockPercentage: item.stock_percentage,
   quantity: item.quantity,
-  originalQuantity: item.original_quantity,
   unit: item.unit,
+  baseQuantity: item.base_quantity,
+  baseUnit: item.base_unit,
+  originalQuantity: item.original_quantity,
   expiresIn: item.expires_in || undefined,
   usageHistory: item.usage_history ? (typeof item.usage_history === 'string' ? JSON.parse(item.usage_history) : item.usage_history) : [],
 });
@@ -80,8 +89,10 @@ const frontendToDb = (
   status: item.status,
   stock_percentage: item.stockPercentage,
   quantity: item.quantity || 1,
-  original_quantity: item.originalQuantity || item.quantity || 1,
   unit: item.unit || "count",
+  base_quantity: item.baseQuantity,
+  base_unit: item.baseUnit,
+  original_quantity: item.originalQuantity || item.quantity || 1,
   expires_in: item.expiresIn || null,
   usage_history: item.usageHistory ? JSON.stringify(item.usageHistory) : '[]',
 });
@@ -159,29 +170,35 @@ export const [InventoryProvider, useInventory] = createContextHook(() => {
     }
   };
 
+  /*
+   * ADD ITEM Logic (Dual-Unit)
+   * 1. Accept User Input (2 cups)
+   * 2. Calculate Base System Unit (320g)
+   * 3. Store BOTH
+   */
   const addItem = useCallback(
     async (item: Omit<InventoryItem, "id" | "normalizedName">) => {
       try {
-        // --- SMART UNIT CONVERSION START ---
-        // user inputs: item.quantity (human amount), item.unit (human unit)
-        // we convert to system unit
-        let systemAmount = item.quantity || 1;
-        let systemUnit = item.unit || "count";
-        const humanUnit = item.unit || "count"; // store preference
+        const userQty = item.quantity || 1;
+        const userUnit = item.unit || "count";
 
-        const conversion = toSystemUnit(systemAmount, humanUnit, item.name);
-        systemAmount = conversion.amount;
-        systemUnit = conversion.unit;
-        // --- SMART UNIT CONVERSION END ---
+        // Convert to System Unit (Base)
+        const conversion = toSystemUnit(userQty, userUnit, item.name);
+        // conversion -> { amount: 320, unit: "g" }
+
+        const newItemData: InventoryItem = {
+          ...item,
+          id: Date.now().toString(), // Temp ID for fallback, Supabase will overwrite
+          normalizedName: normalizeIngredientName(item.name),
+          quantity: userQty,
+          unit: userUnit,
+          baseQuantity: conversion.amount,
+          baseUnit: conversion.unit,
+          originalQuantity: conversion.amount, // Track original BASE quantity for progress bar
+        };
 
         if (useSupabase) {
-          const dbItem = frontendToDb({
-            ...item,
-            quantity: systemAmount, // Store converted amount
-            unit: systemUnit,       // Store converted unit
-            // We might want to store 'original_unit' in a metadata field later if needed for display preference persistence
-            // For now, we rely on the UI to re-convert for display if it guesses well.
-          }, userId || DEMO_USER_ID);
+          const dbItem = frontendToDb(newItemData, userId || DEMO_USER_ID);
 
           const { data, error } = await supabase
             .from("inventory_items")
@@ -194,24 +211,16 @@ export const [InventoryProvider, useInventory] = createContextHook(() => {
             return false;
           }
 
-          const newItem = dbToFrontend(data);
-          setInventory((prev) => [newItem, ...prev]);
-          console.log("Item added to inventory (converted):", newItem.name, newItem.quantity, newItem.unit);
+          const createdItem = dbToFrontend(data);
+          setInventory((prev) => [createdItem, ...prev]);
+          console.log(`Added: ${userQty} ${userUnit} converted to ${conversion.amount} ${conversion.unit}`);
           return true;
         } else {
           // AsyncStorage fallback
-          const newItem: InventoryItem = {
-            ...item,
-            id: Date.now().toString(),
-            normalizedName: normalizeIngredientName(item.name),
-            quantity: systemAmount,
-            unit: systemUnit,
-          };
-
-          const updated = [...inventory, newItem];
+          const updated = [newItemData, ...inventory];
           setInventory(updated);
           await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-          console.log("Item added to inventory (converted):", newItem.name);
+          console.log(`Added (Local): ${userQty} ${userUnit} converted to ${conversion.amount} ${conversion.unit}`);
           return true;
         }
       } catch (error) {
@@ -270,6 +279,14 @@ export const [InventoryProvider, useInventory] = createContextHook(() => {
             dbUpdates.stock_percentage = updates.stockPercentage;
           if (updates.expiresIn !== undefined)
             dbUpdates.expires_in = updates.expiresIn || null;
+
+          // If manually updating quantity? We'd ideally need to update base too
+          if (updates.quantity !== undefined) dbUpdates.quantity = updates.quantity;
+          if (updates.unit) dbUpdates.unit = updates.unit;
+          if (updates.baseQuantity !== undefined) dbUpdates.base_quantity = updates.baseQuantity;
+          if (updates.baseUnit) dbUpdates.base_unit = updates.baseUnit;
+          if (updates.usageHistory) dbUpdates.usage_history = JSON.stringify(updates.usageHistory);
+          if (updates.originalQuantity) dbUpdates.original_quantity = updates.originalQuantity;
 
           const { error } = await supabase
             .from("inventory_items")
@@ -370,33 +387,30 @@ export const [InventoryProvider, useInventory] = createContextHook(() => {
       return { available: false, missingAmount: recipeAmount };
     }
 
-    // 2. Use Service to check availability
+    // 2. Use Service to check availability (System Logic)
     // Convert recipe req to system unit
     const recipeReq = toSystemUnit(recipeAmount, recipeUnit, ingredientName);
 
-    // Pantry item is already system unit (theoretically), but let's be safe
-    const pantryAmount = item.quantity || 0;
-    const pantryUnit = item.unit || "count";
+    // Use BASE fields if available, else fallback to quantity (legacy)
+    const pantryBaseAmount = item.baseQuantity !== undefined ? item.baseQuantity : (item.quantity || 0);
+    const pantryBaseUnit = item.baseUnit || item.unit || "count";
 
     // Compare
-    if (recipeReq.unit !== pantryUnit) {
+    if (recipeReq.unit !== pantryBaseUnit) {
       // Mismatch (e.g. recipe wants 'count' but pantry has 'g'?)
-      // Attempt cross-conversion? 
-      // toSystemUnit already attempts to align to base. 
-      // So if they differ here, it's likely incompatible (e.g. count vs mass without density).
       return { available: false, missingAmount: recipeAmount };
     }
 
-    if (pantryAmount >= recipeReq.amount) {
-      return { available: true, remaining: pantryAmount - recipeReq.amount };
+    if (pantryBaseAmount >= recipeReq.amount) {
+      return { available: true, remaining: pantryBaseAmount - recipeReq.amount };
     } else {
-      return { available: false, remaining: pantryAmount, missingAmount: recipeReq.amount - pantryAmount };
+      return { available: false, remaining: pantryBaseAmount, missingAmount: recipeReq.amount - pantryBaseAmount };
     }
   }, [inventory, checkIngredientInPantry]);
 
   /* 
-   * CONSUME INGREDIENTS Logic
-   * Deducts quantity, updates usage history, and checks for low stock.
+   * CONSUME INGREDIENTS Logic (Dual-Unit)
+   * Deducts base quantity, recalculates user display quantity.
    */
   const consumeIngredients = useCallback(
     async (recipeAmount: number, recipeUnit: string, ingredientName: string) => {
@@ -404,49 +418,69 @@ export const [InventoryProvider, useInventory] = createContextHook(() => {
         const { item } = checkIngredientInPantry(ingredientName);
         if (!item) return false;
 
-        // 1. Convert consumption amount to system unit
+        // 1. Convert consumption amount to system unit (Base)
         const consumed = toSystemUnit(recipeAmount, recipeUnit, ingredientName);
-        const currentQty = item.quantity || 0;
-        const currentUnit = item.unit || "count";
 
-        // Ensure units match (simple check)
-        if (consumed.unit !== currentUnit) {
-          console.warn(`Unit mismatch in consume: ${consumed.unit} vs ${currentUnit}`);
+        const currentBaseQty = item.baseQuantity !== undefined ? item.baseQuantity : (item.quantity || 0);
+        const currentBaseUnit = item.baseUnit || item.unit || "count";
+
+        // Ensure units match
+        if (consumed.unit !== currentBaseUnit) {
+          console.warn(`Unit mismatch in consume: ${consumed.unit} vs ${currentBaseUnit}`);
           return false;
         }
 
-        // 2. Calculate new quantity
-        const newQty = Math.max(0, currentQty - consumed.amount);
+        // 2. Calculate new BASE quantity
+        const newBaseQty = Math.max(0, currentBaseQty - consumed.amount);
 
-        // 3. Update Usage History
+        // 3. Recalculate User Quantity (The magic "1.5 cups left")
+        // We know: newBaseQty (grams). We want: UserQty (cups).
+        // Formula: UserQty = newBaseQty / (originalBaseQty / originalUserQty)
+
+        // Infer density factor from CURRENT state if possible
+        // If 2 cups = 320g, then factor = 160.
+        // If we have 240g left, then 240 / 160 = 1.5 cups.
+
+        let newUserQty = newBaseQty;
+        if (item.quantity && item.baseQuantity && item.quantity > 0) {
+          const ratio = item.baseQuantity / item.quantity; // g per cup
+          if (ratio > 0) {
+            newUserQty = parseFloat((newBaseQty / ratio).toFixed(2));
+          }
+        } else {
+          // If we don't have dual data, just use base math
+          newUserQty = newBaseQty;
+        }
+
+        // 4. Update Usage History
         const newEvent: UsageEvent = {
           timestamp: new Date().toISOString(),
           amount: consumed.amount
         };
         const updatedHistory = [...(item.usageHistory || []), newEvent];
 
-        // 4. Update Status & Stock Percentage
-        const originalQty = item.originalQuantity || (item.quantity && item.quantity > newQty ? item.quantity : newQty) || 1;
-        // If originalQuantity wasn't set (legacy items), assume previous qty was original if it was higher? 
-        // Or just use new max. Let's try to be smart.
+        // 5. Update Status & Stock Percentage
+        const originalBaseQty = item.originalQuantity || (currentBaseQty > newBaseQty ? currentBaseQty : newBaseQty) || 1;
 
-        const newPercentage = Math.round((newQty / originalQty) * 100);
+        const newPercentage = Math.round((newBaseQty / originalBaseQty) * 100);
         let newStatus: "good" | "low" | "expiring" = "good";
 
         if (newPercentage <= 25) newStatus = "low";
         if (item.expiresIn && new Date(item.expiresIn) < new Date()) newStatus = "expiring";
 
-        // 5. Save Updates
+        // 6. Save Updates
         await updateItem(item.id, {
-          quantity: newQty,
+          quantity: newUserQty, // User sees "1.5"
+          unit: item.unit,      // User sees "cups"
+          baseQuantity: newBaseQty, // System knows "240"
+          baseUnit: currentBaseUnit, // System knows "g"
           stockPercentage: newPercentage,
           status: newStatus,
           usageHistory: updatedHistory,
-          originalQuantity: originalQty
-          // ensure originalQuantity is preserved or set
+          originalQuantity: originalBaseQty
         });
 
-        console.log(`Consumed ${consumed.amount}${consumed.unit} of ${item.name}. Remaining: ${newQty}`);
+        console.log(`Consumed ${consumed.amount}${consumed.unit}. Remaining: ${newUserQty} ${item.unit} (${newBaseQty}${currentBaseUnit})`);
         return true;
 
       } catch (error) {
