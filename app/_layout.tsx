@@ -11,6 +11,7 @@ import { CookingHistoryProvider, useCookingHistory } from "@/contexts/CookingHis
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { DialogProvider } from "@/contexts/DialogContext";
 import { NotificationProvider } from "@/contexts/NotificationContext";
+import { ShoppingListProvider } from "@/contexts/ShoppingListContext";
 import SplashScreen from "@/components/SplashScreen";
 import WelcomeBackSplash from "@/components/WelcomeBackSplash";
 import { trpc, trpcClient } from "@/lib/trpc";
@@ -36,12 +37,12 @@ function useProtectedRoute() {
     const currentScreen = segments[1];
     const onOnboardingFlowScreen = currentScreen === "preferences" || currentScreen === "starter-pack";
 
-    console.log("[Navigation] State:", { 
-      isAuthenticated, 
-      hasCompletedOnboarding, 
-      inAuthGroup, 
+    console.log("[Navigation] State:", {
+      isAuthenticated,
+      hasCompletedOnboarding,
+      inAuthGroup,
       currentScreen,
-      segments: segments.join('/') 
+      segments: segments.join('/')
     });
 
     // Not authenticated - allow auth screens, redirect others to onboarding
@@ -237,9 +238,15 @@ function RootLayoutNav() {
         name="level-up"
         options={{
           headerShown: false,
-          presentation: "fullScreenModal",
-          animation: "fade",
           gestureEnabled: false,
+        }}
+      />
+      <Stack.Screen
+        name="shopping-list"
+        options={{
+          headerShown: false,
+          presentation: "modal",
+          animation: "slide_from_bottom",
         }}
       />
     </Stack>
@@ -254,7 +261,9 @@ function AppProviders({ children }: { children: React.ReactNode }) {
           <NotificationProvider>
             <SavedRecipesProvider>
               <UserProfileProvider>
-                <CookingHistoryProvider>{children}</CookingHistoryProvider>
+                <CookingHistoryProvider>
+                  <ShoppingListProvider>{children}</ShoppingListProvider>
+                </CookingHistoryProvider>
               </UserProfileProvider>
             </SavedRecipesProvider>
           </NotificationProvider>

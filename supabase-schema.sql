@@ -69,8 +69,24 @@ CREATE TABLE IF NOT EXISTS saved_recipes (
   video_thumbnail TEXT,
   video_duration TEXT,
   ingredients JSONB DEFAULT '[]',
+  instructions JSONB DEFAULT '[]',
   saved_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- ============================================
+-- SHOPPING LIST TABLE
+-- ============================================
+CREATE TABLE IF NOT EXISTS shopping_list (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  amount TEXT,
+  image TEXT,
+  is_checked BOOLEAN DEFAULT FALSE,
+  category TEXT DEFAULT 'Uncategorized',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 
 -- ============================================
 -- INDEXES FOR BETTER QUERY PERFORMANCE
@@ -80,6 +96,7 @@ CREATE INDEX IF NOT EXISTS idx_inventory_category ON inventory_items(category);
 CREATE INDEX IF NOT EXISTS idx_profiles_user ON user_profiles(user_id);
 CREATE INDEX IF NOT EXISTS idx_shared_recipes_user ON shared_recipes(user_id);
 CREATE INDEX IF NOT EXISTS idx_saved_recipes_user ON saved_recipes(user_id);
+CREATE INDEX IF NOT EXISTS idx_shopping_list_user ON shopping_list(user_id);
 
 -- ============================================
 -- ROW LEVEL SECURITY (Optional - Enable if using Supabase Auth)
@@ -90,6 +107,7 @@ CREATE INDEX IF NOT EXISTS idx_saved_recipes_user ON saved_recipes(user_id);
 -- ALTER TABLE user_profiles ENABLE ROW LEVEL SECURITY;
 -- ALTER TABLE shared_recipes ENABLE ROW LEVEL SECURITY;
 -- ALTER TABLE saved_recipes ENABLE ROW LEVEL SECURITY;
+-- ALTER TABLE shopping_list ENABLE ROW LEVEL SECURITY;
 
 -- CREATE POLICY "Users can view own inventory" ON inventory_items FOR SELECT USING (auth.uid()::text = user_id);
 -- CREATE POLICY "Users can insert own inventory" ON inventory_items FOR INSERT WITH CHECK (auth.uid()::text = user_id);
@@ -108,6 +126,12 @@ CREATE INDEX IF NOT EXISTS idx_saved_recipes_user ON saved_recipes(user_id);
 -- CREATE POLICY "Users can insert saved recipes" ON saved_recipes FOR INSERT WITH CHECK (auth.uid()::text = user_id);
 -- CREATE POLICY "Users can delete own saved recipes" ON saved_recipes FOR DELETE USING (auth.uid()::text = user_id);
 
+-- CREATE POLICY "Users can view own shopping list" ON shopping_list FOR SELECT USING (auth.uid()::text = user_id);
+-- CREATE POLICY "Users can insert shopping list" ON shopping_list FOR INSERT WITH CHECK (auth.uid()::text = user_id);
+-- CREATE POLICY "Users can update own shopping list" ON shopping_list FOR UPDATE USING (auth.uid()::text = user_id);
+-- CREATE POLICY "Users can delete own shopping list" ON shopping_list FOR DELETE USING (auth.uid()::text = user_id);
+
+
 -- ============================================
 -- DEMO MODE: Allow all operations (for development)
 -- ============================================
@@ -118,6 +142,7 @@ ALTER TABLE inventory_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE shared_recipes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE saved_recipes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE shopping_list ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Allow all inventory operations" ON inventory_items;
 CREATE POLICY "Allow all inventory operations" ON inventory_items FOR ALL USING (true) WITH CHECK (true);
@@ -130,6 +155,9 @@ CREATE POLICY "Allow all shared recipes operations" ON shared_recipes FOR ALL US
 
 DROP POLICY IF EXISTS "Allow all saved recipes operations" ON saved_recipes;
 CREATE POLICY "Allow all saved recipes operations" ON saved_recipes FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow all shopping list operations" ON shopping_list;
+CREATE POLICY "Allow all shopping list operations" ON shopping_list FOR ALL USING (true) WITH CHECK (true);
 
 -- ============================================
 -- SUCCESS MESSAGE
@@ -153,4 +181,6 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'saved_recipes' AND column_name = 'instructions') THEN
         ALTER TABLE saved_recipes ADD COLUMN instructions JSONB DEFAULT '[]';
     END IF;
+    
+    -- No pending migrations for shopping_list as it's a new table
 END $$;

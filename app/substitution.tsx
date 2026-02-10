@@ -19,6 +19,7 @@ import {
 import Colors from "@/constants/colors";
 import { ActivityIndicator } from "react-native";
 import { supabase } from "@/lib/supabase";
+import { useShoppingList } from "@/contexts/ShoppingListContext";
 
 // const GEMINI_API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY; // Managed on server now
 
@@ -43,6 +44,7 @@ export default function SubstitutionScreen() {
     image: string;
   }>();
 
+  const { addItem } = useShoppingList();
   const [isLoading, setIsLoading] = React.useState(true);
   const [isLoadingMore, setIsLoadingMore] = React.useState(false);
   const [substitutes, setSubstitutes] = React.useState<Substitute[]>([]);
@@ -277,10 +279,18 @@ export default function SubstitutionScreen() {
           style={styles.storeButton}
           activeOpacity={0.8}
           testID="find-in-store-button"
-          onPress={() => router.push("/coming-soon" as any)}
+          onPress={async () => {
+            await addItem({
+              name: name,
+              amount: amount,
+              image: image,
+              category: "Missing Ingredient",
+            });
+            router.push("/shopping-list");
+          }}
         >
           <ShoppingCart size={20} color={Colors.white} />
-          <Text style={styles.storeButtonText}>Find in Store</Text>
+          <Text style={styles.storeButtonText}>Add to Shopping List</Text>
         </TouchableOpacity>
         <TouchableOpacity
           testID="keep-looking-button"
