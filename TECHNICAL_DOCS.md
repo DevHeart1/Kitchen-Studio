@@ -98,6 +98,39 @@ Solves the "Cup vs Gram" problem.
     - Step guidance.
     - Powered by Gemini's multimodal capabilities (Text/Audio).
 
+### 4.4 Smart Scanner (`scanner.tsx`)
+A high-performance, visual recognition module.
+- **Camera**: integrated via `expo-camera`.
+- **Modes**:
+    - **Pantry Scan**: Captures item image -> Resizes/Compresses -> Sends to Supabase Edge Function (`pantry-scan`) -> Returns detected item details (Name, Category, Quantity Estimation).
+    - **Expiry Scan**: Specialized OCR mode to detect and parse expiry dates from packaging.
+- **Visuals**: Custom shader-like animations (`ScanLineEffect`, `CRTScanLines`) drawn with Reanimated for a "Cyberpunk/Sci-Fi" aesthetic.
+
+### 4.5 Discovery Engine (`app/(tabs)/discover.tsx`)
+A personalized recipe feed powered by **Gemini 2.0 Flash**.
+- **Context-Aware**: Generates recipes based on:
+    - User Profile (Cooking Level, Diet, Goals).
+    - **Available Pantry Items** (RAG-lite approach).
+- **Features**:
+    - **Image-to-Recipe**: Analyzes food photos to extract structured recipe data.
+    - **Search**: Natural language search for recipes.
+    - **Pantry Suggestions**: Dedicated section for recipes you can cook *right now*.
+
+### 4.6 Kitchen Dashboard (`app/(tabs)/kitchen.tsx`)
+The central command center for the home cook.
+- **Recipe Readiness**:
+    - Calculates a "Readiness Score" (0-100%) for every saved recipe.
+    - Logic: Checks `SavedRecipe.ingredients` against `InventoryContext` to see how many items are in stock.
+- **Inventory Health**: Visual indicators for "Expiring Soon" or "Low Stock" items.
+
+### 4.7 Recipe Intelligence Services
+- **`RecipeMatcherService.ts`**:
+    - **Fuzzy Matching**: Normalizes ingredient names (e.g., "Fresh Basil" == "Dried Basil") to find matches.
+    - **Match Calculation**: Returns `matchPercentage` and `missingIngredients` list.
+- **`RecipeExtractionService.ts`**:
+    - **Video-to-Recipe**: Extracts recipe steps and ingredients from YouTube video URLs (via Edge Function).
+    - **Image-to-Recipe**: Multimodal analysis of food images.
+
 ---
 
 ## 5. Database Schema (Snapshot)
