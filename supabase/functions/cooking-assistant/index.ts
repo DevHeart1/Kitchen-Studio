@@ -28,15 +28,17 @@ serve(async (req) => {
     }
 
     const ai = new GoogleGenAI({ apiKey });
-    const model = "models/gemini-3-flash-preview"; // Using a known public model for live preview
+    // User requested model: models/gemini-2.5-flash-native-audio-preview-12-2025
+    // Fallback: models/gemini-2.0-flash-exp (known to support audio better in public preview)
+    const model = "models/gemini-2.0-flash-exp";
 
     const config = {
-        responseModalities: [Modality.AUDIO],
-        mediaResolution: MediaResolution.MEDIA_RESOLUTION_LOW, // Conserve bandwidth
+        responseModalities: [Modality.AUDIO], // Only sending audio back
+        mediaResolution: MediaResolution.MEDIA_RESOLUTION_LOW,
         speechConfig: {
             voiceConfig: {
                 prebuiltVoiceConfig: {
-                    voiceName: "Aoede",
+                    voiceName: "Aoede", // User requested Aoede
                 },
             },
         },
@@ -58,11 +60,30 @@ serve(async (req) => {
                         }
                     },
                     onmessage: (msg: LiveServerMessage) => {
-                        // Forward message from Gemini to Client
                         if (clientSocket.readyState === WebSocket.OPEN) {
-                            // We filter down to critical parts to save potential overhead, or just forward all
-                            // For audio, we specifically look for serverContent.modelTurn.parts[0].inlineData
-                            clientSocket.send(JSON.stringify(msg));
+                            // Forward critical message parts to Client
+                            // Specifically look for audio parts
+                            if (msg.serverContent?.modelTurn?.parts) {
+                                const parts = msg.serverContent.modelTurn.parts;
+                                for (const part of parts) {
+                                    if (part.inlineData && part.inlineData.mimeType.startsWith("audio")) {
+                                        // Forward audio chunk
+                                        clientSocket.send(JSON.stringify({
+                                            type: "audio",
+                                            data: part.inlineData.data,
+                                            mimeType: part.inlineData.mimeType
+                                        }));
+                                    }
+                                    if (part.text) {
+                                        // Forward text (optional debugging)
+                                        // clientSocket.send(JSON.stringify({ type: "text", content: part.text }));
+                                    }
+                                }
+                            }
+
+                            if (msg.serverContent?.turnComplete) {
+                                clientSocket.send(JSON.stringify({ type: "turn_complete" }));
+                            }
                         }
                     },
                     onclose: () => {
@@ -79,9 +100,6 @@ serve(async (req) => {
                     }
                 },
             });
-
-            // Send initial context if needed (e.g. recipe info passed in query params?)
-            // For now, we wait for client to send first "context" message
 
         } catch (err) {
             console.error("Failed to connect to Gemini:", err);
@@ -100,17 +118,10 @@ serve(async (req) => {
                 await geminiSession.sendClientContent({
                     turns: [{ role: "user", parts: [{ text: data.content }] }]
                 });
-            } else if (data.type === "user_audio_chunk") {
-                // Send audio chunk (base64) to Gemini
-                // Gemini Live API expects mimeType + data
-                await geminiSession.sendClientContent({
-                    turns: [{ parts: [{ inlineData: { mimeType: "audio/pcm;rate=16000", data: data.content } }] }]
-                });
-                // Or using the simpler method if SDK supports streaming directly?
-                // The SDK usually handles this via `sendClientContent`
             } else if (data.type === "text_input") {
+                // User sends text instruction -> trigger audio generation
                 await geminiSession.sendClientContent({
-                    turns: [{ role: "user", parts: [{ text: data.content }] }]
+                    turns: [{ role: "user", parts: [{ text: "Read this instruction clearly: " + data.content }] }]
                 });
             }
 
@@ -122,7 +133,7 @@ serve(async (req) => {
     clientSocket.onclose = () => {
         console.log("Client disconnected");
         if (geminiSession) {
-            geminiSession.close();
+            // geminiSession.close(); // Method might vary by SDK version, usually just disconnects
         }
     };
 

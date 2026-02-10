@@ -1,5 +1,5 @@
-import { useRouter, useLocalSearchParams } from "expo-router";
-import * as Speech from "expo-speech";
+// import * as Speech from "expo-speech"; // Removed for Gemini Audio
+import { useGeminiAudio } from "@/hooks/useGeminiAudio";
 import { useSavedRecipes } from "@/contexts/SavedRecipesContext";
 import React, {
   useState,
@@ -8,6 +8,7 @@ import React, {
   useMemo,
   useCallback,
 } from "react";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import {
   View,
   Text,
@@ -63,7 +64,6 @@ const defaultSteps: CookingStep[] = [
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
 
-// ─── Main Screen ──────────────────────────────────────────────────
 export default function ARCookingScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -71,7 +71,10 @@ export default function ARCookingScreen() {
     id: string;
     recipeData: string;
   }>();
+
   const { savedRecipes } = useSavedRecipes();
+  // Audio Hook
+  const { speak, stop: stopAudio, isSpeaking } = useGeminiAudio();
 
   // Permissions & Inventory
   const [permission, requestPermission] = useCameraPermissions();
@@ -149,24 +152,21 @@ export default function ARCookingScreen() {
   // ─── Speak instruction on step change ────────────────────────────
   useEffect(() => {
     if (!isMuted && step?.instruction) {
-      Speech.stop();
-      Speech.speak(step.instruction, {
-        language: "en",
-        pitch: 1.0,
-        rate: 0.9,
-      });
+      stopAudio();
+      // Speech.speak(...) -> Gemini Audio
+      speak(step.instruction);
     }
-  }, [currentStep, isMuted, step]);
+  }, [currentStep, isMuted, step, speak, stopAudio]);
 
   // Cleanup speech & animation on unmount
   useEffect(() => {
     return () => {
-      Speech.stop();
+      stopAudio();
       if (animFrameRef.current) {
         cancelAnimationFrame(animFrameRef.current);
       }
     };
-  }, []);
+  }, [stopAudio]);
 
   // Permission check
   useEffect(() => {
@@ -343,7 +343,7 @@ export default function ARCookingScreen() {
   // Handlers
   const handleClose = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    Speech.stop();
+    stopAudio();
     router.back();
   };
 
@@ -371,12 +371,8 @@ export default function ARCookingScreen() {
 
   const handleRepeatAudio = () => {
     if (step?.instruction) {
-      Speech.stop();
-      Speech.speak(step.instruction, {
-        language: "en",
-        pitch: 1.0,
-        rate: 0.9,
-      });
+      stopAudio();
+      speak(step.instruction);
     }
   };
 
