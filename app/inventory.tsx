@@ -36,7 +36,7 @@ import {
 import * as Haptics from "expo-haptics";
 import Colors from "@/constants/colors";
 import { useInventory, InventoryItem } from "@/contexts/InventoryContext";
-import { toHumanUnit, getDaysRemaining } from "@/services/UnitConversionService";
+import { toHumanUnit, getDaysRemaining, toSystemUnit } from "@/services/UnitConversionService";
 
 type FilterType = "all" | "expiring" | "low" | "favorites";
 
@@ -65,6 +65,8 @@ export default function InventoryScreen() {
   const [showActionMenu, setShowActionMenu] = useState(false);
   const [actionMenuTarget, setActionMenuTarget] = useState<InventoryItem | null>(null);
   const [editingStock, setEditingStock] = useState(false);
+  const [newQuantity, setNewQuantity] = useState("");
+  const [newUnit, setNewUnit] = useState("");
 
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -335,6 +337,40 @@ export default function InventoryScreen() {
     }
   }, [updateItem]);
 
+  const handleSaveEdit = useCallback(async () => {
+    if (!selectedItem) return;
+
+    const qty = parseFloat(newQuantity);
+    if (isNaN(qty)) return;
+
+    // Convert to Base
+    const conversion = toSystemUnit(qty, newUnit, selectedItem.name);
+    // Recalculate stock percentage? 
+    // If we change quantity manually, we might want to update stockPercentage based on newQty vs originalQty
+    // But honestly, if user types "2.5 cups", let's trust that as the new truth.
+
+    // We update both User View and System View
+    const success = await updateItem(selectedItem.id, {
+      quantity: qty,
+      unit: newUnit,
+      baseQuantity: conversion.amount,
+      baseUnit: conversion.unit,
+      // Optional: Update stock percentage if we want to tie it to original
+      // Let's leave stockPercentage as is unless they touched the bar, OR we can check if it exceeds original
+    });
+
+    if (success) {
+      setSelectedItem(prev => prev ? {
+        ...prev,
+        quantity: qty,
+        unit: newUnit,
+        baseQuantity: conversion.amount,
+        baseUnit: conversion.unit
+      } : null);
+      setEditingStock(false);
+    }
+  }, [selectedItem, newQuantity, newUnit, updateItem]);
+
   const handleActionView = useCallback(() => {
     if (actionMenuTarget) {
       closeActionMenu();
@@ -430,7 +466,11 @@ export default function InventoryScreen() {
                 {!editingStock ? (
                   <TouchableOpacity
                     style={styles.editStockButton}
-                    onPress={() => setEditingStock(true)}
+                    onPress={() => {
+                      setNewQuantity(selectedItem.quantity?.toString() || "0");
+                      setNewUnit(selectedItem.unit || "count");
+                      setEditingStock(true);
+                    }}
                   >
                     <Edit3 size={14} color={Colors.primary} />
                     <Text style={styles.editStockText}>Edit</Text>
@@ -438,9 +478,9 @@ export default function InventoryScreen() {
                 ) : (
                   <TouchableOpacity
                     style={styles.doneStockButton}
-                    onPress={() => setEditingStock(false)}
+                    onPress={handleSaveEdit}
                   >
-                    <Text style={styles.doneStockText}>Done</Text>
+                    <Text style={styles.doneStockText}>Save</Text>
                   </TouchableOpacity>
                 )}
               </View>
@@ -462,22 +502,63 @@ export default function InventoryScreen() {
                 </Text>
               </View>
 
-              <View style={{ marginTop: 8, alignItems: 'center' }}>
-                <Text style={{ color: Colors.textMuted, fontSize: 14 }}>
-                  Remaining: {selectedItem.quantity} {selectedItem.unit}
-                  {selectedItem.baseQuantity ? ` (${selectedItem.baseQuantity}${selectedItem.baseUnit})` : ''}
-                </Text>
-                {selectedItem.usageHistory && selectedItem.usageHistory.length >= 2 && (
-                  <Text style={{ color: Colors.primary, fontSize: 12, marginTop: 4, fontWeight: "600" }}>
-                    {getDaysRemaining(selectedItem.baseQuantity || selectedItem.quantity || 0, selectedItem.usageHistory!) !== null
-                      ? `Est. run out in ~${getDaysRemaining(selectedItem.baseQuantity || selectedItem.quantity || 0, selectedItem.usageHistory!)} days`
-                      : "Tracking usage..."}
+              {!editingStock ? (
+                <View style={{ marginTop: 8, alignItems: 'center' }}>
+                  <Text style={{ color: Colors.textMuted, fontSize: 14 }}>
+                    Remaining: {selectedItem.quantity} {selectedItem.unit}
+                    {selectedItem.baseQuantity ? ` (${selectedItem.baseQuantity}${selectedItem.baseUnit})` : ''}
                   </Text>
-                )}
-              </View>
+                  {selectedItem.usageHistory && selectedItem.usageHistory.length >= 2 && (
+                    <Text style={{ color: Colors.primary, fontSize: 12, marginTop: 4, fontWeight: "600" }}>
+                      {getDaysRemaining(selectedItem.baseQuantity || selectedItem.quantity || 0, selectedItem.usageHistory!) !== null
+                        ? `Est. run out in ~${getDaysRemaining(selectedItem.baseQuantity || selectedItem.quantity || 0, selectedItem.usageHistory!)} days`
+                        : "Tracking usage..."}
+                    </Text>
+                  )}
+                </View>
+              ) : (
+                <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 12, gap: 10 }}>
+                  <View style={{ alignItems: 'center' }}>
+                    <Text style={{ fontSize: 10, color: Colors.textMuted, marginBottom: 4 }}>Quantity</Text>
+                    <TextInput
+                      style={{
+                        backgroundColor: 'rgba(255,255,255,0.1)',
+                        color: Colors.white,
+                        padding: 8,
+                        borderRadius: 8,
+                        width: 80,
+                        textAlign: 'center'
+                      }}
+                      value={newQuantity}
+                      onChangeText={setNewQuantity}
+                      keyboardType="numeric"
+                      returnKeyType="done"
+                    />
+                  </View>
+                  <View style={{ alignItems: 'center' }}>
+                    <Text style={{ fontSize: 10, color: Colors.textMuted, marginBottom: 4 }}>Unit</Text>
+                    <TextInput
+                      style={{
+                        backgroundColor: 'rgba(255,255,255,0.1)',
+                        color: Colors.white,
+                        padding: 8,
+                        borderRadius: 8,
+                        width: 80,
+                        textAlign: 'center'
+                      }}
+                      value={newUnit}
+                      onChangeText={setNewUnit}
+                      autoCapitalize="none"
+                    />
+                  </View>
+                </View>
+              )}
 
               {editingStock && (
                 <View style={styles.stockControls}>
+                  <Text style={{ color: Colors.textMuted, fontSize: 12, textAlign: 'center', marginBottom: 8 }}>
+                    Or quick adjust percentage:
+                  </Text>
                   <View style={styles.stockAdjustRow}>
                     <TouchableOpacity
                       style={styles.stockAdjustButton}
