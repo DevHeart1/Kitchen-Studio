@@ -69,6 +69,8 @@ npx expo start
 - **State Management**: React Query & Zustand
 - **Backend**: tRPC & Hono
 
+> **For detailed architecture and module documentation, see [TECHNICAL_DOCS.md](./TECHNICAL_DOCS.md).**
+
 ## Troubleshooting
 
 - **Environment Errors**: Ensure your `.env` file is set up correctly as described above.
