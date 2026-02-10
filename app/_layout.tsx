@@ -104,7 +104,16 @@ function RootLayoutNav() {
   if (showWelcomeBack && isReturningUser && hasActiveCooking) {
     return (
       <WelcomeBackSplash
-        onContinue={() => setShowWelcomeBack(false)}
+        onContinue={(path) => {
+          setShowWelcomeBack(false);
+          if (path) {
+            // Give Stack a moment to mount
+            setTimeout(() => {
+              // @ts-ignore
+              router.push(path);
+            }, 100);
+          }
+        }}
       />
     );
   }

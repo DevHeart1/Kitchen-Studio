@@ -242,6 +242,10 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'inventory_items' AND column_name = 'base_unit') THEN
         ALTER TABLE inventory_items ADD COLUMN base_unit TEXT;
     END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'inventory_items' AND column_name = 'original_quantity') THEN
+        ALTER TABLE inventory_items ADD COLUMN original_quantity REAL;
+    END IF;
     
     -- No pending migrations for shopping_list as it's a new table
 END $$;

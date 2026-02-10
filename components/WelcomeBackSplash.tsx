@@ -18,7 +18,7 @@ import Colors from "@/constants/colors";
 const { width, height } = Dimensions.get("window");
 
 interface WelcomeBackSplashProps {
-  onContinue: () => void;
+  onContinue: (path?: any) => void;
 }
 
 export default function WelcomeBackSplash({ onContinue }: WelcomeBackSplashProps) {
@@ -86,16 +86,17 @@ export default function WelcomeBackSplash({ onContinue }: WelcomeBackSplashProps
 
   const handleResumeCook = () => {
     if (inProgressCook) {
-      router.push({
+      onContinue({
         pathname: "/cook-session",
         params: { id: inProgressCook.id },
       });
+    } else {
+      onContinue();
     }
-    onContinue();
   };
 
   const handleExplore = () => {
-    onContinue();
+    onContinue("/(tabs)");
   };
 
   const firstName = profile.name.split(" ")[0];
