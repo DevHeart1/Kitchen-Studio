@@ -30,18 +30,12 @@ import Colors from "@/constants/colors";
 import { useUserProfile } from "@/contexts/UserProfileContext";
 import { useInventory } from "@/contexts/InventoryContext";
 import { useSavedRecipes } from "@/contexts/SavedRecipesContext";
+import { calculateRecipeMatch } from "@/services/RecipeMatcherService";
+import { Recipe, RecipeIngredient } from "@/types/recipe";
 
-export interface DiscoverRecipe {
-  id: string;
-  title: string;
-  description: string;
-  cookTime: string;
-  difficulty: string;
-  calories: string;
-  image: string;
-  tags: string[];
-  ingredients: { name: string; amount?: string; unsplashPhotoId?: string }[];
-  instructions: { step: number; text: string; time?: number }[];
+// Map internal DiscoverRecipe to the global Recipe type for matching
+export interface DiscoverRecipe extends Recipe {
+  id: string; // Ensure string ID
 }
 
 interface RecipeCategory {
@@ -56,6 +50,7 @@ const CATEGORIES: RecipeCategory[] = [
   { id: "healthy", name: "Healthy", icon: <Leaf size={20} color={Colors.green} />, color: Colors.greenBg },
   { id: "trending", name: "Trending", icon: <TrendingUp size={20} color="#8b5cf6" />, color: "rgba(139, 92, 246, 0.15)" },
   { id: "comfort", name: "Comfort Food", icon: <Heart size={20} color={Colors.red} />, color: Colors.redBg },
+  { id: "pantry", name: "Pantry Match", icon: <Sparkles size={20} color={Colors.primary} />, color: Colors.primary + "20" },
 ];
 
 const GEMINI_API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY || "";
@@ -67,23 +62,7 @@ export async function extractRecipeFromImage(imageUri: string): Promise<Discover
   }
 
   try {
-    const prompt = `Analyze this food image and extract the detailed recipe. Return ONLY a JSON object with this structure: { title, description (max 80 chars), cookTime, difficulty (Easy/Medium/Hard), calories, tags (2-3 tags), ingredients: [{ name: string, amount: string, unsplashPhotoId: string (a relevant photo ID from unsplash.com like 'photo-1546069901-ba9599a7e63c') }], instructions: [{ step: number, text: string, time: optional number in seconds }] }. Do not include markdown code blocks.`;
-
-    // For Gemini 1.5 Flash with image, we need to send the image data. 
-    // Since we can't easily upload binary in this environment without a backend proxy or complex blob handling in RN sometimes,
-    // we'll assume the imageUri is a base64 string or a public URL. 
-    // If it's a local file URI (file://), we would typically need to read it as base64.
-    // For this implementation, we will assume the caller provides a base64 string or we simulate the call if it's a local URI for now, 
-    // OR we use the file-to-generative-part approach if supported by the client library.
-    // However, we are using raw fetch here potentially or a simple integration.
-
-    // Let's assume we are sending a text prompt describing the image if we can't send the image directly via this simple fetch setup,
-    // OR we upgrade to use the full GoogleGenerativeAI client. 
-    // For now, I will implement a robust fetch with the text prompt assuming the image analysis is handled or we use a vision model endpoint.
-    // Since we are using "gemini-1.5-flash", it supports multimodal.
-
-    // NOTE: In a real React Native app, converting file:// to base64 is needed.
-    // I will add a placeholder comment for base64 conversion.
+    const prompt = `Analyze this food image and extract the detailed recipe. Return ONLY a JSON object with this structure: { title, description (max 80 chars), cookTime, difficulty (Easy/Medium/Hard), calories, tags (2-3 tags), ingredients: [{ name: string, amount: number, unit: string, originalString: string, unsplashPhotoId: string }], instructions: [{ step: number, text: string, time: optional number in seconds }], cuisine: string }. Do not include markdown code blocks.`;
 
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
@@ -97,7 +76,7 @@ export async function extractRecipeFromImage(imageUri: string): Promise<Discover
             {
               parts: [
                 { text: prompt },
-                // { inline_data: { mime_type: "image/jpeg", data: base64Image } } // TODO: Add image data here
+                // { inline_data: { mime_type: "image/jpeg", data: base64Image } } 
               ],
             },
           ],
@@ -116,10 +95,17 @@ export async function extractRecipeFromImage(imageUri: string): Promise<Discover
     const recipe = JSON.parse(jsonStr);
 
     return {
-      id: Date.now().toString(), // Generate temporary ID
-      image: imageUri, // Use the uploaded image
-      ...recipe
-    };
+      id: Date.now().toString(),
+      image: imageUri,
+      ...recipe,
+      // Ensure ingredients match structure if needed, though prompt asks for it correctly
+      ingredients: recipe.ingredients.map((ing: any) => ({
+        ...ing,
+        // Map unsplashPhotoId to image if present for consistency with our type
+        image: ing.unsplashPhotoId ? `https://images.unsplash.com/${ing.unsplashPhotoId}` : undefined
+      }))
+    } as DiscoverRecipe;
+
   } catch (error) {
     console.error("Gemini extraction error:", error);
     return null;
@@ -182,17 +168,18 @@ async function fetchRecipesFromGemini(
 
   const prompt = `Generate exactly 6 recipe suggestions as a JSON array. ${categoryPrompt} ${dietStr} ${levelStr} ${goalStr} ${pantryStr}
 
-Each recipe must have these fields:
-- title: string (recipe name)
-- description: string (1 sentence description, max 80 chars)
-- cookTime: string (e.g. "25 min", "1 hr")
-- difficulty: string ("Easy", "Medium", or "Hard")
-- calories: string (e.g. "350 cal")
-- tags: string[] (2-3 tags like "vegetarian", "high-protein", "one-pot")
-- ingredients: { name: string, amount: string, unsplashPhotoId: string (specific Unsplash ID) }[] (5-8 main ingredients)
-- instructions: { step: number, text: string, time?: number }[] (5-8 step-by-step instructions. "time" is optional duration in seconds for that step, e.g. 120 for 2 mins)
+  Each recipe must have:
+  - title: string
+  - description: string (max 80 chars)
+  - cookTime: string (e.g. "25 min")
+  - difficulty: "Easy" | "Medium" | "Hard"
+  - calories: string
+  - tags: string[]
+  - cuisine: string (e.g. "Mexican", "Nigerian")
+  - ingredients: { name: string, amount: number, unit: string, originalString: string }[] (e.g. {name: "Rice", amount: 2, unit: "cups", originalString: "2 cups Rice"})
+  - instructions: { step: number, text: string, time?: number }[]
 
-Return ONLY the JSON array, no markdown, no explanation.`;
+  Return ONLY the JSON array.`;
 
   try {
     const response = await fetch(
@@ -204,7 +191,7 @@ Return ONLY the JSON array, no markdown, no explanation.`;
           contents: [{ parts: [{ text: prompt }] }],
           generationConfig: {
             temperature: 0.8,
-            maxOutputTokens: 2048,
+            maxOutputTokens: 2500, // Increased for detailed JSON
           },
         }),
       }
@@ -217,19 +204,9 @@ Return ONLY the JSON array, no markdown, no explanation.`;
 
     const data = await response.json();
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
-    console.log("[Discover] Gemini response length:", text.length);
 
     const cleaned = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-    const recipes = JSON.parse(cleaned) as {
-      title: string;
-      description: string;
-      cookTime: string;
-      difficulty: string;
-      calories: string;
-      tags: string[];
-      ingredients: { name: string; amount: string; unsplashPhotoId: string }[];
-      instructions: { step: number; text: string; time?: number }[];
-    }[];
+    const recipes = JSON.parse(cleaned) as DiscoverRecipe[];
 
     const FOOD_IMAGES = [
       "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&h=300&fit=crop",
@@ -328,28 +305,20 @@ export default function DiscoverScreen() {
               {
                 parts: [
                   {
-                    text: `Generate 4 recipe suggestions for: "${searchQuery}". Return ONLY a JSON array. Each recipe: { "title": string, "description": string (max 80 chars), "cookTime": string, "difficulty": string, "calories": string, "tags": string[], "ingredients": string[], "instructions": { "step": number, "text": string, "time": number }[] }`,
+                    text: `Generate 4 recipe suggestions for: "${searchQuery}". Return ONLY a JSON array. Each recipe: { "title": string, "description": string (max 80 chars), "cookTime": string, "difficulty": string, "calories": string, "tags": string[], "ingredients": {name: string, amount: number, unit: string, originalString: string, unsplashPhotoId?: string}[], "instructions": { "step": number, "text": string, "time": number }[], "cuisine": string }`,
                   },
                 ],
               },
             ],
-            generationConfig: { temperature: 0.7, maxOutputTokens: 1500 },
+            generationConfig: { temperature: 0.7, maxOutputTokens: 2000 },
           }),
         }
       );
       const data = await response.json();
       const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "[]";
       const cleaned = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-      const parsed = JSON.parse(cleaned) as {
-        title: string;
-        description: string;
-        cookTime: string;
-        difficulty: string;
-        calories: string;
-        tags: string[];
-        ingredients: { name: string; amount: string; unsplashPhotoId: string }[];
-        instructions: { step: number; text: string; time?: number }[];
-      }[];
+
+      const parsed = JSON.parse(cleaned) as any[];
 
       const SEARCH_IMAGES = [
         "https://images.unsplash.com/photo-1498837167922-ddd27525d352?w=400&h=300&fit=crop",
@@ -363,7 +332,15 @@ export default function DiscoverScreen() {
           ...r,
           id: `search-${Date.now()}-${i}`,
           image: SEARCH_IMAGES[i % SEARCH_IMAGES.length],
-        }))
+          ingredients: r.ingredients.map((ing: any) => ({
+            id: `ing-${Math.random()}`,
+            name: ing.name,
+            amount: Number(ing.amount) || 0,
+            unit: ing.unit || "pcs",
+            originalString: ing.originalString || `${ing.amount} ${ing.unit} ${ing.name}`,
+            image: ing.unsplashPhotoId ? `https://images.unsplash.com/${ing.unsplashPhotoId}` : undefined
+          }))
+        })) as DiscoverRecipe[]
       );
     } catch (error) {
       console.log("[Discover] Search error:", error);
@@ -380,12 +357,10 @@ export default function DiscoverScreen() {
         videoThumbnail: recipe.image,
         videoDuration: recipe.cookTime,
         ingredients: recipe.ingredients.map((ing, idx) => ({
-          id: `ing-${idx}`,
+          id: ing.id || `ing-${idx}`,
           name: ing.name,
-          amount: ing.amount || "",
-          image: ing.unsplashPhotoId
-            ? `https://images.unsplash.com/${ing.unsplashPhotoId}?auto=format&fit=crop&w=200&q=80`
-            : "",
+          amount: `${ing.amount} ${ing.unit}`,
+          image: ing.image || "",
         })),
         instructions: recipe.instructions,
       });
@@ -592,81 +567,101 @@ export default function DiscoverScreen() {
             </View>
           ) : (
             <Animated.View style={[styles.recipesGrid, { opacity: fadeAnim }]}>
-              {displayRecipes.map((recipe) => (
-                <TouchableOpacity
-                  key={recipe.id}
-                  style={styles.recipeCard}
-                  activeOpacity={0.85}
-                >
-                  <View style={styles.recipeImageWrapper}>
-                    <Image
-                      source={{ uri: recipe.image }}
-                      style={styles.recipeImage}
-                    />
-                    <View style={styles.recipeImageGradient} />
-                    <TouchableOpacity
-                      style={styles.recipeBookmarkBtn}
-                      onPress={() => handleSaveRecipe(recipe)}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    >
-                      <Bookmark
-                        size={16}
-                        color={
-                          isRecipeSaved(recipe.title)
-                            ? Colors.primary
-                            : Colors.white
-                        }
-                        fill={
-                          isRecipeSaved(recipe.title)
-                            ? Colors.primary
-                            : "transparent"
-                        }
+              {displayRecipes.map((recipe) => {
+                const matchInfo = calculateRecipeMatch(recipe, inventory);
+
+                return (
+                  <TouchableOpacity
+                    key={recipe.id}
+                    style={styles.recipeCard}
+                    activeOpacity={0.85}
+                  >
+                    <View style={styles.recipeImageWrapper}>
+                      <Image
+                        source={{ uri: recipe.image }}
+                        style={styles.recipeImage}
                       />
-                    </TouchableOpacity>
-                  </View>
-                  <View style={styles.recipeInfo}>
-                    <Text style={styles.recipeTitle} numberOfLines={2}>
-                      {recipe.title}
-                    </Text>
-                    <Text style={styles.recipeDescription} numberOfLines={2}>
-                      {recipe.description}
-                    </Text>
-                    <View style={styles.recipeMeta}>
-                      <View style={styles.recipeMetaItem}>
-                        <Clock size={12} color={Colors.textMuted} />
-                        <Text style={styles.recipeMetaText}>
-                          {recipe.cookTime}
+                      <View style={styles.recipeImageGradient} />
+
+                      {/* Match Badge */}
+                      <View style={[styles.matchBadge, {
+                        backgroundColor: matchInfo.canCook ? Colors.green : (matchInfo.matchPercentage > 70 ? Colors.orange : Colors.surfaceLight)
+                      }]}>
+                        <Sparkles size={12} color={Colors.white} />
+                        <Text style={styles.matchText}>
+                          {matchInfo.canCook ? "Cook Now" : `${matchInfo.matchPercentage}% Match`}
                         </Text>
                       </View>
-                      <View style={styles.recipeMetaDot} />
-                      <Text
-                        style={[
-                          styles.recipeDifficulty,
-                          {
-                            color: getDifficultyColor(recipe.difficulty),
-                          },
-                        ]}
+
+                      <TouchableOpacity
+                        style={styles.recipeBookmarkBtn}
+                        onPress={() => handleSaveRecipe(recipe)}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                       >
-                        {recipe.difficulty}
+                        <Bookmark
+                          size={16}
+                          color={
+                            isRecipeSaved(recipe.title)
+                              ? Colors.primary
+                              : Colors.white
+                          }
+                          fill={
+                            isRecipeSaved(recipe.title)
+                              ? Colors.primary
+                              : "transparent"
+                          }
+                        />
+                      </TouchableOpacity>
+                    </View>
+                    <View style={styles.recipeInfo}>
+                      <Text style={styles.recipeTitle} numberOfLines={2}>
+                        {recipe.title}
                       </Text>
-                      <View style={styles.recipeMetaDot} />
-                      <View style={styles.recipeMetaItem}>
-                        <Flame size={12} color={Colors.orange} />
-                        <Text style={styles.recipeMetaText}>
-                          {recipe.calories}
+
+                      {/* Missing Ingredients Summary */}
+                      {!matchInfo.canCook && matchInfo.missingIngredients.length > 0 && (
+                        <Text style={styles.missingCountText}>
+                          Missing: {matchInfo.missingIngredients.slice(0, 2).join(", ")} {matchInfo.missingIngredients.length > 2 ? `+${matchInfo.missingIngredients.length - 2} more` : ""}
                         </Text>
+                      )}
+
+                      <View style={styles.recipeMeta}>
+                        <View style={styles.recipeMetaItem}>
+                          <Clock size={12} color={Colors.textMuted} />
+                          <Text style={styles.recipeMetaText}>
+                            {recipe.cookTime}
+                          </Text>
+                        </View>
+                        <View style={styles.recipeMetaDot} />
+                        <Text
+                          style={[
+                            styles.recipeDifficulty,
+                            {
+                              color: getDifficultyColor(recipe.difficulty),
+                            },
+                          ]}
+                        >
+                          {recipe.difficulty}
+                        </Text>
+                        <View style={styles.recipeMetaDot} />
+                        <View style={styles.recipeMetaItem}>
+                          <Flame size={12} color={Colors.orange} />
+                          <Text style={styles.recipeMetaText}>
+                            {recipe.calories}
+                          </Text>
+                        </View>
+                      </View>
+                      <View style={styles.tagRow}>
+                        {recipe.tags.slice(0, 3).map((tag, idx) => (
+                          <View key={idx} style={styles.tag}>
+                            <Text style={styles.tagText}>{tag}</Text>
+                          </View>
+                        ))}
                       </View>
                     </View>
-                    <View style={styles.tagRow}>
-                      {recipe.tags.slice(0, 3).map((tag, idx) => (
-                        <View key={idx} style={styles.tag}>
-                          <Text style={styles.tagText}>{tag}</Text>
-                        </View>
-                      ))}
-                    </View>
-                  </View>
-                </TouchableOpacity>
-              ))}
+                  </TouchableOpacity>
+                )
+              })}
             </Animated.View>
           )}
         </View>
@@ -845,7 +840,6 @@ const styles = StyleSheet.create({
   },
   recipesSection: {
     paddingHorizontal: 16,
-    marginTop: 8,
   },
   recipesSectionHeader: {
     flexDirection: "row",
@@ -859,39 +853,38 @@ const styles = StyleSheet.create({
     color: Colors.white,
   },
   loadingContainer: {
+    padding: 40,
     alignItems: "center",
-    paddingVertical: 60,
     gap: 16,
   },
   loadingText: {
-    fontSize: 15,
+    fontSize: 14,
     color: Colors.textSecondary,
   },
   emptyContainer: {
+    padding: 40,
     alignItems: "center",
-    paddingVertical: 60,
     gap: 16,
   },
   emptyText: {
-    fontSize: 15,
-    color: Colors.textMuted,
+    fontSize: 14,
+    color: Colors.textSecondary,
     textAlign: "center",
-    maxWidth: 260,
-    lineHeight: 22,
+    lineHeight: 20,
   },
   recipesGrid: {
-    gap: 14,
+    gap: 16,
   },
   recipeCard: {
     backgroundColor: Colors.cardGlass,
-    borderRadius: 18,
+    borderRadius: 20,
     overflow: "hidden",
     borderWidth: 1,
     borderColor: Colors.cardGlassBorder,
   },
   recipeImageWrapper: {
+    height: 180,
     width: "100%",
-    height: 160,
     position: "relative",
   },
   recipeImage: {
@@ -903,41 +896,42 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    height: 40,
-    backgroundColor: "rgba(0,0,0,0.3)",
+    height: "100%",
+    backgroundColor: "rgba(0,0,0,0.2)",
   },
   recipeBookmarkBtn: {
     position: "absolute",
-    top: 10,
-    right: 10,
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: "rgba(0,0,0,0.45)",
+    top: 12,
+    right: 12,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(30, 30, 30, 0.6)",
     alignItems: "center",
     justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
   },
   recipeInfo: {
-    padding: 14,
+    padding: 16,
+    gap: 8,
   },
   recipeTitle: {
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: "700" as const,
     color: Colors.white,
-    marginBottom: 4,
-    lineHeight: 22,
+    lineHeight: 24,
   },
   recipeDescription: {
-    fontSize: 13,
+    fontSize: 14,
     color: Colors.textSecondary,
-    lineHeight: 18,
-    marginBottom: 10,
+    lineHeight: 20,
   },
   recipeMeta: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    marginBottom: 10,
+    gap: 8,
+    marginTop: 4,
   },
   recipeMetaItem: {
     flexDirection: "row",
@@ -945,8 +939,8 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   recipeMetaText: {
-    fontSize: 12,
-    color: Colors.textMuted,
+    fontSize: 13,
+    color: Colors.textSecondary,
     fontWeight: "500" as const,
   },
   recipeMetaDot: {
@@ -954,25 +948,52 @@ const styles = StyleSheet.create({
     height: 3,
     borderRadius: 1.5,
     backgroundColor: Colors.textMuted,
+    opacity: 0.5,
   },
   recipeDifficulty: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: "600" as const,
   },
   tagRow: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 6,
+    gap: 8,
+    marginTop: 8,
   },
   tag: {
-    backgroundColor: "rgba(255,255,255,0.08)",
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: 5,
     borderRadius: 8,
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
   },
   tagText: {
-    fontSize: 11,
+    fontSize: 12,
     color: Colors.textSecondary,
-    fontWeight: "500" as const,
+  },
+  matchBadge: {
+    position: 'absolute',
+    top: 10,
+    left: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+    gap: 4,
+    zIndex: 10,
+  },
+  matchText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Colors.white,
+  },
+  missingCountText: {
+    fontSize: 12,
+    color: Colors.red,
+    marginTop: 4,
+    marginBottom: 4,
+    fontWeight: "600"
   },
 });

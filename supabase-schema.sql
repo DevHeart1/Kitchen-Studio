@@ -105,6 +105,34 @@ CREATE TABLE IF NOT EXISTS shopping_list (
 
 
 -- ============================================
+-- DIGITAL COOKBOOK TABLES (Layer 1)
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS recipes (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  title TEXT NOT NULL,
+  description TEXT,
+  cook_time TEXT,
+  difficulty TEXT,
+  calories TEXT,
+  image TEXT,
+  tags TEXT[],
+  cuisine TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS recipe_ingredients (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  recipe_id UUID REFERENCES recipes(id) ON DELETE CASCADE,
+  name TEXT NOT NULL, -- e.g. "Egusi"
+  amount REAL,        -- e.g. 1
+  unit TEXT,          -- e.g. "cup"
+  original_string TEXT -- e.g. "1 cup Egusi"
+);
+
+CREATE INDEX IF NOT EXISTS idx_recipe_ingredients_recipe_id ON recipe_ingredients(recipe_id);
+
+-- ============================================
 -- INDEXES FOR BETTER QUERY PERFORMANCE
 -- ============================================
 CREATE INDEX IF NOT EXISTS idx_inventory_user ON inventory_items(user_id);
@@ -174,6 +202,15 @@ CREATE POLICY "Allow all saved recipes operations" ON saved_recipes FOR ALL USIN
 
 DROP POLICY IF EXISTS "Allow all shopping list operations" ON shopping_list;
 CREATE POLICY "Allow all shopping list operations" ON shopping_list FOR ALL USING (true) WITH CHECK (true);
+
+ALTER TABLE recipes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE recipe_ingredients ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Allow all recipes operations" ON recipes;
+CREATE POLICY "Allow all recipes operations" ON recipes FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow all recipe_ingredients operations" ON recipe_ingredients;
+CREATE POLICY "Allow all recipe_ingredients operations" ON recipe_ingredients FOR ALL USING (true) WITH CHECK (true);
 
 -- ============================================
 -- SUCCESS MESSAGE

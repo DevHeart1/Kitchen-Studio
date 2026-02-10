@@ -21,4 +21,5 @@ export default {
   redBg: "rgba(239, 68, 68, 0.2)",
   green: "#22c55e",
   greenBg: "rgba(34, 197, 94, 0.2)",
+  surfaceLight: "rgba(255, 255, 255, 0.1)", // Added missing color
 };
