@@ -35,12 +35,15 @@ const UNIT_DEFINITIONS: Record<string, UnitDefinition> = {
     bowl: { type: "count", baseUnit: "g", factor: 300 }, // Approximating 'bowl' as unit? Or volume?
 };
 
-// Density map: Values based on specific USER REQUEST table
-// We convert user's "1 Cup = X grams" into g/ml ratio (assuming 1 Cup ~ 236.6 ml)
-// For items with mL base unit (oils), we stick to ml.
+import { supabase } from "@/lib/supabase";
+
 const STANDARD_CUP_ML = 236.6;
 
-const DENSITY_MAP: Record<string, { gPerMl?: number; gPerCount?: number }> = {
+// Cache for loaded profiles
+let PROFILES_CACHE: Record<string, { gPerMl?: number; gPerCount?: number }> = {};
+
+// Initial Hardcoded Fallback (will be merged with DB data)
+const INITIAL_DENSITY_MAP: Record<string, { gPerMl?: number; gPerCount?: number }> = {
     // --- Nigerian / Local Staples (User Provided Table) ---
     garri: { gPerMl: 160 / STANDARD_CUP_ML },
     egusi: { gPerMl: 120 / STANDARD_CUP_ML },
@@ -62,18 +65,47 @@ const DENSITY_MAP: Record<string, { gPerMl?: number; gPerCount?: number }> = {
     onion: { gPerMl: 160 / STANDARD_CUP_ML, gPerCount: 110 }, // 160g/cup chopped, ~110g per whole
     tomato: { gPerMl: 240 / STANDARD_CUP_ML, gPerCount: 120 }, // 240g/cup blended, ~120g per whole
 
-    // Liquids (User provided mL per cup also, which matches ~standard, but let's be explicit if needed)
-    // Palm oil 220ml per cup -> Density approx 0.93 g/ml if we tracked in g, but base is ml so density=1 effectively for volume-volume
-    // But if we ever need mass <-> vol for oil:
+    // Liquids
     "palm oil": { gPerMl: 0.93 },
     "vegetable oil": { gPerMl: 0.92 },
 
-    // --- Defaults ---
+    // Defaults
     water: { gPerMl: 1 },
-    flour: { gPerMl: 120 / STANDARD_CUP_ML }, // Fallback generic
+    flour: { gPerMl: 120 / STANDARD_CUP_ML },
     butter: { gPerMl: 0.911 },
     honey: { gPerMl: 1.42 },
 };
+
+// Initialize cache with fallbacks
+PROFILES_CACHE = { ...INITIAL_DENSITY_MAP };
+
+export async function loadIngredientProfiles() {
+    try {
+        const { data, error } = await supabase
+            .from("ingredient_profiles")
+            .select("*");
+
+        if (error) {
+            console.error("Error loading ingredient profiles:", error);
+            return;
+        }
+
+        if (data) {
+            data.forEach((p: any) => {
+                const gPerMl = p.gram_per_cup ? (p.gram_per_cup / STANDARD_CUP_ML) : undefined;
+                if (p.name) {
+                    PROFILES_CACHE[p.name.toLowerCase()] = {
+                        gPerMl,
+                        gPerCount: p.gram_per_count
+                    };
+                }
+            });
+            console.log(`[UnitConversion] Loaded ${data.length} profiles from DB.`);
+        }
+    } catch (e) {
+        console.error("Failed to load profiles:", e);
+    }
+}
 
 const BASE_UNIT_MAP: Record<string, string> = {
     // Mass-tracked items (Solids)
@@ -148,8 +180,8 @@ export function getBaseUnitForIngredient(ingredientName: string): string {
 
 function getDensity(ingredientName: string): { gPerMl?: number; gPerCount?: number } {
     const lowerName = ingredientName.toLowerCase();
-    if (DENSITY_MAP[lowerName]) return DENSITY_MAP[lowerName];
-    for (const [key, val] of Object.entries(DENSITY_MAP)) {
+    if (PROFILES_CACHE[lowerName]) return PROFILES_CACHE[lowerName];
+    for (const [key, val] of Object.entries(PROFILES_CACHE)) {
         if (lowerName.includes(key)) return val;
     }
     return { gPerMl: 1 };

@@ -3,7 +3,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import createContextHook from "@nkzw/create-context-hook";
 import { supabase, DbInventoryItem } from "@/lib/supabase";
 import { useAuth } from "./AuthContext";
-import { toSystemUnit, normalizeUnit, checkAvailability as serviceCheckAvailability, UsageEvent, toHumanUnit } from "@/services/UnitConversionService";
+import { toSystemUnit, normalizeUnit, checkAvailability as serviceCheckAvailability, UsageEvent, toHumanUnit, loadIngredientProfiles } from "@/services/UnitConversionService";
 
 export interface InventoryItem {
   id: string;
@@ -105,6 +105,7 @@ export const [InventoryProvider, useInventory] = createContextHook(() => {
   const userId = getUserId();
 
   useEffect(() => {
+    loadIngredientProfiles(); // Load conversion data
     if (userId) {
       loadInventory();
     }
