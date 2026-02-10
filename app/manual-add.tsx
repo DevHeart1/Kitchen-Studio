@@ -57,39 +57,41 @@ export default function ManualAddScreen() {
     const [unit, setUnit] = useState("pcs");
     const [isSubmitting, setIsSubmitting] = useState(false);
 
+    const COMMON_UNITS = ["pcs", "kg", "g", "lb", "oz", "cup", "tbsp", "tsp", "ml", "L"];
+
     const handleAdd = async () => {
         if (!name.trim()) {
             Alert.alert("Error", "Please enter an item name");
             return;
         }
 
-        const count = parseInt(quantity);
-        if (isNaN(count) || count < 1) {
-            Alert.alert("Error", "Please enter a valid quantity (1 or more)");
+        // Allow float (e.g. 1.5 kg)
+        const qty = parseFloat(quantity);
+        if (isNaN(qty) || qty <= 0) {
+            Alert.alert("Error", "Please enter a valid quantity (greater than 0)");
             return;
         }
 
         setIsSubmitting(true);
         try {
-            const promises = [];
-            for (let i = 0; i < count; i++) {
-                promises.push(addItem({
-                    name: name.trim(),
-                    image: PLACEHOLDER_IMAGES[category] || PLACEHOLDER_IMAGES["Other"],
-                    category: category,
-                    addedDate: "Added just now",
-                    status: "good",
-                    stockPercentage: 100,
-                    // We don't save quantity/unit per item if we are splitting by count
-                    // But we could save 'unit' if it represents package type e.g. 'bottle'
-                    unit: unit,
-                }));
-            }
-            await Promise.all(promises);
+            // Dual-Unit Logic: We add ONE item with total quantity.
+            // addItem in InventoryContext handles the conversion to base_quantity
+            // and smart merging if the item already exists.
+            await addItem({
+                name: name.trim(),
+                image: PLACEHOLDER_IMAGES[category] || PLACEHOLDER_IMAGES["Other"],
+                category: category,
+                addedDate: "Added just now",
+                status: "good",
+                stockPercentage: 100,
+                quantity: qty,
+                unit: unit || "pcs",
+            });
+
             router.back();
         } catch (error) {
             console.error("Failed to add items:", error);
-            Alert.alert("Error", "Failed to add items. Please try again.");
+            Alert.alert("Error", "Failed to add item. Please try again.");
         } finally {
             setIsSubmitting(false);
         }
@@ -132,7 +134,7 @@ export default function ManualAddScreen() {
                             <Text style={styles.label}>Quantity</Text>
                             <TextInput
                                 style={styles.input}
-                                placeholder="1"
+                                placeholder="1.5"
                                 placeholderTextColor="rgba(255, 255, 255, 0.4)"
                                 value={quantity}
                                 onChangeText={setQuantity}
@@ -143,12 +145,39 @@ export default function ManualAddScreen() {
                             <Text style={styles.label}>Unit</Text>
                             <TextInput
                                 style={styles.input}
-                                placeholder="pcs"
+                                placeholder="pcs, kg, cup..."
                                 placeholderTextColor="rgba(255, 255, 255, 0.4)"
                                 value={unit}
                                 onChangeText={setUnit}
+                                autoCapitalize="none"
                             />
                         </View>
+                    </View>
+
+                    {/* Common Units Chips */}
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: -20, marginBottom: 10 }}>
+                        {COMMON_UNITS.map((u) => (
+                            <TouchableOpacity
+                                key={u}
+                                onPress={() => setUnit(u)}
+                                style={{
+                                    backgroundColor: unit === u ? Colors.primary : Colors.cardDark,
+                                    paddingHorizontal: 12,
+                                    paddingVertical: 6,
+                                    borderRadius: 16,
+                                    borderWidth: 1,
+                                    borderColor: unit === u ? Colors.primary : "rgba(255,255,255,0.1)"
+                                }}
+                            >
+                                <Text style={{
+                                    color: unit === u ? Colors.backgroundDark : Colors.textMuted,
+                                    fontWeight: "600",
+                                    fontSize: 12
+                                }}>
+                                    {u}
+                                </Text>
+                            </TouchableOpacity>
+                        ))}
                     </View>
 
                     <View style={styles.inputGroup}>
