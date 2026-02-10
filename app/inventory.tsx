@@ -36,6 +36,7 @@ import {
 import * as Haptics from "expo-haptics";
 import Colors from "@/constants/colors";
 import { useInventory, InventoryItem } from "@/contexts/InventoryContext";
+import { toHumanUnit } from "@/services/UnitConversionService";
 
 type FilterType = "all" | "expiring" | "low" | "favorites";
 
@@ -461,6 +462,12 @@ export default function InventoryScreen() {
                 </Text>
               </View>
 
+              <View style={{ marginTop: 8, alignItems: 'center' }}>
+                <Text style={{ color: Colors.textMuted, fontSize: 14 }}>
+                  Remaining: {toHumanUnit(selectedItem.quantity || 0, selectedItem.unit || "count", selectedItem.name)}
+                </Text>
+              </View>
+
               {editingStock && (
                 <View style={styles.stockControls}>
                   <View style={styles.stockAdjustRow}>
@@ -498,7 +505,7 @@ export default function InventoryScreen() {
                         style={[
                           styles.stockPresetChip,
                           selectedItem.stockPercentage === preset.value &&
-                            styles.stockPresetChipActive,
+                          styles.stockPresetChipActive,
                         ]}
                         onPress={() => handleUpdateStock(selectedItem, preset.value)}
                       >
@@ -506,7 +513,7 @@ export default function InventoryScreen() {
                           style={[
                             styles.stockPresetText,
                             selectedItem.stockPercentage === preset.value &&
-                              styles.stockPresetTextActive,
+                            styles.stockPresetTextActive,
                           ]}
                         >
                           {preset.label}
@@ -844,7 +851,7 @@ export default function InventoryScreen() {
                       style={[
                         styles.ingredientCard,
                         ingredient.status === "expiring" &&
-                          styles.ingredientCardExpiring,
+                        styles.ingredientCardExpiring,
                       ]}
                       onPress={() => openDetailModal(ingredient)}
                       activeOpacity={0.7}
@@ -857,7 +864,7 @@ export default function InventoryScreen() {
                         style={[
                           styles.ingredientImage,
                           ingredient.status === "expiring" &&
-                            styles.ingredientImageGrayscale,
+                          styles.ingredientImageGrayscale,
                         ]}
                       />
                       <View style={styles.ingredientInfo}>
@@ -897,7 +904,7 @@ export default function InventoryScreen() {
                           style={[
                             styles.ingredientDate,
                             ingredient.status === "expiring" &&
-                              styles.ingredientDateExpiring,
+                            styles.ingredientDateExpiring,
                           ]}
                         >
                           {ingredient.addedDate}

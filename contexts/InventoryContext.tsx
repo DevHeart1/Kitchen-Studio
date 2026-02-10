@@ -3,6 +3,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import createContextHook from "@nkzw/create-context-hook";
 import { supabase, DbInventoryItem } from "@/lib/supabase";
 import { useAuth } from "./AuthContext";
+import { toSystemUnit, normalizeUnit, checkAvailability as serviceCheckAvailability } from "@/services/UnitConversionService";
 
 export interface InventoryItem {
   id: string;
@@ -155,8 +156,27 @@ export const [InventoryProvider, useInventory] = createContextHook(() => {
   const addItem = useCallback(
     async (item: Omit<InventoryItem, "id" | "normalizedName">) => {
       try {
+        // --- SMART UNIT CONVERSION START ---
+        // user inputs: item.quantity (human amount), item.unit (human unit)
+        // we convert to system unit
+        let systemAmount = item.quantity || 1;
+        let systemUnit = item.unit || "count";
+        const humanUnit = item.unit || "count"; // store preference
+
+        const conversion = toSystemUnit(systemAmount, humanUnit, item.name);
+        systemAmount = conversion.amount;
+        systemUnit = conversion.unit;
+        // --- SMART UNIT CONVERSION END ---
+
         if (useSupabase) {
-          const dbItem = frontendToDb(item, userId || DEMO_USER_ID);
+          const dbItem = frontendToDb({
+            ...item,
+            quantity: systemAmount, // Store converted amount
+            unit: systemUnit,       // Store converted unit
+            // We might want to store 'original_unit' in a metadata field later if needed for display preference persistence
+            // For now, we rely on the UI to re-convert for display if it guesses well.
+          }, userId || DEMO_USER_ID);
+
           const { data, error } = await supabase
             .from("inventory_items")
             .insert(dbItem)
@@ -170,7 +190,7 @@ export const [InventoryProvider, useInventory] = createContextHook(() => {
 
           const newItem = dbToFrontend(data);
           setInventory((prev) => [newItem, ...prev]);
-          console.log("Item added to inventory:", newItem.name);
+          console.log("Item added to inventory (converted):", newItem.name, newItem.quantity, newItem.unit);
           return true;
         } else {
           // AsyncStorage fallback
@@ -178,12 +198,14 @@ export const [InventoryProvider, useInventory] = createContextHook(() => {
             ...item,
             id: Date.now().toString(),
             normalizedName: normalizeIngredientName(item.name),
+            quantity: systemAmount,
+            unit: systemUnit,
           };
 
           const updated = [...inventory, newItem];
           setInventory(updated);
           await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-          console.log("Item added to inventory:", newItem.name);
+          console.log("Item added to inventory (converted):", newItem.name);
           return true;
         }
       } catch (error) {
@@ -335,19 +357,36 @@ export const [InventoryProvider, useInventory] = createContextHook(() => {
     recipeUnit: string,
     ingredientName: string
   ): { available: boolean; remaining?: number; missingAmount?: number } => {
-    // This is where we would use UnitConversionService
-    // For now, let's just find the item and return true if found, as the full rigorous check requires 
-    // parsing amounts from strings in many places of the app which is a larger refactor.
-    // The user asked for the system to *be able* to do this. 
-    // We will import the service and use it if we can parse the inputs.
+    // 1. Find the item in pantry
+    const { item } = checkIngredientInPantry(ingredientName);
 
-    // In a real usage, we'd need to parse "3 tbsp" from `recipeAmount` var if it was passed as string, 
-    // but here the signature asks for number/string.
-    // We will just stick to the text search for now to avoid breaking existing flows, 
-    // and rely on the new Service being available for future "Smart Cooking" features.
+    if (!item) {
+      return { available: false, missingAmount: recipeAmount };
+    }
 
-    return { available: false };
-  }, [inventory]);
+    // 2. Use Service to check availability
+    // Convert recipe req to system unit
+    const recipeReq = toSystemUnit(recipeAmount, recipeUnit, ingredientName);
+
+    // Pantry item is already system unit (theoretically), but let's be safe
+    const pantryAmount = item.quantity || 0;
+    const pantryUnit = item.unit || "count";
+
+    // Compare
+    if (recipeReq.unit !== pantryUnit) {
+      // Mismatch (e.g. recipe wants 'count' but pantry has 'g'?)
+      // Attempt cross-conversion? 
+      // toSystemUnit already attempts to align to base. 
+      // So if they differ here, it's likely incompatible (e.g. count vs mass without density).
+      return { available: false, missingAmount: recipeAmount };
+    }
+
+    if (pantryAmount >= recipeReq.amount) {
+      return { available: true, remaining: pantryAmount - recipeReq.amount };
+    } else {
+      return { available: false, remaining: pantryAmount, missingAmount: recipeReq.amount - pantryAmount };
+    }
+  }, [inventory, checkIngredientInPantry]);
 
   const getTotalCount = useMemo(() => inventory.length, [inventory]);
 
