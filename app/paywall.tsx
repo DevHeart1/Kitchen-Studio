@@ -21,6 +21,7 @@ import {
   ArrowRight,
   Brain,
   CheckCircle,
+  XCircle,
 } from "lucide-react-native";
 import { useSubscription } from "@/contexts/SubscriptionContext";
 import { LinearGradient } from "expo-linear-gradient";
@@ -62,7 +63,8 @@ export default function PaywallScreen() {
   
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
-  const shimmerAnim = useRef(new Animated.Value(0)).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const selectorAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     Animated.parallel([
@@ -79,13 +81,29 @@ export default function PaywallScreen() {
     ]).start();
 
     Animated.loop(
-      Animated.timing(shimmerAnim, {
-        toValue: 1,
-        duration: 2000,
-        useNativeDriver: true,
-      })
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.02,
+          duration: 1500,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 1500,
+          useNativeDriver: true,
+        }),
+      ])
     ).start();
   }, []);
+
+  useEffect(() => {
+    Animated.spring(selectorAnim, {
+      toValue: selectedPlan === "yearly" ? 1 : 0,
+      useNativeDriver: false,
+      tension: 50,
+      friction: 10,
+    }).start();
+  }, [selectedPlan]);
 
   useEffect(() => {
     if (isPro) {
@@ -146,19 +164,19 @@ export default function PaywallScreen() {
         if (isPro) {
           return (
             <View style={styles.checkContainer}>
-              <CheckCircle size={14} color={Colors.primary} />
+              <CheckCircle size={16} color={Colors.primary} />
             </View>
           );
         }
         return (
           <View style={styles.checkContainer}>
-            <Check size={12} color="rgba(255,255,255,0.4)" />
+            <Check size={14} color="rgba(255,255,255,0.5)" />
           </View>
         );
       }
       return (
         <View style={styles.checkContainer}>
-          <X size={12} color="rgba(255,255,255,0.2)" />
+          <XCircle size={14} color="rgba(255,255,255,0.15)" />
         </View>
       );
     }
@@ -182,7 +200,7 @@ export default function PaywallScreen() {
       if (highlight === "realtime") {
         return (
           <View style={styles.realtimeContainer}>
-            <Brain size={12} color={Colors.primary} />
+            <Brain size={14} color={Colors.primary} />
             <Text style={styles.realtimeText}>{value}</Text>
           </View>
         );
@@ -195,6 +213,11 @@ export default function PaywallScreen() {
       </Text>
     );
   };
+
+  const selectorLeft = selectorAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["2%", "50%"],
+  });
 
   if (isLoading) {
     return (
@@ -214,6 +237,7 @@ export default function PaywallScreen() {
       
       <View style={styles.ambientGlow} />
       <View style={styles.topGlow} />
+      <View style={styles.bottomGradient} />
 
       <SafeAreaView style={styles.safeArea} edges={["top"]}>
         <View style={styles.header}>
@@ -226,7 +250,7 @@ export default function PaywallScreen() {
           </TouchableOpacity>
 
           <View style={styles.headerCenter}>
-            <Sparkles size={18} color={Colors.primary} />
+            <Sparkles size={16} color={Colors.primary} />
             <Text style={styles.headerLabel}>PREMIUM TIER</Text>
           </View>
 
@@ -302,11 +326,14 @@ export default function PaywallScreen() {
           </Animated.View>
 
           <View style={styles.planSelector}>
-            <TouchableOpacity
+            <Animated.View
               style={[
-                styles.planOption,
-                selectedPlan === "monthly" && styles.planOptionActive,
+                styles.selectorIndicator,
+                { left: selectorLeft },
               ]}
+            />
+            <TouchableOpacity
+              style={styles.planOption}
               onPress={() => setSelectedPlan("monthly")}
               activeOpacity={0.8}
             >
@@ -316,17 +343,17 @@ export default function PaywallScreen() {
               ]}>
                 Monthly
               </Text>
-              <Text style={styles.planPrice}>
+              <Text style={[
+                styles.planPrice,
+                selectedPlan === "monthly" && styles.planPriceActive,
+              ]}>
                 {getMonthlyPrice()}
                 <Text style={styles.planPeriod}>/mo</Text>
               </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[
-                styles.planOption,
-                selectedPlan === "yearly" && styles.planOptionActive,
-              ]}
+              style={styles.planOption}
               onPress={() => setSelectedPlan("yearly")}
               activeOpacity={0.8}
             >
@@ -339,7 +366,10 @@ export default function PaywallScreen() {
               ]}>
                 Yearly
               </Text>
-              <Text style={[styles.planPrice, styles.planPricePro]}>
+              <Text style={[
+                styles.planPrice,
+                selectedPlan === "yearly" && styles.planPricePro,
+              ]}>
                 {getAnnualPrice()}
                 <Text style={styles.planPeriod}>/yr</Text>
               </Text>
@@ -352,31 +382,33 @@ export default function PaywallScreen() {
               , cancel anytime.
             </Text>
 
-            <TouchableOpacity
-              style={[
-                styles.ctaButton,
-                (isPurchasing || isRestoring) && styles.ctaButtonDisabled,
-              ]}
-              onPress={handlePurchase}
-              disabled={isPurchasing || isRestoring}
-              activeOpacity={0.9}
-            >
-              <LinearGradient
-                colors={[Colors.primary, "#22c55e"]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.ctaGradient}
+            <Animated.View style={{ transform: [{ scale: pulseAnim }], width: "100%" }}>
+              <TouchableOpacity
+                style={[
+                  styles.ctaButton,
+                  (isPurchasing || isRestoring) && styles.ctaButtonDisabled,
+                ]}
+                onPress={handlePurchase}
+                disabled={isPurchasing || isRestoring}
+                activeOpacity={0.9}
               >
-                {isPurchasing ? (
-                  <ActivityIndicator color={Colors.backgroundDark} />
-                ) : (
-                  <>
-                    <Text style={styles.ctaText}>Unlock Pro Access</Text>
-                    <ArrowRight size={20} color={Colors.backgroundDark} />
-                  </>
-                )}
-              </LinearGradient>
-            </TouchableOpacity>
+                <LinearGradient
+                  colors={[Colors.primary, "#22c55e"]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.ctaGradient}
+                >
+                  {isPurchasing ? (
+                    <ActivityIndicator color={Colors.backgroundDark} />
+                  ) : (
+                    <>
+                      <Text style={styles.ctaText}>Unlock Pro Access</Text>
+                      <ArrowRight size={20} color={Colors.backgroundDark} />
+                    </>
+                  )}
+                </LinearGradient>
+              </TouchableOpacity>
+            </Animated.View>
 
             <Text style={styles.legalText}>
               Subscription auto-renews. Terms apply.{" "}
@@ -407,19 +439,27 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 400,
-    backgroundColor: "rgba(43, 238, 91, 0.03)",
-    opacity: 0.6,
+    backgroundColor: "rgba(43, 238, 91, 0.04)",
+    opacity: 0.8,
   },
   topGlow: {
     position: "absolute",
-    top: -100,
+    top: -150,
     left: "50%",
     marginLeft: -200,
     width: 400,
     height: 400,
     borderRadius: 200,
-    backgroundColor: "rgba(43, 238, 91, 0.08)",
-    opacity: 0.4,
+    backgroundColor: "rgba(43, 238, 91, 0.1)",
+    opacity: 0.5,
+  },
+  bottomGradient: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 200,
+    backgroundColor: "transparent",
   },
   safeArea: {
     flex: 1,
@@ -506,8 +546,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "flex-end",
     paddingVertical: 12,
-    paddingHorizontal: 4,
-    backgroundColor: "rgba(16, 34, 21, 0.8)",
+    paddingHorizontal: 8,
+    backgroundColor: "rgba(16, 34, 21, 0.9)",
     borderRadius: 12,
     marginBottom: 4,
   },
@@ -532,11 +572,16 @@ const styles = StyleSheet.create({
   },
   recommendedBadge: {
     position: "absolute",
-    top: -24,
+    top: -28,
     backgroundColor: Colors.primary,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
+    elevation: 5,
   },
   recommendedText: {
     fontSize: 8,
@@ -548,9 +593,9 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700" as const,
     color: Colors.primary,
-    textShadowColor: "rgba(43, 238, 91, 0.5)",
+    textShadowColor: "rgba(43, 238, 91, 0.6)",
     textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 8,
+    textShadowRadius: 10,
   },
   featuresTable: {
     backgroundColor: "rgba(16, 34, 21, 0.6)",
@@ -595,10 +640,14 @@ const styles = StyleSheet.create({
   unlimitedBadge: {
     backgroundColor: "rgba(43, 238, 91, 0.1)",
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: 5,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: "rgba(43, 238, 91, 0.2)",
+    borderColor: "rgba(43, 238, 91, 0.25)",
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
   },
   unlimitedText: {
     fontSize: 9,
@@ -610,10 +659,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "rgba(255, 215, 0, 0.1)",
     paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingVertical: 5,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: "rgba(255, 215, 0, 0.2)",
+    borderColor: "rgba(255, 215, 0, 0.25)",
     gap: 4,
   },
   goldText: {
@@ -633,10 +682,21 @@ const styles = StyleSheet.create({
   },
   planSelector: {
     flexDirection: "row",
-    backgroundColor: "rgba(0,0,0,0.3)",
+    backgroundColor: "rgba(0,0,0,0.4)",
     borderRadius: 16,
     padding: 4,
     marginBottom: 24,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+    position: "relative",
+  },
+  selectorIndicator: {
+    position: "absolute",
+    top: 4,
+    bottom: 4,
+    width: "48%",
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.1)",
   },
@@ -647,11 +707,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: "center",
     position: "relative",
-  },
-  planOptionActive: {
-    backgroundColor: "rgba(255,255,255,0.08)",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
   },
   planLabel: {
     fontSize: 12,
@@ -668,6 +723,9 @@ const styles = StyleSheet.create({
     fontWeight: "700" as const,
     color: "#fff",
   },
+  planPriceActive: {
+    color: "#fff",
+  },
   planPricePro: {
     color: Colors.primary,
   },
@@ -678,13 +736,19 @@ const styles = StyleSheet.create({
   },
   saveBadge: {
     position: "absolute",
-    top: -10,
+    top: -12,
     backgroundColor: "#FFD700",
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.2)",
+    borderColor: "rgba(255,255,255,0.3)",
+    shadowColor: "#FFD700",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 5,
+    zIndex: 10,
   },
   saveBadgeText: {
     fontSize: 8,
@@ -709,6 +773,11 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     overflow: "hidden",
     marginBottom: 16,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.4,
+    shadowRadius: 20,
+    elevation: 8,
   },
   ctaButtonDisabled: {
     opacity: 0.7,
