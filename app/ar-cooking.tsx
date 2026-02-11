@@ -475,8 +475,8 @@ const styles = StyleSheet.create({
     borderColor: Colors.primary,
   },
   voiceButtonSpeaking: {
-    backgroundColor: Colors.secondary || '#FFC107', // Fallback if secondary undefined
-    borderColor: Colors.secondary || '#FFC107',
+    backgroundColor: Colors.secondary,
+    borderColor: Colors.secondary,
   },
   voiceButtonText: {
     color: Colors.white,

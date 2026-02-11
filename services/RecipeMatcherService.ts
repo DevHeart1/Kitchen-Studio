@@ -60,8 +60,8 @@ export const calculateRecipeMatch = (
             const reqSystem = toSystemUnit(req.amount, req.unit, req.name);
 
             // Get pantry item system amount
-            const pantryAmount = pantryItem.baseQuantity !== undefined ? pantryItem.baseQuantity : (pantryItem.quantity || 0);
-            const pantryUnit = pantryItem.baseUnit || pantryItem.unit || "count";
+            const pantryAmount = pantryItem.quantity || 0;
+            const pantryUnit = pantryItem.unit || "count";
 
             // If units match (both g, both ml, both count), check amount
             if (reqSystem.unit === pantryUnit) {
