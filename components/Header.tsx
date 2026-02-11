@@ -4,11 +4,11 @@ import { useRouter } from "expo-router";
 import { Utensils, Bell } from "lucide-react-native";
 import Colors from "@/constants/colors";
 
-import { notifications } from "@/mocks/notifications";
+import { useNotifications } from "@/contexts/NotificationContext";
 
 export default function Header() {
   const router = useRouter();
-  const unreadCount = useMemo(() => notifications.filter(n => !n.read).length, []);
+  const { unreadCount } = useNotifications();
 
   return (
     <View style={styles.container}>
@@ -20,7 +20,7 @@ export default function Header() {
       </View>
 
       <View style={styles.actions}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.notificationButton}
           onPress={() => router.push("/notifications")}
           activeOpacity={0.7}
