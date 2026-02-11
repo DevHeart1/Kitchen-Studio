@@ -246,6 +246,8 @@ function RootLayoutNav() {
   );
 }
 
+import { SubscriptionProvider } from "@/contexts/SubscriptionContext";
+
 function AppProviders({ children }: { children: React.ReactNode }) {
   return (
     <AuthProvider>
@@ -253,9 +255,11 @@ function AppProviders({ children }: { children: React.ReactNode }) {
         <InventoryProvider>
           <NotificationProvider>
             <SavedRecipesProvider>
-              <UserProfileProvider>
-                <CookingHistoryProvider>{children}</CookingHistoryProvider>
-              </UserProfileProvider>
+              <SubscriptionProvider>
+                <UserProfileProvider>
+                  <CookingHistoryProvider>{children}</CookingHistoryProvider>
+                </UserProfileProvider>
+              </SubscriptionProvider>
             </SavedRecipesProvider>
           </NotificationProvider>
         </InventoryProvider>
