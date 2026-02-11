@@ -25,6 +25,7 @@ import {
   ScanLine,
   Link,
   ChevronRight,
+  Crown,
 } from "lucide-react-native";
 import Colors from "@/constants/colors";
 import Header from "@/components/Header";
@@ -33,6 +34,7 @@ import { useUserProfile } from "@/contexts/UserProfileContext";
 import { useSavedRecipes } from "@/contexts/SavedRecipesContext";
 import { useCookingHistory } from "@/contexts/CookingHistoryContext";
 import { useInventory } from "@/contexts/InventoryContext";
+import { useSubscription } from "@/contexts/SubscriptionContext";
 import { RecentCook } from "@/types";
 
 export default function HomeScreen() {
@@ -42,6 +44,7 @@ export default function HomeScreen() {
   const { savedRecipes, isLoading: recipesLoading } = useSavedRecipes();
   const { cookingSessions, inProgressSessions, completedSessions } = useCookingHistory();
   const { inventory, getTotalCount } = useInventory();
+  const { isPro } = useSubscription();
 
   const expiringItems = useMemo(() => {
     return inventory.filter((item) => item.status === "expiring");
@@ -163,6 +166,29 @@ export default function HomeScreen() {
             </Text>
           </View>
         </View>
+
+        {/* Premium Upsell Banner */}
+        {!isPro && (
+          <TouchableOpacity
+            style={styles.premiumBanner}
+            onPress={() => router.push("/paywall" as any)}
+            activeOpacity={0.85}
+          >
+            <View style={styles.premiumBannerGlow} />
+            <View style={styles.premiumBannerIcon}>
+              <Crown size={22} color="#FFD700" />
+            </View>
+            <View style={styles.premiumBannerContent}>
+              <Text style={styles.premiumBannerTitle}>Unlock Pro Features</Text>
+              <Text style={styles.premiumBannerSubtitle}>
+                Unlimited extractions, AR cooking & more
+              </Text>
+            </View>
+            <View style={styles.premiumBannerArrow}>
+              <ArrowRight size={18} color="#FFD700" />
+            </View>
+          </TouchableOpacity>
+        )}
 
         {/* Expiring Items Alert */}
         {expiringItems.length > 0 && (
@@ -824,5 +850,57 @@ const styles = StyleSheet.create({
   loadingContainer: {
     paddingVertical: 48,
     alignItems: "center",
+  },
+  premiumBanner: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    marginHorizontal: 16,
+    marginTop: 16,
+    backgroundColor: "rgba(255, 215, 0, 0.08)",
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: "rgba(255, 215, 0, 0.2)",
+    overflow: "hidden" as const,
+    position: "relative" as const,
+  },
+  premiumBannerGlow: {
+    position: "absolute" as const,
+    top: -20,
+    right: -20,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: "rgba(255, 215, 0, 0.15)",
+  },
+  premiumBannerIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: "rgba(255, 215, 0, 0.15)",
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
+  },
+  premiumBannerContent: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  premiumBannerTitle: {
+    fontSize: 15,
+    fontWeight: "700" as const,
+    color: "#FFD700",
+  },
+  premiumBannerSubtitle: {
+    fontSize: 12,
+    color: "rgba(255, 215, 0, 0.6)",
+    marginTop: 2,
+  },
+  premiumBannerArrow: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(255, 215, 0, 0.12)",
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
   },
 });

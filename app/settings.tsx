@@ -30,11 +30,14 @@ import {
   HelpCircle,
   FileText,
   MessageSquare,
+  Crown,
+  Sparkles,
 } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
 import Colors from "@/constants/colors";
 import { useUserProfile } from "@/contexts/UserProfileContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { useSubscription } from "@/contexts/SubscriptionContext";
 
 const AVATAR_OPTIONS = [
   "https://images.unsplash.com/photo-1566753323558-f4e0952af115?w=300&h=300&fit=crop&crop=face",
@@ -50,6 +53,7 @@ export default function SettingsScreen() {
   const router = useRouter();
   const { profile, updateName, updateAvatar, updateSettings } = useUserProfile();
   const { signOut } = useAuth();
+  const { isPro, presentCustomerCenter } = useSubscription();
 
   const [editNameModal, setEditNameModal] = useState(false);
   const [editAvatarModal, setEditAvatarModal] = useState(false);
@@ -212,6 +216,54 @@ export default function SettingsScreen() {
               trackColor={{ false: "#3e3e3e", true: Colors.primary + "60" }}
               thumbColor={profile.settings.arTips ? Colors.primary : "#f4f3f4"}
             />
+          )}
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>SUBSCRIPTION</Text>
+          {!isPro ? (
+            <TouchableOpacity
+              style={styles.subscriptionCard}
+              onPress={() => router.push("/paywall" as any)}
+              activeOpacity={0.8}
+            >
+              <View style={styles.subscriptionGlow} />
+              <View style={[styles.settingIcon, { backgroundColor: "rgba(255, 215, 0, 0.15)" }]}>
+                <Crown size={20} color="#FFD700" />
+              </View>
+              <View style={styles.settingContent}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                  <Text style={[styles.settingTitle, { color: "#FFD700" }]}>Upgrade to Pro</Text>
+                  <View style={styles.proBadge}>
+                    <Sparkles size={10} color={Colors.backgroundDark} />
+                    <Text style={styles.proBadgeText}>PRO</Text>
+                  </View>
+                </View>
+                <Text style={styles.settingSubtitle}>Unlimited extractions, AR cooking & more</Text>
+              </View>
+              <ChevronRight size={20} color="#FFD700" />
+            </TouchableOpacity>
+          ) : (
+            <>
+              <View style={styles.proActiveRow}>
+                <View style={[styles.settingIcon, { backgroundColor: Colors.primary + "20" }]}>
+                  <Crown size={20} color={Colors.primary} />
+                </View>
+                <View style={styles.settingContent}>
+                  <Text style={styles.settingTitle}>Kitchen Studio Pro</Text>
+                  <Text style={[styles.settingSubtitle, { color: Colors.primary }]}>All features unlocked</Text>
+                </View>
+                <View style={styles.activeBadge}>
+                  <Text style={styles.activeBadgeText}>ACTIVE</Text>
+                </View>
+              </View>
+              {renderSettingRow(
+                <Crown size={20} color={Colors.primary} />,
+                "Manage Subscription",
+                "Billing, plan changes & cancellation",
+                () => presentCustomerCenter()
+              )}
+            </>
           )}
         </View>
 
@@ -688,5 +740,65 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "600" as const,
     color: Colors.white,
+  },
+  subscriptionCard: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    backgroundColor: "rgba(255, 215, 0, 0.08)",
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: "rgba(255, 215, 0, 0.2)",
+    overflow: "hidden" as const,
+    position: "relative" as const,
+  },
+  subscriptionGlow: {
+    position: "absolute" as const,
+    top: -20,
+    right: -20,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: "rgba(255, 215, 0, 0.15)",
+  },
+  proBadge: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    gap: 4,
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+  proBadgeText: {
+    fontSize: 9,
+    fontWeight: "800" as const,
+    color: Colors.backgroundDark,
+    letterSpacing: 0.5,
+  },
+  proActiveRow: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    backgroundColor: Colors.cardGlass,
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: Colors.primary + "30",
+  },
+  activeBadge: {
+    backgroundColor: Colors.primary + "20",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Colors.primary + "30",
+  },
+  activeBadgeText: {
+    fontSize: 9,
+    fontWeight: "800" as const,
+    color: Colors.primary,
+    letterSpacing: 0.5,
   },
 });

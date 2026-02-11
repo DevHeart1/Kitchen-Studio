@@ -53,14 +53,14 @@ export default function PaywallScreen() {
     isLoading,
     isPro,
     offerings,
-    buyPro,
+    buyPackage,
     restorePurchases,
   } = useSubscription();
 
   const [selectedPlan, setSelectedPlan] = useState<PlanType>("yearly");
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
-  
+
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -124,7 +124,8 @@ export default function PaywallScreen() {
   const handlePurchase = async () => {
     setIsPurchasing(true);
     try {
-      const success = await buyPro();
+      const packageType = selectedPlan === "yearly" ? "ANNUAL" : "MONTHLY";
+      const success = await buyPackage(packageType as "MONTHLY" | "ANNUAL");
       if (success) {
         Alert.alert(
           "Welcome to Pro!",
@@ -234,7 +235,7 @@ export default function PaywallScreen() {
         colors={["#0A140D", "#102215", "#0A140D"]}
         style={StyleSheet.absoluteFill}
       />
-      
+
       <View style={styles.ambientGlow} />
       <View style={styles.topGlow} />
       <View style={styles.bottomGradient} />

@@ -22,6 +22,7 @@ interface SubscriptionContextType {
     customerInfo: CustomerInfo | null;
     offerings: PurchasesPackage[];
     buyPro: () => Promise<boolean>;
+    buyPackage: (packageType: "MONTHLY" | "ANNUAL") => Promise<boolean>;
     restorePurchases: () => Promise<void>;
     presentPaywall: () => Promise<boolean>;
     presentCustomerCenter: () => Promise<void>;
@@ -139,6 +140,31 @@ export const [SubscriptionProvider, useSubscription] = createContextHook<Subscri
             }
         };
 
+        const buyPackage = async (packageType: "MONTHLY" | "ANNUAL"): Promise<boolean> => {
+            if (Platform.OS === "web") {
+                Alert.alert("Not Available", "Subscriptions are only available on mobile devices.");
+                return false;
+            }
+
+            const pkg = offerings.find(p => p.packageType === packageType);
+            if (!pkg) {
+                Alert.alert("Error", "This plan is not available right now. Please try again later.");
+                return false;
+            }
+
+            try {
+                const { customerInfo: info } = await Purchases.purchasePackage(pkg);
+                setCustomerInfo(info);
+                checkEntitlements(info);
+                return info.entitlements.active[ENTITLEMENT_ID] !== undefined;
+            } catch (e: any) {
+                if (!e.userCancelled) {
+                    throw e;
+                }
+                return false;
+            }
+        };
+
         const buyPro = async (): Promise<boolean> => {
             return presentPaywall();
         };
@@ -164,6 +190,7 @@ export const [SubscriptionProvider, useSubscription] = createContextHook<Subscri
             customerInfo,
             offerings,
             buyPro,
+            buyPackage,
             restorePurchases,
             presentPaywall,
             presentCustomerCenter,
