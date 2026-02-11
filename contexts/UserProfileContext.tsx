@@ -582,15 +582,6 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
     }
   }, [useSupabase, hasCompletedOnboarding, currentUserId]);
 
-  const computedStats = useMemo(() => {
-    return {
-      totalCooks: 0,
-      completedCooks: 0,
-      inProgressCooks: 0,
-      avgRating: 0,
-    };
-  }, []);
-
   return {
     profile,
     isLoading,
@@ -606,7 +597,6 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
     unlockBadge,
     updateSettings,
     getXPProgress,
-    computedStats,
     pendingLevelUp,
     acknowledgeLevelUp,
     checkForLevelUp,

@@ -34,6 +34,7 @@ import * as Haptics from "expo-haptics";
 import Colors from "@/constants/colors";
 import { useUserProfile } from "@/contexts/UserProfileContext";
 import { useSavedRecipes } from "@/contexts/SavedRecipesContext";
+import { useCookingHistory } from "@/contexts/CookingHistoryContext";
 
 const BADGE_ICONS: Record<string, React.ComponentType<{ size: number; color: string }>> = {
   "1": Package,
@@ -62,7 +63,8 @@ const BADGE_NAMES: Record<string, { name: string; description: string }> = {
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { profile, getXPProgress, computedStats } = useUserProfile();
+  const { profile, getXPProgress } = useUserProfile();
+  const { inProgressSessions } = useCookingHistory();
   const { savedRecipes } = useSavedRecipes();
   const [selectedRecipe, setSelectedRecipe] = useState<{
     id: string;
@@ -328,7 +330,7 @@ export default function ProfileScreen() {
             <View style={styles.quickActionContent}>
               <Text style={styles.quickActionTitle}>Recent Cooks</Text>
               <Text style={styles.quickActionSubtitle}>
-                {computedStats.inProgressCooks} in progress
+                {inProgressSessions.length} in progress
               </Text>
             </View>
             <ChevronRight size={20} color={Colors.textMuted} />
