@@ -86,18 +86,18 @@ const DEFAULT_SETTINGS: UserSettings = {
 };
 
 const DEFAULT_PROFILE: UserProfile = {
-  name: "Alex Ramsey",
-  title: "Sous Chef",
-  level: 5,
-  avatar: "https://images.unsplash.com/photo-1566753323558-f4e0952af115?w=300&h=300&fit=crop&crop=face",
+  name: "Chef",
+  title: "Kitchen Novice",
+  level: 1,
+  avatar: "https://images.unsplash.com/photo-1566753323558-f4e0952af115?w=300&h=300&fit=crop&crop=face", // Keep a default avatar or make it empty
   stats: {
-    cookTime: "48h",
-    accuracy: 92,
-    recipesCompleted: 12,
-    totalXP: 2450,
+    cookTime: "0h",
+    accuracy: 0,
+    recipesCompleted: 0,
+    totalXP: 0,
   },
-  sharedRecipes: DEFAULT_SHARED_RECIPES,
-  unlockedBadgeIds: ["1", "2", "3", "4", "5"],
+  sharedRecipes: [],
+  unlockedBadgeIds: [],
   settings: DEFAULT_SETTINGS,
 };
 
@@ -185,10 +185,6 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
 
         if (profileError && profileError.code !== "PGRST116") {
           console.error("[Profile] Supabase error:", profileError.message);
-          // Don't fall back to async storage if auth error, just log it.
-          // Or maybe we should if network fails?
-          // For now, let's assume if authenticated, we want DB data.
-          // If we fail to load from DB, maybe we shouldn't overwrite with default?
         }
 
         // Load shared recipes
@@ -205,9 +201,12 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
         } else {
           // No profile in Supabase, create one
           if (currentUserId && user) {
+            // Priority: Metadata Name > Email Username > "Chef"
+            const initialName = user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || "Chef";
+
             const newProfile = {
               user_id: currentUserId,
-              name: user.user_metadata?.name || user.email?.split('@')[0] || "Chef",
+              name: initialName,
               title: "Kitchen Novice",
               level: 1,
               cook_time: "0h",
@@ -231,12 +230,17 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
 
             if (createError) {
               console.error("[Profile] Error creating profile:", JSON.stringify(createError, null, 2));
-              setProfile(DEFAULT_PROFILE);
+              // Fallback to local state with the correct name, not the hardcoded default
+              setProfile({
+                ...DEFAULT_PROFILE,
+                name: initialName,
+              });
             } else if (newProfileData) {
               setProfile(dbToFrontend(newProfileData, []));
               setHasCompletedOnboarding(prev => prev === true ? true : false);
             }
           } else {
+            // Not authenticated?
             setProfile(DEFAULT_PROFILE);
             setHasCompletedOnboarding(false);
           }
