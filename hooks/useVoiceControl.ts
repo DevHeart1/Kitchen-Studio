@@ -1,10 +1,6 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import * as Speech from 'expo-speech';
-import {
-    useSpeechRecognitionEvent,
-    ExpoSpeechRecognitionModule,
-    useSpeechRecognition
-} from 'expo-speech-recognition';
+import { Platform } from 'react-native';
 
 interface UseVoiceControlProps {
     onCommand?: (transcript: string) => void;
@@ -16,29 +12,21 @@ export const useVoiceControl = ({ onCommand, onStateChange }: UseVoiceControlPro
     const [isSpeaking, setIsSpeaking] = useState(false);
     const [transcript, setTranscript] = useState("");
 
-    const {
-        recognizing,
-        transcript: liveTranscript,
-    } = useSpeechRecognition({
-        onResult: (event) => {
-            if (event.isFinal) {
-                setTranscript(event.results[0]?.transcript || "");
-                if (onCommand) {
-                    onCommand(event.results[0]?.transcript || "");
-                }
-            }
-        },
-    });
-
     const startListening = useCallback(async () => {
+        if (Platform.OS === 'web') {
+            console.warn("Voice recognition not supported on web");
+            return;
+        }
+        
         try {
-            const result = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+            const ExpoSpeechRecognition = await import('expo-speech-recognition');
+            const result = await ExpoSpeechRecognition.ExpoSpeechRecognitionModule.requestPermissionsAsync();
             if (!result.granted) {
                 console.warn("Microphone permission denied");
                 return;
             }
 
-            ExpoSpeechRecognitionModule.start({
+            ExpoSpeechRecognition.ExpoSpeechRecognitionModule.start({
                 lang: "en-US",
                 interimResults: true,
                 maxAlternatives: 1,
@@ -52,9 +40,12 @@ export const useVoiceControl = ({ onCommand, onStateChange }: UseVoiceControlPro
         }
     }, [onStateChange]);
 
-    const stopListening = useCallback(() => {
+    const stopListening = useCallback(async () => {
+        if (Platform.OS === 'web') return;
+        
         try {
-            ExpoSpeechRecognitionModule.stop();
+            const ExpoSpeechRecognition = await import('expo-speech-recognition');
+            ExpoSpeechRecognition.ExpoSpeechRecognitionModule.stop();
             setIsListening(false);
             if (onStateChange) onStateChange(false);
         } catch (e) {
@@ -68,11 +59,6 @@ export const useVoiceControl = ({ onCommand, onStateChange }: UseVoiceControlPro
         }
 
         setIsSpeaking(true);
-        // Pause listening while speaking to avoid hearing itself
-        const wasListening = isListening;
-        if (wasListening) {
-            ExpoSpeechRecognitionModule.stop();
-        }
 
         Speech.speak(text, {
             language: 'en-US',
@@ -80,22 +66,13 @@ export const useVoiceControl = ({ onCommand, onStateChange }: UseVoiceControlPro
             pitch: 1.0,
             onDone: () => {
                 setIsSpeaking(false);
-                if (wasListening) {
-                    // Resume listening after a short delay
-                    setTimeout(() => {
-                        if (isListening) startListening();
-                    }, 500);
-                }
                 if (onDone) onDone();
             },
             onError: () => {
                 setIsSpeaking(false);
-                if (wasListening) {
-                    if (isListening) startListening();
-                }
             }
         });
-    }, [isListening, isSpeaking, startListening]);
+    }, [isSpeaking]);
 
     const stopSpeaking = useCallback(() => {
         Speech.stop();
@@ -105,7 +82,7 @@ export const useVoiceControl = ({ onCommand, onStateChange }: UseVoiceControlPro
     return {
         isListening,
         isSpeaking,
-        transcript: liveTranscript || transcript,
+        transcript,
         startListening,
         stopListening,
         speak,

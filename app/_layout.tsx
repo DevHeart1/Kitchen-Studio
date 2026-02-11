@@ -246,25 +246,19 @@ function RootLayoutNav() {
   );
 }
 
-import { SubscriptionProvider } from "@/contexts/SubscriptionContext";
-
-// ...
-
 function AppProviders({ children }: { children: React.ReactNode }) {
   return (
     <AuthProvider>
       <DialogProvider>
-        <SubscriptionProvider>
-          <InventoryProvider>
-            <NotificationProvider>
-              <SavedRecipesProvider>
-                <UserProfileProvider>
-                  <CookingHistoryProvider>{children}</CookingHistoryProvider>
-                </UserProfileProvider>
-              </SavedRecipesProvider>
-            </NotificationProvider>
-          </InventoryProvider>
-        </SubscriptionProvider>
+        <InventoryProvider>
+          <NotificationProvider>
+            <SavedRecipesProvider>
+              <UserProfileProvider>
+                <CookingHistoryProvider>{children}</CookingHistoryProvider>
+              </UserProfileProvider>
+            </SavedRecipesProvider>
+          </NotificationProvider>
+        </InventoryProvider>
       </DialogProvider>
     </AuthProvider>
   );
