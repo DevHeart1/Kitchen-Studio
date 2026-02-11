@@ -11,6 +11,7 @@ import { CookingHistoryProvider, useCookingHistory } from "@/contexts/CookingHis
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { DialogProvider } from "@/contexts/DialogContext";
 import { NotificationProvider } from "@/contexts/NotificationContext";
+import { SubscriptionProvider } from "@/contexts/SubscriptionContext";
 import SplashScreen from "@/components/SplashScreen";
 import WelcomeBackSplash from "@/components/WelcomeBackSplash";
 import { trpc, trpcClient } from "@/lib/trpc";
@@ -192,6 +193,14 @@ function RootLayoutNav() {
         }}
       />
       <Stack.Screen
+        name="paywall"
+        options={{
+          headerShown: false,
+          presentation: "modal",
+          animation: "slide_from_bottom",
+        }}
+      />
+      <Stack.Screen
         name="shared-recipe"
         options={{
           headerShown: false,
@@ -249,17 +258,19 @@ function RootLayoutNav() {
 function AppProviders({ children }: { children: React.ReactNode }) {
   return (
     <AuthProvider>
-      <DialogProvider>
-        <InventoryProvider>
-          <NotificationProvider>
-            <SavedRecipesProvider>
-              <UserProfileProvider>
-                <CookingHistoryProvider>{children}</CookingHistoryProvider>
-              </UserProfileProvider>
-            </SavedRecipesProvider>
-          </NotificationProvider>
-        </InventoryProvider>
-      </DialogProvider>
+      <SubscriptionProvider>
+        <DialogProvider>
+          <InventoryProvider>
+            <NotificationProvider>
+              <SavedRecipesProvider>
+                <UserProfileProvider>
+                  <CookingHistoryProvider>{children}</CookingHistoryProvider>
+                </UserProfileProvider>
+              </SavedRecipesProvider>
+            </NotificationProvider>
+          </InventoryProvider>
+        </DialogProvider>
+      </SubscriptionProvider>
     </AuthProvider>
   );
 }

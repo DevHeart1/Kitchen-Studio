@@ -30,11 +30,14 @@ import {
   HelpCircle,
   FileText,
   MessageSquare,
+  Crown,
+  RefreshCw,
 } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
 import Colors from "@/constants/colors";
 import { useUserProfile } from "@/contexts/UserProfileContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { useSubscription } from "@/contexts/SubscriptionContext";
 
 const AVATAR_OPTIONS = [
   "https://images.unsplash.com/photo-1566753323558-f4e0952af115?w=300&h=300&fit=crop&crop=face",
@@ -50,6 +53,9 @@ export default function SettingsScreen() {
   const router = useRouter();
   const { profile, updateName, updateAvatar, updateSettings } = useUserProfile();
   const { signOut } = useAuth();
+  const { isPro, restorePurchases, isRestoring, getActiveSubscription } = useSubscription();
+
+  const activeSubscription = getActiveSubscription();
 
   const [editNameModal, setEditNameModal] = useState(false);
   const [editAvatarModal, setEditAvatarModal] = useState(false);
@@ -212,6 +218,49 @@ export default function SettingsScreen() {
               trackColor={{ false: "#3e3e3e", true: Colors.primary + "60" }}
               thumbColor={profile.settings.arTips ? Colors.primary : "#f4f3f4"}
             />
+          )}
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>SUBSCRIPTION</Text>
+          {isPro ? (
+            <View style={styles.proStatusCard}>
+              <View style={styles.proStatusHeader}>
+                <View style={styles.proBadge}>
+                  <Crown size={16} color="#FFD700" />
+                </View>
+                <View style={styles.proStatusInfo}>
+                  <Text style={styles.proStatusTitle}>Kitchen Studio Pro</Text>
+                  <Text style={styles.proStatusSubtitle}>
+                    {activeSubscription?.expirationDate
+                      ? `Renews ${new Date(activeSubscription.expirationDate).toLocaleDateString()}`
+                      : "Active"}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          ) : (
+            renderSettingRow(
+              <Crown size={20} color="#FFD700" />,
+              "Upgrade to Pro",
+              "Unlock all premium features",
+              () => router.push("/paywall" as any)
+            )
+          )}
+          {renderSettingRow(
+            <RefreshCw size={20} color={Colors.primary} />,
+            "Restore Purchases",
+            isRestoring ? "Restoring..." : "Restore previous subscriptions",
+            async () => {
+              try {
+                await restorePurchases();
+                if (Platform.OS !== "web") {
+                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                }
+              } catch (error) {
+                console.error("Restore failed:", error);
+              }
+            }
           )}
         </View>
 
@@ -688,5 +737,38 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "600" as const,
     color: Colors.white,
+  },
+  proStatusCard: {
+    backgroundColor: "rgba(255, 215, 0, 0.1)",
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: "rgba(255, 215, 0, 0.3)",
+  },
+  proStatusHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  proBadge: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: "rgba(255, 215, 0, 0.2)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  proStatusInfo: {
+    marginLeft: 12,
+  },
+  proStatusTitle: {
+    fontSize: 16,
+    fontWeight: "700" as const,
+    color: "#FFD700",
+  },
+  proStatusSubtitle: {
+    fontSize: 12,
+    color: Colors.textMuted,
+    marginTop: 2,
   },
 });
