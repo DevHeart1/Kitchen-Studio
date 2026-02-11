@@ -36,7 +36,6 @@ import {
 import * as Haptics from "expo-haptics";
 import Colors from "@/constants/colors";
 import { useInventory, InventoryItem } from "@/contexts/InventoryContext";
-import { useSubscription } from "@/contexts/SubscriptionContext";
 
 type FilterType = "all" | "expiring" | "low" | "favorites";
 
@@ -57,7 +56,6 @@ const STOCK_PRESETS = [
 export default function InventoryScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { isPro, presentPaywall } = useSubscription();
   const { inventory, removeItem, updateItem, getTotalCount, getExpiringCount } = useInventory();
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<FilterType>("all");
@@ -66,6 +64,7 @@ export default function InventoryScreen() {
   const [showActionMenu, setShowActionMenu] = useState(false);
   const [actionMenuTarget, setActionMenuTarget] = useState<InventoryItem | null>(null);
   const [editingStock, setEditingStock] = useState(false);
+
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
@@ -169,6 +168,8 @@ export default function InventoryScreen() {
     return `${percentage}%`;
   };
 
+
+
   const filterIngredients = (ingredients: InventoryItem[]) => {
     let filtered = ingredients;
 
@@ -198,11 +199,7 @@ export default function InventoryScreen() {
     );
   }, [categorizedInventory, searchQuery, activeFilter]);
 
-  const handleQuickScan = async () => {
-    if (!isPro) {
-      const purchased = await presentPaywall();
-      if (!purchased) return;
-    }
+  const handleQuickScan = () => {
     router.push("/scanner");
   };
 

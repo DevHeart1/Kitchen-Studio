@@ -128,8 +128,6 @@ export default function KitchenScreen() {
     router.push("/scanner");
   };
 
-
-
   const handleRecipePress = (recipe: SavedRecipe) => {
     router.push({
       pathname: "/recipe",
