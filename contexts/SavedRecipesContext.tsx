@@ -2,7 +2,6 @@ import React, { useEffect, useState, useCallback, useMemo } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import createContextHook from "@nkzw/create-context-hook";
 import { SavedRecipe, GeneratedRecipe } from "@/types";
-import { useGamification } from "@/contexts/GamificationContext";
 import { supabase, DbSavedRecipe } from "@/lib/supabase";
 
 // Interfaces moved to @/types
@@ -30,7 +29,6 @@ const dbToFrontend = (item: DbSavedRecipe): SavedRecipe => ({
 export const [SavedRecipesProvider, useSavedRecipes] = createContextHook(() => {
   const [savedRecipes, setSavedRecipes] = useState<SavedRecipe[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const { awardXP } = useGamification();
   const useSupabase = isSupabaseConfigured();
 
   useEffect(() => {
@@ -109,7 +107,7 @@ export const [SavedRecipesProvider, useSavedRecipes] = createContextHook(() => {
 
         await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
         console.log("Recipe saved successfully:", newRecipe.title);
-        awardXP("save_recipe");
+        // awardXP("save_recipe"); // Moved to UI layer to avoid circular dependency
         return true;
       }
     } catch (error) {

@@ -30,6 +30,7 @@ import Colors from "@/constants/colors";
 import { useUserProfile } from "@/contexts/UserProfileContext";
 import { useInventory } from "@/contexts/InventoryContext";
 import { useSavedRecipes } from "@/contexts/SavedRecipesContext";
+import { useGamification } from "@/contexts/GamificationContext";
 
 export interface DiscoverRecipe {
   id: string;
@@ -259,6 +260,7 @@ export default function DiscoverScreen() {
   const { profile } = useUserProfile();
   const { inventory } = useInventory();
   const { saveRecipe, isRecipeSaved } = useSavedRecipes();
+  const { awardXP } = useGamification();
   const [selectedCategory, setSelectedCategory] = useState("quick");
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<DiscoverRecipe[]>([]);
@@ -389,6 +391,7 @@ export default function DiscoverScreen() {
         })),
         instructions: recipe.instructions,
       });
+      awardXP("save_recipe");
       console.log("[Discover] Saved recipe:", recipe.title);
     },
     [saveRecipe, isRecipeSaved]

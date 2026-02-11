@@ -15,6 +15,7 @@ import { useRouter } from "expo-router";
 import { ArrowLeft, Check, Plus } from "lucide-react-native";
 import Colors from "@/constants/colors";
 import { useInventory } from "@/contexts/InventoryContext";
+import { useGamification } from "@/contexts/GamificationContext";
 
 const CATEGORIES = [
     "Oils & Spices",
@@ -51,6 +52,7 @@ export default function ManualAddScreen() {
     const router = useRouter();
     const { addItem } = useInventory();
 
+    const { awardXP } = useGamification();
     const [name, setName] = useState("");
     const [category, setCategory] = useState("Other");
     const [quantity, setQuantity] = useState("1");
@@ -86,6 +88,12 @@ export default function ManualAddScreen() {
                 }));
             }
             await Promise.all(promises);
+
+            // Award XP for adding items
+            for (let i = 0; i < count; i++) {
+                awardXP("scan_item");
+            }
+
             router.back();
         } catch (error) {
             console.error("Failed to add items:", error);

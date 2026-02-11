@@ -27,8 +27,10 @@ import {
   X,
 } from "lucide-react-native";
 import Colors from "@/constants/colors";
-import { useSavedRecipes, RecipeIngredient } from "@/contexts/SavedRecipesContext";
+import { useSavedRecipes } from "@/contexts/SavedRecipesContext";
+import { RecipeIngredient } from "@/types";
 import { useInventory } from "@/contexts/InventoryContext";
+import { useGamification } from "@/contexts/GamificationContext";
 import { useUsage } from "@/contexts/UsageContext";
 import { extractRecipeFromVideoUrl, DiscoverRecipe } from "./(tabs)/discover";
 import { ActivityIndicator } from "react-native";
@@ -90,6 +92,7 @@ export default function RecipeScreen() {
   const insets = useSafeAreaInsets();
   const { checkIngredientInPantry } = useInventory();
   const { incrementUsage } = useUsage();
+  const { awardXP } = useGamification();
   const { id, recipeData, videoUrl, substitutedId, newName, newAmount, newImage } = useLocalSearchParams<{
     id: string;
     recipeData: string;
@@ -274,6 +277,7 @@ export default function RecipeScreen() {
     setIsSaving(false);
 
     if (success) {
+      awardXP("save_recipe");
       setShowSaveModal(true);
     }
   };

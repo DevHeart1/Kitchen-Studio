@@ -19,6 +19,7 @@ import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import { Zap, Check, Loader, CheckCheck, X, Camera, RefreshCw, Scan, AlertCircle, Plus, Clock, Package, Hash, AlertTriangle, CalendarClock, Eye, SkipForward, Sparkles } from "lucide-react-native";
 import Colors from "@/constants/colors";
 import { useInventory } from "@/contexts/InventoryContext";
+import { useGamification } from "@/contexts/GamificationContext";
 import { useNotifications } from "@/contexts/NotificationContext";
 import { trpc } from "@/lib/trpc";
 import { supabase } from "@/lib/supabase";
@@ -420,6 +421,7 @@ export default function ScannerScreen() {
   const [isEstimatingShelfLife, setIsEstimatingShelfLife] = useState(false);
 
   const { addItem } = useInventory();
+  const { awardXP } = useGamification();
   const { estimateShelfLifeForItems, addNotification } = useNotifications();
 
 
@@ -802,6 +804,9 @@ export default function ScannerScreen() {
           stockPercentage,
           expiresIn,
         });
+
+        // Award XP for each item added via scan
+        awardXP("scan_item");
       }
 
       await new Promise(resolve => setTimeout(resolve, 100));
