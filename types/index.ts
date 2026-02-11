@@ -68,9 +68,10 @@ export interface Notification {
 
 export interface Badge {
   id: string;
+  slug: string;
   name: string;
   description: string;
-  requirement: string;
+  requirement: string; // derived from condition_type/value for UI
   icon: string;
   color: string;
   gradientFrom: string;
@@ -82,6 +83,24 @@ export interface Badge {
   rewardType?: 'skin' | 'recipe' | 'tool' | 'title';
   progress?: number;
   progressMax?: number;
+  conditionType?: string;
+  conditionValue?: number;
+}
+
+export interface UserBadge {
+  id: string;
+  userId: string;
+  badgeId: string;
+  earnedAt: string;
+}
+
+export interface XPActionLog {
+  id: string;
+  userId: string;
+  actionType: string;
+  amount: number;
+  details?: any;
+  createdAt: string;
 }
 export interface RecipeIngredient {
   id: string;

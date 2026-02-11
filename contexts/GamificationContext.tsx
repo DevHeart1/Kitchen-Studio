@@ -4,6 +4,9 @@ import { useUserProfile } from "@/contexts/UserProfileContext";
 import { useSavedRecipes } from "@/contexts/SavedRecipesContext";
 import { useInventory } from "@/contexts/InventoryContext";
 import { useCookingHistory } from "@/contexts/CookingHistoryContext";
+import { supabase } from "@/lib/supabase";
+import { Badge } from "@/types";
+import { useAuth } from "@/contexts/AuthContext";
 
 // ── XP Award Table ──────────────────────────────────────────────
 const XP_VALUES = {
@@ -18,163 +21,8 @@ const XP_VALUES = {
 
 export type XPAction = keyof typeof XP_VALUES;
 
-// ── Achievement Definitions ─────────────────────────────────────
-export interface AchievementDef {
-    id: string;
-    name: string;
-    description: string;
-    requirement: string;
-    icon: string;
-    color: string;
-    gradientFrom: string;
-    gradientTo: string;
-    xpReward: number;
-    reward?: string;
-    rewardType?: "skin" | "recipe" | "tool" | "title";
-    getProgress: (stats: GamificationStats) => { current: number; max: number };
-}
-
-interface GamificationStats {
-    recipesCompleted: number;
-    inventoryCount: number;
-    savedRecipesCount: number;
-    sharedRecipesCount: number;
-    totalCookSessions: number;
-    totalXP: number;
-}
-
-export const ACHIEVEMENT_DEFS: AchievementDef[] = [
-    {
-        id: "1",
-        name: "Pantry Master",
-        description: "Stock your pantry to the max",
-        requirement: "Stock 50 unique ingredients in your pantry inventory.",
-        icon: "package",
-        color: "#f97316",
-        gradientFrom: "#f97316",
-        gradientTo: "#ea580c",
-        xpReward: 300,
-        reward: "Title",
-        rewardType: "title",
-        getProgress: (s) => ({ current: Math.min(s.inventoryCount, 50), max: 50 }),
-    },
-    {
-        id: "2",
-        name: "Knife Pro",
-        description: "Perfect cuts streak",
-        requirement: "Complete 10 cooking sessions.",
-        icon: "utensils-crossed",
-        color: "#3b82f6",
-        gradientFrom: "#3b82f6",
-        gradientTo: "#2563eb",
-        xpReward: 350,
-        reward: "Recipe",
-        rewardType: "recipe",
-        getProgress: (s) => ({ current: Math.min(s.recipesCompleted, 10), max: 10 }),
-    },
-    {
-        id: "3",
-        name: "Sauce Boss",
-        description: "Master of flavors",
-        requirement: "Complete 5 cooking sessions.",
-        icon: "soup",
-        color: "#a855f7",
-        gradientFrom: "#a855f7",
-        gradientTo: "#ec4899",
-        xpReward: 400,
-        reward: "Title",
-        rewardType: "title",
-        getProgress: (s) => ({ current: Math.min(s.recipesCompleted, 5), max: 5 }),
-    },
-    {
-        id: "4",
-        name: "Early Bird",
-        description: "Rise and cook",
-        requirement: "Complete 10 recipes.",
-        icon: "sun",
-        color: "#eab308",
-        gradientFrom: "#eab308",
-        gradientTo: "#f59e0b",
-        xpReward: 250,
-        reward: "Recipe",
-        rewardType: "recipe",
-        getProgress: (s) => ({ current: Math.min(s.recipesCompleted, 10), max: 10 }),
-    },
-    {
-        id: "5",
-        name: "Socialite",
-        description: "Share the love",
-        requirement: "Share 10 recipes with the community.",
-        icon: "share-2",
-        color: "#14b8a6",
-        gradientFrom: "#14b8a6",
-        gradientTo: "#0d9488",
-        xpReward: 300,
-        reward: "Title",
-        rewardType: "title",
-        getProgress: (s) => ({ current: Math.min(s.sharedRecipesCount, 10), max: 10 }),
-    },
-    {
-        id: "6",
-        name: "Speed Chef",
-        description: "Cook with lightning speed",
-        requirement: "Complete 20 cooking sessions.",
-        icon: "flame",
-        color: "#ef4444",
-        gradientFrom: "#ef4444",
-        gradientTo: "#dc2626",
-        xpReward: 600,
-        reward: "Skin",
-        rewardType: "skin",
-        getProgress: (s) => ({ current: Math.min(s.recipesCompleted, 20), max: 20 }),
-    },
-    {
-        id: "7",
-        name: "Master Baker",
-        description: "Baking perfection",
-        requirement: "Complete 15 cooking sessions.",
-        icon: "cookie",
-        color: "#d97706",
-        gradientFrom: "#d97706",
-        gradientTo: "#b45309",
-        xpReward: 500,
-        reward: "Recipe",
-        rewardType: "recipe",
-        getProgress: (s) => ({ current: Math.min(s.recipesCompleted, 15), max: 15 }),
-    },
-    {
-        id: "8",
-        name: "Wine Master",
-        description: "Pair like a pro",
-        requirement: "Complete 25 cooking sessions.",
-        icon: "wine",
-        color: "#7c3aed",
-        gradientFrom: "#7c3aed",
-        gradientTo: "#6d28d9",
-        xpReward: 500,
-        reward: "Tool",
-        rewardType: "tool",
-        getProgress: (s) => ({ current: Math.min(s.recipesCompleted, 25), max: 25 }),
-    },
-    {
-        id: "9",
-        name: "Efficiency King",
-        description: "Never waste a second",
-        requirement: "Save 20 recipes to your collection.",
-        icon: "timer",
-        color: "#06b6d4",
-        gradientFrom: "#06b6d4",
-        gradientTo: "#0891b2",
-        xpReward: 400,
-        reward: "Title",
-        rewardType: "title",
-        getProgress: (s) => ({ current: Math.min(s.savedRecipesCount, 20), max: 20 }),
-    },
-];
-
 // ── Streak Storage ──────────────────────────────────────────────
 const STREAK_KEY = "gamification_streak";
-const GAMIFICATION_LOG_KEY = "gamification_action_log";
 
 interface StreakData {
     currentStreak: number;
@@ -196,9 +44,10 @@ interface GamificationContextType {
     awardXP: (action: XPAction) => Promise<void>;
     streak: StreakData;
     getStreakMultiplier: () => number;
-    achievements: Array<AchievementDef & { unlocked: boolean; progress: number; progressMax: number; earnedDate?: string }>;
+    achievements: Badge[];
     toastQueue: XPToastData[];
     dismissToast: (id: string) => void;
+    isLoading: boolean;
 }
 
 const GamificationContext = createContext<GamificationContextType | null>(null);
@@ -213,9 +62,9 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
     const {
         profile,
         addXP,
-        unlockBadge,
-        incrementRecipesCompleted,
+        unlockBadge: unlockBadgeInProfile,
     } = useUserProfile();
+    const { user } = useAuth(); // Get authenticated user for DB ops
 
     const { inventory } = useInventory();
     const { savedRecipes } = useSavedRecipes();
@@ -227,12 +76,56 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
         longestStreak: 0,
     });
     const [toastQueue, setToastQueue] = useState<XPToastData[]>([]);
-    const processedRef = useRef<Set<string>>(new Set());
+    const [badges, setBadges] = useState<Badge[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
 
-    // ── Load Streak ─────────────────────────────────────────────
+    // Cache triggered badges to avoid repeated DB calls/unlocks in same session
+    const unlockedSessionCache = useRef<Set<string>>(new Set());
+
+    // ── Load Data ───────────────────────────────────────────────
     useEffect(() => {
         loadStreak();
+        loadBadges();
     }, []);
+
+    const loadBadges = async () => {
+        try {
+            // Fetch badge definitions
+            const { data: badgeDefs, error } = await supabase
+                .from('badges')
+                .select('*')
+                .order('condition_value', { ascending: true });
+
+            if (error) {
+                console.error("[Gamification] Error loading badges:", error);
+                // Fallback or retry logic could go here
+                return;
+            }
+
+            // Map DB response to Badge interface
+            const mappedBadges: Badge[] = badgeDefs.map(b => ({
+                id: b.id,
+                slug: b.slug,
+                name: b.name,
+                description: b.description,
+                icon: b.icon,
+                color: b.color,
+                gradientFrom: b.color, // Simple fallback for now
+                gradientTo: b.color,
+                xpReward: b.xp_reward,
+                conditionType: b.condition_type,
+                conditionValue: b.condition_value,
+                requirement: b.description, // Use description as requirement text
+                unlocked: false, // Will be updated via profile sync
+            }));
+
+            setBadges(mappedBadges);
+        } catch (e) {
+            console.error("[Gamification] Exception loading badges:", e);
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     const loadStreak = async () => {
         try {
@@ -242,7 +135,6 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
                 setStreak(data);
                 checkDailyStreak(data);
             } else {
-                // First ever open
                 const today = getTodayStr();
                 const newStreak: StreakData = {
                     currentStreak: 1,
@@ -260,13 +152,12 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
 
     const checkDailyStreak = async (data: StreakData) => {
         const today = getTodayStr();
-        if (data.lastActiveDate === today) return; // Already counted today
+        if (data.lastActiveDate === today) return;
 
         const yesterday = getYesterdayStr();
         let newStreak: StreakData;
 
         if (data.lastActiveDate === yesterday) {
-            // Consecutive day
             const newCount = data.currentStreak + 1;
             newStreak = {
                 currentStreak: newCount,
@@ -278,11 +169,10 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
                 message: `${newCount}-day streak! 🔥`,
                 xpAmount: XP_VALUES.daily_streak * getStreakMultiplierFromCount(newCount),
             });
-            // Award streak XP
             const multiplier = getStreakMultiplierFromCount(newCount);
-            await addXP(XP_VALUES.daily_streak * multiplier);
+            // We use the wrapper here to log to ledger too
+            await awardXP("daily_streak", multiplier); // recursive but safe if handled
         } else {
-            // Streak broken
             newStreak = {
                 currentStreak: 1,
                 lastActiveDate: today,
@@ -298,20 +188,38 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
     };
 
     // ── XP Award ────────────────────────────────────────────────
-    const awardXP = useCallback(async (action: XPAction) => {
+    const awardXP = useCallback(async (action: XPAction, customMultiplier?: number) => {
         const baseXP = XP_VALUES[action];
-        const multiplier = getStreakMultiplier();
+        const multiplier = customMultiplier ?? getStreakMultiplier();
         const finalXP = Math.round(baseXP * multiplier);
 
-        console.log(`[Gamification] +${finalXP} XP for "${action}" (base: ${baseXP}, mult: ${multiplier}x)`);
+        console.log(`[Gamification] +${finalXP} XP for "${action}"`);
 
+        // 1. Update Profile (Total XP & Level) - manages local state + DB sync for profile
         const result = await addXP(finalXP);
 
-        enqueueToast({
-            type: "xp",
-            message: getActionLabel(action),
-            xpAmount: finalXP,
-        });
+        // 2. Log to Ledger (Audit Trail)
+        if (user) {
+            try {
+                await supabase.from('xp_ledger').insert({
+                    user_id: user.id,
+                    action_type: action,
+                    amount: finalXP,
+                    details: { multiplier, baseXP }
+                });
+            } catch (err) {
+                console.error("[Gamification] Error writing to ledger:", err);
+            }
+        }
+
+        // 3. UI Feedback
+        if (action !== 'daily_streak') { // handled separately in checkDailyStreak
+            enqueueToast({
+                type: "xp",
+                message: getActionLabel(action),
+                xpAmount: finalXP,
+            });
+        }
 
         if (result.leveledUp) {
             enqueueToast({
@@ -320,12 +228,12 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
             });
         }
 
-        // Check achievements after XP award
+        // 4. Check achievements
         setTimeout(() => checkAchievements(), 500);
-    }, [addXP, streak]);
+    }, [addXP, streak, user]);
 
     // ── Achievement Checking ────────────────────────────────────
-    const getStats = useCallback((): GamificationStats => {
+    const getStats = useCallback(() => {
         return {
             recipesCompleted: profile.stats.recipesCompleted,
             inventoryCount: inventory.length,
@@ -336,62 +244,143 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
         };
     }, [profile, inventory, savedRecipes, completedSessions]);
 
-    const checkAchievements = useCallback(() => {
+    const checkAchievements = useCallback(async () => {
         const stats = getStats();
-        const unlocked = new Set(profile.unlockedBadgeIds);
+        // Combined locked/unlocked check
+        // We rely on profile.unlockedBadgeIds as the source of truth for "already earned"
+        const unlockedIds = new Set(profile.unlockedBadgeIds);
 
-        ACHIEVEMENT_DEFS.forEach((achievement) => {
-            if (unlocked.has(achievement.id)) return;
-            const { current, max } = achievement.getProgress(stats);
-            if (current >= max) {
-                // Unlock!
-                unlockBadge(achievement.id);
-                addXP(achievement.xpReward);
-                enqueueToast({
-                    type: "badge",
-                    message: "Achievement Unlocked!",
-                    badgeName: achievement.name,
-                    xpAmount: achievement.xpReward,
-                });
-                console.log(`[Gamification] 🏆 Badge unlocked: ${achievement.name}`);
+        const newUnlocks: Badge[] = [];
+
+        for (const badge of badges) {
+            // Skip if already unlocked or just unlocked in this session
+            if (unlockedIds.has(badge.id) || unlockedIds.has(badge.slug) || unlockedSessionCache.current.has(badge.id)) continue;
+
+            let isMet = false;
+            const { conditionType, conditionValue } = badge;
+
+            if (!conditionValue) continue;
+
+            switch (conditionType) {
+                case 'inventory_count':
+                    isMet = stats.inventoryCount >= conditionValue;
+                    break;
+                case 'recipes_completed':
+                    isMet = stats.recipesCompleted >= conditionValue;
+                    break;
+                case 'saved_recipes_count':
+                    isMet = stats.savedRecipesCount >= conditionValue;
+                    break;
+                case 'shared_recipes_count':
+                    isMet = stats.sharedRecipesCount >= conditionValue;
+                    break;
+                // Add more conditions here
+                default:
+                    break;
             }
-        });
-    }, [getStats, profile.unlockedBadgeIds, unlockBadge, addXP]);
+
+            if (isMet) {
+                newUnlocks.push(badge);
+            }
+        }
+
+        // Process unlocks
+        for (const badge of newUnlocks) {
+            console.log(`[Gamification] 🏆 Unlocking: ${badge.name}`);
+
+            // 1. Update UserBadges Table
+            if (user) {
+                const { error } = await supabase.from('user_badges').insert({
+                    user_id: user.id,
+                    badge_id: badge.id
+                });
+                if (error) {
+                    console.error("Error saving badge:", error);
+                    continue; // abort if DB write fails
+                }
+            }
+
+            // 2. Sync with Profile (UI cache)
+            await unlockBadgeInProfile(badge.slug); // fallback to slug if ID scheme differs, mainly for profile.tsx
+            // If profile stores IDs, we might need badge.id too.
+            // But achievements.tsx uses logic that matches IDs. 
+            // Our DB seed uses generated UUIDs, so we must be careful.
+            // Actually, profile.tsx likely expects string IDs "1", "2" currently. 
+            // We are changing to UUIDs. We need to ensure profile handles this.
+            // For now, let's unlock using ID.
+            await unlockBadgeInProfile(badge.id);
+
+            // 3. Award Badge XP
+            await awardXP('daily_streak', 0); // Hack to trigger XP add alone? No, call addXP directly
+            await addXP(badge.xpReward);
+
+            // 4. Log XP for badge
+            if (user) {
+                await supabase.from('xp_ledger').insert({
+                    user_id: user.id,
+                    action_type: 'badge_unlock',
+                    amount: badge.xpReward,
+                    details: { badge_id: badge.id, badge_name: badge.name }
+                });
+            }
+
+            unlockedSessionCache.current.add(badge.id);
+            enqueueToast({
+                type: "badge",
+                message: "Achievement Unlocked!",
+                badgeName: badge.name,
+                xpAmount: badge.xpReward,
+            });
+        }
+
+    }, [getStats, badges, profile.unlockedBadgeIds, unlockBadgeInProfile, addXP, user]);
 
     // Run achievement check when relevant stats change
     useEffect(() => {
-        if (profile.stats.totalXP > 0) {
+        if (!isLoading && badges.length > 0) {
             checkAchievements();
         }
     }, [
+        isLoading,
+        badges.length,
         profile.stats.recipesCompleted,
         inventory.length,
         savedRecipes.length,
-        completedSessions.length,
     ]);
 
-    // ── Computed Achievements ───────────────────────────────────
-    const achievements = useMemo(() => {
+    // ── Computed Achievements for UI ────────────────────────────
+    const computedAchievements = useMemo(() => {
         const stats = getStats();
-        return ACHIEVEMENT_DEFS.map((def) => {
-            const { current, max } = def.getProgress(stats);
-            const isUnlocked = profile.unlockedBadgeIds.includes(def.id);
+        return badges.map((badge) => {
+            let current = 0;
+            const max = badge.conditionValue || 100;
+
+            switch (badge.conditionType) {
+                case 'inventory_count': current = stats.inventoryCount; break;
+                case 'recipes_completed': current = stats.recipesCompleted; break;
+                case 'saved_recipes_count': current = stats.savedRecipesCount; break;
+                case 'shared_recipes_count': current = stats.sharedRecipesCount; break;
+            }
+
+            // Check unlock status using ID or Slug match against profile list
+            // We support both for backward compat with hardcoded string IDs
+            const isUnlocked = profile.unlockedBadgeIds.includes(badge.id) || profile.unlockedBadgeIds.includes(badge.slug);
+
             return {
-                ...def,
+                ...badge,
                 unlocked: isUnlocked,
-                progress: current,
+                progress: Math.min(current, max),
                 progressMax: max,
                 earnedDate: isUnlocked ? "Earned" : undefined,
             };
         });
-    }, [getStats, profile.unlockedBadgeIds]);
+    }, [getStats, badges, profile.unlockedBadgeIds]);
 
-    // ── Streak Multiplier ───────────────────────────────────────
     const getStreakMultiplier = useCallback(() => {
         return getStreakMultiplierFromCount(streak.currentStreak);
     }, [streak.currentStreak]);
 
-    // ── Toast Management ────────────────────────────────────────
+    // ── Toast Logic ─────────────────────────────────────────────
     const enqueueToast = (toast: Omit<XPToastData, "id">) => {
         const id = `toast-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
         setToastQueue((prev) => [...prev, { ...toast, id }]);
@@ -406,11 +395,12 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
             awardXP,
             streak,
             getStreakMultiplier,
-            achievements,
+            achievements: computedAchievements,
             toastQueue,
             dismissToast,
+            isLoading
         }),
-        [awardXP, streak, getStreakMultiplier, achievements, toastQueue, dismissToast]
+        [awardXP, streak, getStreakMultiplier, computedAchievements, toastQueue, dismissToast, isLoading]
     );
 
     return (

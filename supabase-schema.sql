@@ -73,6 +73,46 @@ CREATE TABLE IF NOT EXISTS saved_recipes (
 );
 
 -- ============================================
+-- BADGES TABLE (Definitions)
+-- ============================================
+CREATE TABLE IF NOT EXISTS badges (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  slug TEXT NOT NULL UNIQUE, -- e.g. 'pantry-master'
+  name TEXT NOT NULL,
+  description TEXT NOT NULL,
+  icon TEXT NOT NULL,
+  color TEXT NOT NULL,
+  xp_reward INTEGER DEFAULT 0,
+  category TEXT DEFAULT 'general',
+  condition_type TEXT NOT NULL, -- e.g. 'inventory_count', 'recipes_completed'
+  condition_value INTEGER NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ============================================
+-- USER BADGES TABLE (Earned)
+-- ============================================
+CREATE TABLE IF NOT EXISTS user_badges (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  badge_id UUID REFERENCES badges(id),
+  earned_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(user_id, badge_id)
+);
+
+-- ============================================
+-- XP LEDGER TABLE (History)
+-- ============================================
+CREATE TABLE IF NOT EXISTS xp_ledger (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  action_type TEXT NOT NULL,
+  amount INTEGER NOT NULL,
+  details JSONB DEFAULT '{}',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ============================================
 -- INDEXES FOR BETTER QUERY PERFORMANCE
 -- ============================================
 CREATE INDEX IF NOT EXISTS idx_inventory_user ON inventory_items(user_id);
@@ -131,6 +171,19 @@ CREATE POLICY "Allow all shared recipes operations" ON shared_recipes FOR ALL US
 DROP POLICY IF EXISTS "Allow all saved recipes operations" ON saved_recipes;
 CREATE POLICY "Allow all saved recipes operations" ON saved_recipes FOR ALL USING (true) WITH CHECK (true);
 
+ALTER TABLE badges ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_badges ENABLE ROW LEVEL SECURITY;
+ALTER TABLE xp_ledger ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Allow read badges" ON badges;
+CREATE POLICY "Allow read badges" ON badges FOR SELECT USING (true); -- Public read
+
+DROP POLICY IF EXISTS "Allow all user_badges operations" ON user_badges;
+CREATE POLICY "Allow all user_badges operations" ON user_badges FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow all xp_ledger operations" ON xp_ledger;
+CREATE POLICY "Allow all xp_ledger operations" ON xp_ledger FOR ALL USING (true) WITH CHECK (true);
+
 -- ============================================
 -- SUCCESS MESSAGE
 -- ============================================
@@ -153,4 +206,30 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'saved_recipes' AND column_name = 'instructions') THEN
         ALTER TABLE saved_recipes ADD COLUMN instructions JSONB DEFAULT '[]';
     END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'saved_recipes' AND column_name = 'instructions') THEN
+        ALTER TABLE saved_recipes ADD COLUMN instructions JSONB DEFAULT '[]';
+    END IF;
 END $$;
+
+-- ============================================
+-- SEED DATA (Badges)
+-- ============================================
+INSERT INTO badges (slug, name, description, icon, color, xp_reward, condition_type, condition_value)
+VALUES 
+  ('pantry-master', 'Pantry Master', 'Stock your pantry to the max', 'package', '#f97316', 300, 'inventory_count', 50),
+  ('knife-pro', 'Knife Pro', 'Perfect cuts streak', 'utensils-crossed', '#3b82f6', 350, 'recipes_completed', 10),
+  ('sauce-boss', 'Sauce Boss', 'Master of flavors', 'soup', '#a855f7', 400, 'recipes_completed', 5),
+  ('early-bird', 'Early Bird', 'Rise and cook', 'sun', '#eab308', 250, 'recipes_completed', 10),
+  ('socialite', 'Socialite', 'Share the love', 'share-2', '#14b8a6', 300, 'shared_recipes_count', 10),
+  ('speed-chef', 'Speed Chef', 'Cook with lightning speed', 'flame', '#ef4444', 600, 'recipes_completed', 20),
+  ('master-baker', 'Master Baker', 'Baking perfection', 'cookie', '#d97706', 500, 'recipes_completed', 15),
+  ('wine-master', 'Wine Master', 'Pair like a pro', 'wine', '#7c3aed', 500, 'recipes_completed', 25),
+  ('efficiency-king', 'Efficiency King', 'Never waste a second', 'timer', '#06b6d4', 400, 'saved_recipes_count', 20)
+ON CONFLICT (slug) DO UPDATE SET 
+  name = EXCLUDED.name,
+  description = EXCLUDED.description,
+  icon = EXCLUDED.icon,
+  color = EXCLUDED.color,
+  xp_reward = EXCLUDED.xp_reward,
+  condition_type = EXCLUDED.condition_type,
+  condition_value = EXCLUDED.condition_value;
