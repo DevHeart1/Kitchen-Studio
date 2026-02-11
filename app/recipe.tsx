@@ -29,6 +29,7 @@ import {
 import Colors from "@/constants/colors";
 import { useSavedRecipes, RecipeIngredient } from "@/contexts/SavedRecipesContext";
 import { useInventory } from "@/contexts/InventoryContext";
+import { useUsage } from "@/contexts/UsageContext";
 import { extractRecipeFromVideoUrl, DiscoverRecipe } from "./(tabs)/discover";
 import { ActivityIndicator } from "react-native";
 
@@ -87,6 +88,8 @@ const getUnsplashImage = (name: string, photoId?: string) => {
 export default function RecipeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { checkIngredientInPantry } = useInventory();
+  const { incrementUsage } = useUsage();
   const { id, recipeData, videoUrl, substitutedId, newName, newAmount, newImage } = useLocalSearchParams<{
     id: string;
     recipeData: string;
@@ -97,7 +100,6 @@ export default function RecipeScreen() {
     newImage?: string;
   }>();
   const { savedRecipes, saveRecipe, isRecipeSaved } = useSavedRecipes();
-  const { checkIngredientInPantry } = useInventory();
 
   const [isSaving, setIsSaving] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
@@ -135,6 +137,8 @@ export default function RecipeScreen() {
       const result = await extractRecipeFromVideoUrl(url);
       if (result) {
         setExtractedRecipe(result);
+        // Increment usage for successful extraction
+        incrementUsage("video_conversion");
       } else {
         setExtractionError("Failed to extract recipe from video. Please try again.");
       }

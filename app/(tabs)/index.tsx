@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -35,6 +35,8 @@ import { useSavedRecipes } from "@/contexts/SavedRecipesContext";
 import { useCookingHistory } from "@/contexts/CookingHistoryContext";
 import { useInventory } from "@/contexts/InventoryContext";
 import { useSubscription } from "@/contexts/SubscriptionContext";
+import { useUsage } from "@/contexts/UsageContext";
+import FreeLimitModal from "@/components/FreeLimitModal";
 import { RecentCook } from "@/types";
 
 export default function HomeScreen() {
@@ -45,6 +47,9 @@ export default function HomeScreen() {
   const { cookingSessions, inProgressSessions, completedSessions } = useCookingHistory();
   const { inventory, getTotalCount } = useInventory();
   const { isPro } = useSubscription();
+  const { checkLimit, getUsage } = useUsage();
+
+  const [showLimitModal, setShowLimitModal] = useState(false);
 
   const expiringItems = useMemo(() => {
     return inventory.filter((item) => item.status === "expiring");
@@ -64,6 +69,12 @@ export default function HomeScreen() {
     // Basic validation for YouTube
     if (!url.includes("youtube.com") && !url.includes("youtu.be")) {
       alert("Only YouTube links are supported for AI extraction.");
+      return;
+    }
+
+    // Check for free limit
+    if (!isPro && checkLimit("video_conversion", 2)) {
+      setShowLimitModal(true);
       return;
     }
 
@@ -440,6 +451,14 @@ export default function HomeScreen() {
           </View>
         )}
       </ScrollView>
+
+      <FreeLimitModal
+        visible={showLimitModal}
+        onClose={() => setShowLimitModal(false)}
+        featureName="Video-to-Recipe"
+        limit={2}
+        currentUsage={getUsage("video_conversion")}
+      />
     </View>
   );
 }
