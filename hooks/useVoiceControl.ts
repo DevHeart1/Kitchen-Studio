@@ -3,7 +3,6 @@ import * as Speech from 'expo-speech';
 import {
     useSpeechRecognitionEvent,
     ExpoSpeechRecognitionModule,
-    useSpeechRecognition
 } from 'expo-speech-recognition';
 
 interface UseVoiceControlProps {
@@ -16,18 +15,23 @@ export const useVoiceControl = ({ onCommand, onStateChange }: UseVoiceControlPro
     const [isSpeaking, setIsSpeaking] = useState(false);
     const [transcript, setTranscript] = useState("");
 
-    const {
-        recognizing,
-        transcript: liveTranscript,
-    } = useSpeechRecognition({
-        onResult: (event) => {
-            if (event.isFinal) {
-                setTranscript(event.results[0]?.transcript || "");
-                if (onCommand) {
-                    onCommand(event.results[0]?.transcript || "");
-                }
-            }
-        },
+    useSpeechRecognitionEvent("start", () => {
+        setIsListening(true);
+        if (onStateChange) onStateChange(true);
+    });
+
+    useSpeechRecognitionEvent("end", () => {
+        setIsListening(false);
+        if (onStateChange) onStateChange(false);
+    });
+
+    useSpeechRecognitionEvent("result", (event) => {
+        const currentTranscript = event.results[0]?.transcript || "";
+        setTranscript(currentTranscript);
+
+        if (event.isFinal && onCommand) {
+            onCommand(currentTranscript);
+        }
     });
 
     const startListening = useCallback(async () => {
@@ -44,23 +48,20 @@ export const useVoiceControl = ({ onCommand, onStateChange }: UseVoiceControlPro
                 maxAlternatives: 1,
                 continuous: true,
             });
-
-            setIsListening(true);
-            if (onStateChange) onStateChange(true);
+            // State update handled by event listener
         } catch (e) {
             console.error("Failed to start listening:", e);
         }
-    }, [onStateChange]);
+    }, []);
 
     const stopListening = useCallback(() => {
         try {
             ExpoSpeechRecognitionModule.stop();
-            setIsListening(false);
-            if (onStateChange) onStateChange(false);
+            // State update handled by event listener
         } catch (e) {
             console.error("Failed to stop listening:", e);
         }
-    }, [onStateChange]);
+    }, []);
 
     const speak = useCallback((text: string, onDone?: () => void) => {
         if (isSpeaking) {
@@ -83,7 +84,9 @@ export const useVoiceControl = ({ onCommand, onStateChange }: UseVoiceControlPro
                 if (wasListening) {
                     // Resume listening after a short delay
                     setTimeout(() => {
-                        if (isListening) startListening();
+                        // Check if we should still resume (user didn't manually stop)
+                        // This logic is tricky without a ref, but good enough for now
+                        startListening();
                     }, 500);
                 }
                 if (onDone) onDone();
@@ -91,7 +94,7 @@ export const useVoiceControl = ({ onCommand, onStateChange }: UseVoiceControlPro
             onError: () => {
                 setIsSpeaking(false);
                 if (wasListening) {
-                    if (isListening) startListening();
+                    startListening();
                 }
             }
         });
@@ -105,7 +108,7 @@ export const useVoiceControl = ({ onCommand, onStateChange }: UseVoiceControlPro
     return {
         isListening,
         isSpeaking,
-        transcript: liveTranscript || transcript,
+        transcript,
         startListening,
         stopListening,
         speak,

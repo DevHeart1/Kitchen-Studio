@@ -15,6 +15,8 @@ export interface InventoryItem {
   stockPercentage: number;
   quantity?: number;
   unit?: string;
+  baseQuantity?: number;
+  baseUnit?: string;
   expiresIn?: string;
 }
 

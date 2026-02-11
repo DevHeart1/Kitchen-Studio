@@ -29,6 +29,7 @@ export interface DbInventoryItem {
     stock_percentage: number;
     quantity?: number;
     unit?: string;
+    usage_history?: any[];
     expires_in: string | null;
     created_at: string;
     updated_at: string;

@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS inventory_items (
   stock_percentage INTEGER DEFAULT 100,
   quantity REAL DEFAULT 1,
   unit TEXT DEFAULT 'pcs',
+  usage_history JSONB DEFAULT '[]',
   expires_in TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -152,5 +153,9 @@ BEGIN
 
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'saved_recipes' AND column_name = 'instructions') THEN
         ALTER TABLE saved_recipes ADD COLUMN instructions JSONB DEFAULT '[]';
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'inventory_items' AND column_name = 'usage_history') THEN
+        ALTER TABLE inventory_items ADD COLUMN usage_history JSONB DEFAULT '[]';
     END IF;
 END $$;
