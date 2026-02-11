@@ -181,7 +181,7 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
           .from("user_profiles")
           .select("*")
           .eq("user_id", currentUserId)
-          .single();
+          .maybeSingle();
 
         if (profileError && profileError.code !== "PGRST116") {
           console.error("[Profile] Supabase error:", profileError.message);
@@ -601,10 +601,15 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
           .from("user_profiles")
           .select("onboarding_completed")
           .eq("user_id", currentUserId)
-          .single();
+          .maybeSingle();
 
-        if (error && error.code === "PGRST116") {
-          // No profile found, so onboarding not completed
+        if (error) {
+          console.error("[Profile] Error checking onboarding:", error.message);
+          setHasCompletedOnboarding(false);
+          return false;
+        }
+
+        if (!data) {
           setHasCompletedOnboarding(false);
           return false;
         }
