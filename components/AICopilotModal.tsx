@@ -27,7 +27,8 @@ import {
 } from "lucide-react-native";
 import Colors from "@/constants/colors";
 import { useInventory } from "@/contexts/InventoryContext";
-import { useSavedRecipes, SavedRecipe } from "@/contexts/SavedRecipesContext";
+import { useSavedRecipes } from "@/contexts/SavedRecipesContext";
+import { SavedRecipe } from "@/types";
 import { useShoppingList } from "@/contexts/ShoppingListContext";
 import { useGamification } from "@/contexts/GamificationContext";
 import { supabase } from "@/lib/supabase";
