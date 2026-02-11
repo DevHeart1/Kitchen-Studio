@@ -15,14 +15,14 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "app.rork.kitchen-studio"
+      "bundleIdentifier": "app.kitchen-studio"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "app.rork.kitchen_studio"
+      "package": "app.kitchen_studio"
     },
     "web": {
       "favicon": "./assets/images/favicon.png",
