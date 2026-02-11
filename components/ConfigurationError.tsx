@@ -1,6 +1,6 @@
 import React from "react";
 import { View, Text, StyleSheet, Dimensions, TouchableOpacity, Linking, Platform } from "react-native";
-import { AlertTriangle, Database, FileText } from "lucide-react-native";
+import { TriangleAlert, Database, FileText } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import Colors from "@/constants/colors";
 
@@ -24,7 +24,7 @@ export default function ConfigurationError() {
                         <Database size={48} color={Colors.primary} />
                     </View>
                     <View style={styles.alertBadge}>
-                        <AlertTriangle size={20} color={Colors.orange} />
+                        <TriangleAlert size={20} color={Colors.orange} />
                     </View>
                 </View>
 
