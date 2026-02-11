@@ -195,6 +195,34 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
           .order("created_at", { ascending: false });
 
         if (profileData) {
+          // Check for legacy "Alex Ramsey" or "Alex" data and repair it
+          const isLegacy = profileData.name === "Alex Ramsey" || profileData.name === "Alex";
+          if (isLegacy) {
+            const correctName = user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split('@')[0] || "Chef";
+            console.log("[Profile] Detected legacy profile. Repairing to:", correctName);
+
+            // Update DB immediately
+            const { error: updateError } = await supabase
+              .from("user_profiles")
+              .update({
+                name: correctName,
+                title: "Kitchen Novice",
+                level: 1,
+                total_xp: 0,
+                recipes_completed: 0,
+                cook_time: "0h",
+                accuracy: 0
+              })
+              .eq("user_id", currentUserId);
+
+            if (!updateError) {
+              profileData.name = correctName;
+              profileData.title = "Kitchen Novice";
+              profileData.level = 1;
+              profileData.total_xp = 0;
+            }
+          }
+
           setProfile(dbToFrontend(profileData, recipesData || []));
           const dbOnboardingCompleted = profileData.onboarding_completed === true;
           setHasCompletedOnboarding(prev => prev === true ? true : dbOnboardingCompleted);
@@ -262,6 +290,21 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
       const stored = await AsyncStorage.getItem(STORAGE_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
+
+        // Filter out legacy "Alex Ramsey" or "Alex" from local storage
+        if (parsed.name === "Alex Ramsey" || parsed.name === "Alex") {
+          console.log("[Profile] Found legacy profile in AsyncStorage. Resetting to defaults.");
+          parsed.name = "Chef";
+          parsed.title = "Kitchen Novice";
+          parsed.level = 1;
+          if (parsed.stats) {
+            parsed.stats.totalXP = 0;
+            parsed.stats.recipesCompleted = 0;
+            parsed.stats.cookTime = "0h";
+            parsed.stats.accuracy = 0;
+          }
+        }
+
         setProfile({ ...DEFAULT_PROFILE, ...parsed });
         const storedCompleted = parsed.onboardingCompleted === true;
         setHasCompletedOnboarding(prev => prev === true ? true : storedCompleted);

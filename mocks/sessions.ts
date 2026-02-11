@@ -121,5 +121,5 @@ export const recentCooks: RecentCook[] = [
 
 export const userProfile = {
   avatar: "https://lh3.googleusercontent.com/aida-public/AB6AXuC0Hhp4xPb80ReWCi9pu-7hjtJDxqcyCPfc7K6XxjIk7aCB9D9r0VT41struXYkzbuiYT954NfldWNWu8-Rb4omGyQBIBzHteHmtsnk2TCE6stdbRuY9wzcNLXEvciQTDSONpvG-nig7BlxlU9ZWqqI755pCcY4uboGcrgGOEzcHOccJgQw8CmspyDe-IdHT8zUitGh88hu-YKr83DI1lVTHKOzkXKg_h-9dktzdmSBGipgYc4dzBh7PqxWdjPgzNphKuN4K8lcQA",
-  name: "Alex",
+  name: "Chef",
 };
