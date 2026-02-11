@@ -29,12 +29,15 @@ import {
   X,
   Trophy,
   Map,
+  Crown,
+  Sparkles,
 } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
 import Colors from "@/constants/colors";
 import { useUserProfile } from "@/contexts/UserProfileContext";
 import { useSavedRecipes } from "@/contexts/SavedRecipesContext";
 import { useCookingHistory } from "@/contexts/CookingHistoryContext";
+import { useSubscription } from "@/contexts/SubscriptionContext";
 
 const BADGE_ICONS: Record<string, React.ComponentType<{ size: number; color: string }>> = {
   "1": Package,
@@ -65,6 +68,7 @@ export default function ProfileScreen() {
   const router = useRouter();
   const { profile, getXPProgress } = useUserProfile();
   const { inProgressSessions } = useCookingHistory();
+  const { isPro } = useSubscription();
   const { savedRecipes } = useSavedRecipes();
   const [selectedRecipe, setSelectedRecipe] = useState<{
     id: string;
@@ -131,6 +135,13 @@ export default function ProfileScreen() {
 
   const handleRecentCooks = () => {
     router.push("/recent-cooks");
+  };
+
+  const handleUpgrade = () => {
+    if (Platform.OS !== "web") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    router.push("/paywall");
   };
 
   const renderBadge = (badgeId: string, index: number) => {
@@ -302,8 +313,51 @@ export default function ProfileScreen() {
         </View>
 
         <View style={styles.quickActions}>
+          {!isPro && (
+            <TouchableOpacity
+              style={styles.proCard}
+              onPress={handleUpgrade}
+              activeOpacity={0.8}
+            >
+              <View style={styles.proCardGlow} />
+              <View style={styles.proCardContent}>
+                <View style={styles.proIconContainer}>
+                  <Crown size={22} color="#FFD700" />
+                </View>
+                <View style={styles.proTextContainer}>
+                  <View style={styles.proTitleRow}>
+                    <Text style={styles.proTitle}>Upgrade to Pro</Text>
+                    <View style={styles.proBadge}>
+                      <Sparkles size={10} color={Colors.backgroundDark} />
+                      <Text style={styles.proBadgeText}>PRO</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.proSubtitle}>
+                    Unlimited extractions, AR cooking & more
+                  </Text>
+                </View>
+              </View>
+              <ChevronRight size={20} color="#FFD700" />
+            </TouchableOpacity>
+          )}
+
+          {isPro && (
+            <View style={styles.proActiveCard}>
+              <View style={styles.proActiveIcon}>
+                <Crown size={20} color={Colors.primary} />
+              </View>
+              <View style={styles.proActiveContent}>
+                <Text style={styles.proActiveTitle}>Kitchen Studio Pro</Text>
+                <Text style={styles.proActiveSubtitle}>All premium features unlocked</Text>
+              </View>
+              <View style={styles.proActiveBadge}>
+                <Text style={styles.proActiveBadgeText}>ACTIVE</Text>
+              </View>
+            </View>
+          )}
+
           <TouchableOpacity
-            style={styles.quickActionCard}
+            style={[styles.quickActionCard, { marginTop: 12 }]}
             onPress={handleProgressionMap}
             activeOpacity={0.8}
           >
@@ -720,5 +774,113 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: Colors.textMuted,
     marginTop: 2,
+  },
+  proCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255, 215, 0, 0.08)",
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: "rgba(255, 215, 0, 0.2)",
+    overflow: "hidden",
+    position: "relative",
+  },
+  proCardGlow: {
+    position: "absolute",
+    top: -20,
+    right: -20,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: "rgba(255, 215, 0, 0.15)",
+  },
+  proCardContent: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  proIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: "rgba(255, 215, 0, 0.15)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  proTextContainer: {
+    flex: 1,
+  },
+  proTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  proTitle: {
+    fontSize: 15,
+    fontWeight: "700" as const,
+    color: "#FFD700",
+  },
+  proBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: "#FFD700",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  proBadgeText: {
+    fontSize: 9,
+    fontWeight: "800" as const,
+    color: Colors.backgroundDark,
+  },
+  proSubtitle: {
+    fontSize: 12,
+    color: "rgba(255, 215, 0, 0.7)",
+    marginTop: 2,
+  },
+  proActiveCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(43, 238, 91, 0.08)",
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: "rgba(43, 238, 91, 0.2)",
+  },
+  proActiveIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: "rgba(43, 238, 91, 0.15)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  proActiveContent: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  proActiveTitle: {
+    fontSize: 15,
+    fontWeight: "700" as const,
+    color: Colors.primary,
+  },
+  proActiveSubtitle: {
+    fontSize: 12,
+    color: "rgba(43, 238, 91, 0.7)",
+    marginTop: 2,
+  },
+  proActiveBadge: {
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  proActiveBadgeText: {
+    fontSize: 10,
+    fontWeight: "700" as const,
+    color: Colors.backgroundDark,
   },
 });

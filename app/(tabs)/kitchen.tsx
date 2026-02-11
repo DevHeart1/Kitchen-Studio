@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Image,
   Animated,
+  Platform,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -25,16 +26,21 @@ import {
   Search,
   ChefHat,
   AlertTriangle,
+  Crown,
+  ArrowRight,
 } from "lucide-react-native";
 import Colors from "@/constants/colors";
 import { useSavedRecipes, SavedRecipe } from "@/contexts/SavedRecipesContext";
 import { useInventory } from "@/contexts/InventoryContext";
+import { useSubscription } from "@/contexts/SubscriptionContext";
+import * as Haptics from "expo-haptics";
 
 export default function KitchenScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { savedRecipes, removeRecipe } = useSavedRecipes();
   const { inventory, checkIngredientInPantry, getTotalCount, getExpiringCount } = useInventory();
+  const { isPro } = useSubscription();
 
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
@@ -126,6 +132,13 @@ export default function KitchenScreen() {
 
   const handleScanItems = () => {
     router.push("/scanner");
+  };
+
+  const handleUpgrade = () => {
+    if (Platform.OS !== "web") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    router.push("/paywall");
   };
 
   const handleRecipePress = (recipe: SavedRecipe) => {
@@ -312,10 +325,44 @@ export default function KitchenScreen() {
       >
         <View style={styles.header}>
           <Text style={styles.title}>My Kitchen</Text>
-          <TouchableOpacity style={styles.iconButton} onPress={() => router.push("/settings")}>
-            <Settings size={20} color={Colors.white} />
-          </TouchableOpacity>
+          <View style={styles.headerRight}>
+            {!isPro && (
+              <TouchableOpacity 
+                style={styles.proHeaderButton} 
+                onPress={handleUpgrade}
+                activeOpacity={0.8}
+              >
+                <Crown size={14} color="#FFD700" />
+                <Text style={styles.proHeaderText}>PRO</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity style={styles.iconButton} onPress={() => router.push("/settings")}>
+              <Settings size={20} color={Colors.white} />
+            </TouchableOpacity>
+          </View>
         </View>
+
+        {!isPro && (
+          <TouchableOpacity
+            style={styles.proUpgradeBanner}
+            onPress={handleUpgrade}
+            activeOpacity={0.9}
+          >
+            <View style={styles.proBannerGlow} />
+            <View style={styles.proBannerContent}>
+              <View style={styles.proBannerIcon}>
+                <Crown size={20} color="#FFD700" />
+              </View>
+              <View style={styles.proBannerText}>
+                <Text style={styles.proBannerTitle}>Unlock Premium Features</Text>
+                <Text style={styles.proBannerSubtitle}>Unlimited video extractions, AR cooking & more</Text>
+              </View>
+            </View>
+            <View style={styles.proBannerArrow}>
+              <ArrowRight size={16} color="#FFD700" />
+            </View>
+          </TouchableOpacity>
+        )}
 
         {isFullyEmpty ? (
           renderFullEmptyState()
@@ -926,5 +973,82 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "700" as const,
     color: Colors.backgroundDark,
+  },
+  headerRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  proHeaderButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "rgba(255, 215, 0, 0.15)",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(255, 215, 0, 0.3)",
+  },
+  proHeaderText: {
+    fontSize: 11,
+    fontWeight: "700" as const,
+    color: "#FFD700",
+  },
+  proUpgradeBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255, 215, 0, 0.08)",
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: "rgba(255, 215, 0, 0.2)",
+    overflow: "hidden",
+    position: "relative",
+  },
+  proBannerGlow: {
+    position: "absolute",
+    top: -30,
+    right: -30,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: "rgba(255, 215, 0, 0.12)",
+  },
+  proBannerContent: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  proBannerIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: "rgba(255, 215, 0, 0.15)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  proBannerText: {
+    flex: 1,
+  },
+  proBannerTitle: {
+    fontSize: 14,
+    fontWeight: "700" as const,
+    color: "#FFD700",
+  },
+  proBannerSubtitle: {
+    fontSize: 11,
+    color: "rgba(255, 215, 0, 0.7)",
+    marginTop: 2,
+  },
+  proBannerArrow: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "rgba(255, 215, 0, 0.15)",
+    alignItems: "center",
+    justifyContent: "center",
   },
 });
