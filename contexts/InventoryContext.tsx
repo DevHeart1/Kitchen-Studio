@@ -152,47 +152,7 @@ export const [InventoryProvider, useInventory] = createContextHook(() => {
     }
   };
 
-  const addItem = useCallback(
-    async (item: Omit<InventoryItem, "id" | "normalizedName">) => {
-      try {
-        if (useSupabase) {
-          const dbItem = frontendToDb(item, userId || DEMO_USER_ID);
-          const { data, error } = await supabase
-            .from("inventory_items")
-            .insert(dbItem)
-            .select()
-            .single();
 
-          if (error) {
-            console.error("[Inventory] Insert error:", error.message);
-            return false;
-          }
-
-          const newItem = dbToFrontend(data);
-          setInventory((prev) => [newItem, ...prev]);
-          console.log("Item added to inventory:", newItem.name);
-          return true;
-        } else {
-          // AsyncStorage fallback
-          const newItem: InventoryItem = {
-            ...item,
-            id: Date.now().toString(),
-            normalizedName: normalizeIngredientName(item.name),
-          };
-
-          const updated = [...inventory, newItem];
-          setInventory(updated);
-          await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-          console.log("Item added to inventory:", newItem.name);
-          return true;
-        }
-      } catch (error) {
-        console.log("Error adding item:", error);
-        return false;
-      }
-    },
-    [inventory, useSupabase, userId]
-  );
 
   const removeItem = useCallback(
     async (itemId: string) => {
@@ -273,6 +233,67 @@ export const [InventoryProvider, useInventory] = createContextHook(() => {
       }
     },
     [inventory, useSupabase]
+  );
+
+  const addItem = useCallback(
+    async (item: Omit<InventoryItem, "id" | "normalizedName">) => {
+      try {
+        const normalizedName = normalizeIngredientName(item.name);
+        const existingItem = inventory.find((i) =>
+          (i.normalizedName || normalizeIngredientName(i.name)) === normalizedName
+        );
+
+        if (existingItem) {
+          console.log(`[Inventory] Duplicate found for ${item.name}, merging...`);
+          const newQuantity = (existingItem.quantity || 1) + (item.quantity || 1);
+          const newStock = Math.max(existingItem.stockPercentage, item.stockPercentage);
+
+          return updateItem(existingItem.id, {
+            quantity: newQuantity,
+            stockPercentage: newStock,
+            status: newStock > 20 ? "good" : "low", // Auto-update status based on stock
+            addedDate: new Date().toISOString().split('T')[0] // Bump to top
+          });
+        }
+
+        if (useSupabase) {
+          const dbItem = frontendToDb(item, userId || DEMO_USER_ID);
+          const { data, error } = await supabase
+            .from("inventory_items")
+            .insert(dbItem)
+            .select()
+            .single();
+
+          if (error) {
+            console.error("[Inventory] Insert error:", error.message);
+            return false;
+          }
+
+          const newItem = dbToFrontend(data);
+          setInventory((prev) => [newItem, ...prev]);
+          console.log("Item added to inventory:", newItem.name);
+          return true;
+        } else {
+          // AsyncStorage fallback
+          const newItem: InventoryItem = {
+            ...item,
+            id: Date.now().toString(),
+            normalizedName: normalizedName,
+            quantity: item.quantity || 1,
+          };
+
+          const updated = [newItem, ...inventory];
+          setInventory(updated);
+          await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+          console.log("Item added to inventory:", newItem.name);
+          return true;
+        }
+      } catch (error) {
+        console.log("Error adding item:", error);
+        return false;
+      }
+    },
+    [inventory, useSupabase, userId, updateItem]
   );
 
   const checkIngredientInPantry = useCallback(

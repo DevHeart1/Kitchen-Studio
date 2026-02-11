@@ -165,9 +165,10 @@ export default function InventoryScreen() {
   };
 
   const getStockLabel = (percentage: number) => {
-    if (percentage >= 100) return "Full";
     return `${percentage}%`;
   };
+
+
 
   const filterIngredients = (ingredients: InventoryItem[]) => {
     let filtered = ingredients;
@@ -498,7 +499,7 @@ export default function InventoryScreen() {
                         style={[
                           styles.stockPresetChip,
                           selectedItem.stockPercentage === preset.value &&
-                            styles.stockPresetChipActive,
+                          styles.stockPresetChipActive,
                         ]}
                         onPress={() => handleUpdateStock(selectedItem, preset.value)}
                       >
@@ -506,7 +507,7 @@ export default function InventoryScreen() {
                           style={[
                             styles.stockPresetText,
                             selectedItem.stockPercentage === preset.value &&
-                              styles.stockPresetTextActive,
+                            styles.stockPresetTextActive,
                           ]}
                         >
                           {preset.label}
@@ -844,7 +845,7 @@ export default function InventoryScreen() {
                       style={[
                         styles.ingredientCard,
                         ingredient.status === "expiring" &&
-                          styles.ingredientCardExpiring,
+                        styles.ingredientCardExpiring,
                       ]}
                       onPress={() => openDetailModal(ingredient)}
                       activeOpacity={0.7}
@@ -857,14 +858,14 @@ export default function InventoryScreen() {
                         style={[
                           styles.ingredientImage,
                           ingredient.status === "expiring" &&
-                            styles.ingredientImageGrayscale,
+                          styles.ingredientImageGrayscale,
                         ]}
                       />
                       <View style={styles.ingredientInfo}>
                         <View style={styles.ingredientHeader}>
                           <Text
                             style={styles.ingredientName}
-                            numberOfLines={1}
+                            numberOfLines={2}
                           >
                             {ingredient.name}
                           </Text>
@@ -897,10 +898,11 @@ export default function InventoryScreen() {
                           style={[
                             styles.ingredientDate,
                             ingredient.status === "expiring" &&
-                              styles.ingredientDateExpiring,
+                            styles.ingredientDateExpiring,
                           ]}
                         >
                           {ingredient.addedDate}
+                          {(ingredient.quantity || 1) > 1 ? ` • ${ingredient.quantity} units` : ""}
                         </Text>
                         <View style={styles.progressRow}>
                           <View style={styles.progressBar}>
