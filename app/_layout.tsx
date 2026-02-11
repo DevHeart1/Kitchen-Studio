@@ -242,11 +242,20 @@ function RootLayoutNav() {
           gestureEnabled: false,
         }}
       />
+      <Stack.Screen
+        name="paywall"
+        options={{
+          headerShown: false,
+          presentation: "fullScreenModal",
+          animation: "slide_from_bottom",
+        }}
+      />
     </Stack>
   );
 }
 
 import { SubscriptionProvider } from "@/contexts/SubscriptionContext";
+import { ShoppingListProvider } from "@/contexts/ShoppingListContext";
 
 function AppProviders({ children }: { children: React.ReactNode }) {
   return (
@@ -254,13 +263,15 @@ function AppProviders({ children }: { children: React.ReactNode }) {
       <DialogProvider>
         <InventoryProvider>
           <NotificationProvider>
-            <SavedRecipesProvider>
-              <SubscriptionProvider>
-                <UserProfileProvider>
-                  <CookingHistoryProvider>{children}</CookingHistoryProvider>
-                </UserProfileProvider>
-              </SubscriptionProvider>
-            </SavedRecipesProvider>
+            <ShoppingListProvider>
+              <SavedRecipesProvider>
+                <SubscriptionProvider>
+                  <UserProfileProvider>
+                    <CookingHistoryProvider>{children}</CookingHistoryProvider>
+                  </UserProfileProvider>
+                </SubscriptionProvider>
+              </SavedRecipesProvider>
+            </ShoppingListProvider>
           </NotificationProvider>
         </InventoryProvider>
       </DialogProvider>

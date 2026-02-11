@@ -29,7 +29,7 @@ serve(async (req) => {
 
         const genAI = new GoogleGenerativeAI(apiKey);
         const model = genAI.getGenerativeModel({
-            model: "gemini-1.5-flash",
+            model: "gemini-3-flash-preview",
             generationConfig: { responseMimeType: "application/json" }
         });
 
@@ -65,9 +65,20 @@ serve(async (req) => {
         const result = await model.generateContent(systemPrompt);
         const responseText = result.response.text();
 
-        console.log("[GenerateRecipe] Gemini Response received");
+        console.log("[GenerateRecipe] Gemini Response received, length:", responseText.length);
 
-        return new Response(responseText, {
+        // Clean JSON if needed
+        let cleaned = responseText.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+
+        let parsed;
+        try {
+            parsed = JSON.parse(cleaned);
+        } catch (e) {
+            console.error("[GenerateRecipe] Failed to parse JSON:", cleaned.substring(0, 200));
+            throw new Error("Failed to parse recipe from AI response");
+        }
+
+        return new Response(JSON.stringify(parsed), {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
 
