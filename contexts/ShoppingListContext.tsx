@@ -25,7 +25,6 @@ interface DbShoppingListItem {
 }
 
 const STORAGE_KEY = "shopping_list";
-const DEMO_USER_ID = "demo-user-shopping-list";
 
 // Check if Supabase is configured
 const isSupabaseConfigured = (): boolean => {

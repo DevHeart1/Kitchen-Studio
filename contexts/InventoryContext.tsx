@@ -20,7 +20,6 @@ export interface InventoryItem {
 
 const STORAGE_KEY = "pantry_inventory";
 const MOCK_CLEARED_KEY = "pantry_mock_cleared_v3";
-const DEMO_USER_ID = "demo-user-00000000-0000-0000-0000-000000000000";
 
 const MOCK_IDS = ["1-1", "1-2", "2-1", "2-2", "3-1", "4-1", "4-2", "4-3"];
 const KNOWN_MOCK_CATEGORIES = ["Snacks", "Grains & Pasta", "Oils & Spices", "Produce", "Dairy", "Proteins", "Beverages", "Condiments"];
@@ -257,7 +256,11 @@ export const [InventoryProvider, useInventory] = createContextHook(() => {
         }
 
         if (useSupabase) {
-          const dbItem = frontendToDb(item, userId || DEMO_USER_ID);
+          if (!userId) {
+            console.error("[Inventory] No user ID found for Supabase insert");
+            return false;
+          }
+          const dbItem = frontendToDb(item, userId);
           const { data, error } = await supabase
             .from("inventory_items")
             .insert(dbItem)
