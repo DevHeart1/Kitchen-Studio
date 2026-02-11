@@ -28,7 +28,9 @@ import {
   AlertTriangle,
   Crown,
   ArrowRight,
+  Bot, // NewAI Icon
 } from "lucide-react-native";
+import AICopilotModal from "@/components/AICopilotModal";
 import Colors from "@/constants/colors";
 import { useSavedRecipes, SavedRecipe } from "@/contexts/SavedRecipesContext";
 import { useInventory } from "@/contexts/InventoryContext";
@@ -45,6 +47,8 @@ export default function KitchenScreen() {
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  const [aiModalVisible, setAiModalVisible] = React.useState(false);
 
   useEffect(() => {
     Animated.parallel([
@@ -327,8 +331,8 @@ export default function KitchenScreen() {
           <Text style={styles.title}>My Kitchen</Text>
           <View style={styles.headerRight}>
             {!isPro && (
-              <TouchableOpacity 
-                style={styles.proHeaderButton} 
+              <TouchableOpacity
+                style={styles.proHeaderButton}
                 onPress={handleUpgrade}
                 activeOpacity={0.8}
               >
@@ -336,11 +340,19 @@ export default function KitchenScreen() {
                 <Text style={styles.proHeaderText}>PRO</Text>
               </TouchableOpacity>
             )}
-            <TouchableOpacity style={styles.iconButton} onPress={() => router.push("/settings")}>
-              <Settings size={20} color={Colors.white} />
+            <TouchableOpacity
+              style={[styles.iconButton, { backgroundColor: Colors.primary + "20", borderColor: Colors.primary + "40", borderWidth: 1 }]}
+              onPress={() => setAiModalVisible(true)}
+            >
+              <Bot size={20} color={Colors.primary} />
             </TouchableOpacity>
           </View>
         </View>
+
+        <AICopilotModal
+          visible={aiModalVisible}
+          onClose={() => setAiModalVisible(false)}
+        />
 
         {!isPro && (
           <TouchableOpacity
