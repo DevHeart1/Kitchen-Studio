@@ -29,6 +29,7 @@ import Colors from "@/constants/colors";
 import { useInventory } from "@/contexts/InventoryContext";
 import { useSavedRecipes, SavedRecipe } from "@/contexts/SavedRecipesContext";
 import { useShoppingList } from "@/contexts/ShoppingListContext";
+import { useGamification } from "@/contexts/GamificationContext";
 import { supabase } from "@/lib/supabase";
 import * as Haptics from "expo-haptics";
 
