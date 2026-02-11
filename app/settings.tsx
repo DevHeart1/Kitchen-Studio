@@ -30,11 +30,13 @@ import {
   HelpCircle,
   FileText,
   MessageSquare,
+  Gem,
 } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
 import Colors from "@/constants/colors";
 import { useUserProfile } from "@/contexts/UserProfileContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { useSubscription } from "@/contexts/SubscriptionContext";
 
 const AVATAR_OPTIONS = [
   "https://images.unsplash.com/photo-1566753323558-f4e0952af115?w=300&h=300&fit=crop&crop=face",
@@ -50,6 +52,7 @@ export default function SettingsScreen() {
   const router = useRouter();
   const { profile, updateName, updateAvatar, updateSettings } = useUserProfile();
   const { signOut } = useAuth();
+  const { isPro, presentCustomerCenter, presentPaywall } = useSubscription();
 
   const [editNameModal, setEditNameModal] = useState(false);
   const [editAvatarModal, setEditAvatarModal] = useState(false);
@@ -234,6 +237,16 @@ export default function SettingsScreen() {
             "Privacy Policy",
             undefined,
             () => router.push("/privacy-policy")
+          )}
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>SUBSCRIPTION</Text>
+          {renderSettingRow(
+            <Gem size={20} color={isPro ? Colors.primary : Colors.textMuted} />,
+            isPro ? "Kitchen Studio Pro" : "Upgrade to Pro",
+            isPro ? "Active" : "Unlock all premium features",
+            isPro ? presentCustomerCenter : presentPaywall
           )}
         </View>
 

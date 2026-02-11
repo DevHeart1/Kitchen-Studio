@@ -84,9 +84,12 @@ const getUnsplashImage = (name: string, photoId?: string) => {
   return "https://images.unsplash.com/photo-1606787366850-de6330128bfc?auto=format&fit=crop&w=200&q=80";
 };
 
+import { useSubscription } from "@/contexts/SubscriptionContext";
+
 export default function RecipeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { isPro, presentPaywall } = useSubscription();
   const { id, recipeData, videoUrl, substitutedId, newName, newAmount, newImage } = useLocalSearchParams<{
     id: string;
     recipeData: string;
@@ -538,15 +541,20 @@ export default function RecipeScreen() {
           <TouchableOpacity
             style={styles.primaryButton}
             activeOpacity={0.8}
-            onPress={() =>
+            onPress={async () => {
+              if (!isPro) {
+                const purchased = await presentPaywall();
+                if (!purchased) return;
+              }
+
               router.push({
                 pathname: "/ar-cooking",
                 params: {
                   id: id || (activeRecipe as any)?.id,
                   recipeData: activeRecipe ? JSON.stringify(activeRecipe) : undefined
                 },
-              })
-            }
+              });
+            }}
             testID="start-ar-cooking-button"
           >
             <Box size={20} color={Colors.backgroundDark} />

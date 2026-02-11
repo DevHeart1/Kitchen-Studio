@@ -34,6 +34,7 @@ import { useSavedRecipes } from "@/contexts/SavedRecipesContext";
 import { useCookingHistory } from "@/contexts/CookingHistoryContext";
 import { useInventory } from "@/contexts/InventoryContext";
 import { RecentCook } from "@/types";
+import { useSubscription } from "@/contexts/SubscriptionContext";
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
@@ -57,11 +58,18 @@ export default function HomeScreen() {
     };
   }, [cookingSessions, inProgressSessions, completedSessions, getTotalCount, savedRecipes]);
 
+  const { isPro, presentPaywall } = useSubscription();
+
   const handleConvert = async (url: string) => {
     // Basic validation for YouTube
     if (!url.includes("youtube.com") && !url.includes("youtu.be")) {
       alert("Only YouTube links are supported for AI extraction.");
       return;
+    }
+
+    if (!isPro) {
+      const purchased = await presentPaywall();
+      if (!purchased) return;
     }
 
     router.push({

@@ -36,12 +36,12 @@ function useProtectedRoute() {
     const currentScreen = segments[1];
     const onOnboardingFlowScreen = currentScreen === "preferences" || currentScreen === "starter-pack";
 
-    console.log("[Navigation] State:", { 
-      isAuthenticated, 
-      hasCompletedOnboarding, 
-      inAuthGroup, 
+    console.log("[Navigation] State:", {
+      isAuthenticated,
+      hasCompletedOnboarding,
+      inAuthGroup,
       currentScreen,
-      segments: segments.join('/') 
+      segments: segments.join('/')
     });
 
     // Not authenticated - allow auth screens, redirect others to onboarding
@@ -246,19 +246,25 @@ function RootLayoutNav() {
   );
 }
 
+import { SubscriptionProvider } from "@/contexts/SubscriptionContext";
+
+// ...
+
 function AppProviders({ children }: { children: React.ReactNode }) {
   return (
     <AuthProvider>
       <DialogProvider>
-        <InventoryProvider>
-          <NotificationProvider>
-            <SavedRecipesProvider>
-              <UserProfileProvider>
-                <CookingHistoryProvider>{children}</CookingHistoryProvider>
-              </UserProfileProvider>
-            </SavedRecipesProvider>
-          </NotificationProvider>
-        </InventoryProvider>
+        <SubscriptionProvider>
+          <InventoryProvider>
+            <NotificationProvider>
+              <SavedRecipesProvider>
+                <UserProfileProvider>
+                  <CookingHistoryProvider>{children}</CookingHistoryProvider>
+                </UserProfileProvider>
+              </SavedRecipesProvider>
+            </NotificationProvider>
+          </InventoryProvider>
+        </SubscriptionProvider>
       </DialogProvider>
     </AuthProvider>
   );
