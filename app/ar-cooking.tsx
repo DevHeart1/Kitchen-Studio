@@ -24,6 +24,7 @@ import {
 import * as Haptics from "expo-haptics";
 import Colors from "@/constants/colors";
 import { useCookingHistory } from "@/contexts/CookingHistoryContext";
+import { useGamification } from "@/contexts/GamificationContext";
 import { RecentCook } from "@/types";
 import { useVoiceControl } from "@/hooks/useVoiceControl";
 
@@ -79,6 +80,7 @@ export default function ARCookingScreen() {
   const [showCompletion, setShowCompletion] = useState(false);
 
   const { addSession, updateSession, inProgressSessions } = useCookingHistory();
+  const { awardXP } = useGamification();
   const [sessionId, setSessionId] = useState<string | null>(null);
 
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -114,7 +116,11 @@ export default function ARCookingScreen() {
     } else {
       setShowCompletion(true);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      if (sessionId) updateSession(sessionId, { progress: 100, completedDate: new Date().toISOString() });
+      if (sessionId) {
+        updateSession(sessionId, { progress: 100, completedDate: new Date().toISOString() });
+        // Award XP for completion
+        awardXP("complete_cook");
+      }
     }
   };
 

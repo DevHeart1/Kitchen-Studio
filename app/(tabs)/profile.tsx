@@ -31,6 +31,9 @@ import {
   Map,
   Crown,
   Sparkles,
+  Cookie,
+  Wine,
+  Timer,
 } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
 import Colors from "@/constants/colors";
@@ -39,34 +42,31 @@ import { useSavedRecipes } from "@/contexts/SavedRecipesContext";
 import { useCookingHistory } from "@/contexts/CookingHistoryContext";
 import { useSubscription } from "@/contexts/SubscriptionContext";
 
-const BADGE_ICONS: Record<string, React.ComponentType<{ size: number; color: string }>> = {
-  "1": Package,
-  "2": UtensilsCrossed,
-  "3": Soup,
-  "4": Sun,
-  "5": Share2,
-};
+import { useGamification } from "@/contexts/GamificationContext";
+import { Badge } from "@/types";
 
-const BADGE_COLORS: Record<string, { color: string; bgColor: string }> = {
-  "1": { color: "#f97316", bgColor: "rgba(249, 115, 22, 0.2)" },
-  "2": { color: "#3b82f6", bgColor: "rgba(59, 130, 246, 0.2)" },
-  "3": { color: "#a855f7", bgColor: "rgba(168, 85, 247, 0.2)" },
-  "4": { color: "#eab308", bgColor: "rgba(234, 179, 8, 0.2)" },
-  "5": { color: "#14b8a6", bgColor: "rgba(20, 184, 166, 0.2)" },
-};
-
-const BADGE_NAMES: Record<string, { name: string; description: string }> = {
-  "1": { name: "Pantry Master", description: "50 items stocked" },
-  "2": { name: "Knife Pro", description: "Perfect cuts streak" },
-  "3": { name: "Sauce Boss", description: "5 master sauces" },
-  "4": { name: "Early Bird", description: "10 morning cooks" },
-  "5": { name: "Socialite", description: "Shared 10 recipes" },
+const getBadgeIcon = (iconName: string, size: number, color: string) => {
+  const icons: Record<string, React.ReactNode> = {
+    package: <Package size={size} color={color} />,
+    utensils: <UtensilsCrossed size={size} color={color} />,
+    "utensils-crossed": <UtensilsCrossed size={size} color={color} />,
+    soup: <Soup size={size} color={color} />,
+    sun: <Sun size={size} color={color} />,
+    share: <Share2 size={size} color={color} />,
+    "share-2": <Share2 size={size} color={color} />,
+    flame: <Flame size={size} color={color} />,
+    cookie: <Cookie size={size} color={color} />,
+    wine: <Wine size={size} color={color} />,
+    timer: <Timer size={size} color={color} />,
+  };
+  return icons[iconName] || <Star size={size} color={color} />;
 };
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { profile, getXPProgress } = useUserProfile();
+  const { achievements } = useGamification();
   const { inProgressSessions } = useCookingHistory();
   const { isPro } = useSubscription();
   const { savedRecipes } = useSavedRecipes();
@@ -78,8 +78,9 @@ export default function ProfileScreen() {
   } | null>(null);
 
   const xpProgress = getXPProgress();
-  const displayBadges = profile.unlockedBadgeIds.slice(0, 3);
-  const hasLockedBadge = profile.unlockedBadgeIds.length < 4;
+  const unlockedBadges = achievements.filter(a => a.unlocked);
+  const displayBadges = unlockedBadges.slice(0, 3);
+  const hasLockedBadge = unlockedBadges.length < achievements.length;
 
   const handleNotifications = () => {
     router.push("/notifications");
@@ -141,30 +142,26 @@ export default function ProfileScreen() {
     if (Platform.OS !== "web") {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
-    router.push("/paywall");
+    router.push("/paywall" as any);
   };
 
-  const renderBadge = (badgeId: string, index: number) => {
-    const IconComponent = BADGE_ICONS[badgeId] || Package;
-    const colors = BADGE_COLORS[badgeId] || { color: "#64748b", bgColor: "rgba(100, 116, 139, 0.3)" };
-    const badgeInfo = BADGE_NAMES[badgeId] || { name: "Badge", description: "Unlocked" };
-
+  const renderBadge = (badge: any, index: number) => {
     return (
       <TouchableOpacity
-        key={badgeId}
+        key={badge.id}
         style={styles.badgeCard}
-        onPress={() => handleBadgePress(badgeId)}
+        onPress={() => handleBadgePress(badge.id)}
         activeOpacity={0.7}
       >
-        <View style={[styles.badgeIcon, { backgroundColor: colors.bgColor }]}>
-          <IconComponent size={20} color={colors.color} />
+        <View style={[styles.badgeIcon, { backgroundColor: badge.color + "20" }]}>
+          {getBadgeIcon(badge.icon, 20, badge.color)}
         </View>
         <View style={styles.badgeInfo}>
           <Text style={styles.badgeName} numberOfLines={1}>
-            {badgeInfo.name}
+            {badge.name}
           </Text>
           <Text style={styles.badgeDesc} numberOfLines={1}>
-            {badgeInfo.description}
+            {badge.description}
           </Text>
         </View>
       </TouchableOpacity>
@@ -196,7 +193,7 @@ export default function ProfileScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.profileSection}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.avatarContainer}
             onPress={handleProgressionMap}
             activeOpacity={0.8}
@@ -211,8 +208,8 @@ export default function ProfileScreen() {
           </TouchableOpacity>
           <Text style={styles.profileName}>{profile.name}</Text>
           <Text style={styles.profileTitle}>{profile.title.toUpperCase()}</Text>
-          
-          <TouchableOpacity 
+
+          <TouchableOpacity
             style={styles.xpContainer}
             onPress={handleProgressionMap}
             activeOpacity={0.8}
@@ -256,7 +253,7 @@ export default function ProfileScreen() {
             </TouchableOpacity>
           </View>
           <View style={styles.badgesGrid}>
-            {displayBadges.map((badgeId, index) => renderBadge(badgeId, index))}
+            {displayBadges.map((badge, index) => renderBadge(badge, index))}
             {hasLockedBadge && (
               <TouchableOpacity
                 style={[styles.badgeCard, styles.badgeCardLocked]}

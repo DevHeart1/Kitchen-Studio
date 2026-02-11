@@ -1,25 +1,11 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import createContextHook from "@nkzw/create-context-hook";
+import { SavedRecipe, GeneratedRecipe } from "@/types";
+import { useGamification } from "@/contexts/GamificationContext";
 import { supabase, DbSavedRecipe } from "@/lib/supabase";
 
-export interface RecipeIngredient {
-  id: string;
-  name: string;
-  amount: string;
-  image: string;
-  substituteSuggestion?: string;
-}
-
-export interface SavedRecipe {
-  id: string;
-  title: string;
-  videoThumbnail: string;
-  videoDuration: string;
-  ingredients: RecipeIngredient[];
-  instructions?: { step: number; text: string; time?: number }[];
-  savedAt: string;
-}
+// Interfaces moved to @/types
 
 const STORAGE_KEY = "saved_recipes";
 const DEMO_USER_ID = "demo-user-00000000-0000-0000-0000-000000000000";
@@ -44,6 +30,7 @@ const dbToFrontend = (item: DbSavedRecipe): SavedRecipe => ({
 export const [SavedRecipesProvider, useSavedRecipes] = createContextHook(() => {
   const [savedRecipes, setSavedRecipes] = useState<SavedRecipe[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const { awardXP } = useGamification();
   const useSupabase = isSupabaseConfigured();
 
   useEffect(() => {
@@ -122,6 +109,7 @@ export const [SavedRecipesProvider, useSavedRecipes] = createContextHook(() => {
 
         await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
         console.log("Recipe saved successfully:", newRecipe.title);
+        awardXP("save_recipe");
         return true;
       }
     } catch (error) {

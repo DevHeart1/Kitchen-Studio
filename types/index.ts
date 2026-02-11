@@ -83,3 +83,38 @@ export interface Badge {
   progress?: number;
   progressMax?: number;
 }
+export interface RecipeIngredient {
+  id: string;
+  name: string;
+  amount: string;
+  image: string;
+  substituteSuggestion?: string;
+}
+
+export interface SavedRecipe {
+  id: string;
+  title: string;
+  videoThumbnail: string;
+  videoDuration: string;
+  ingredients: RecipeIngredient[];
+  instructions?: { step: number; text: string; time?: number }[];
+  savedAt: string;
+}
+
+export interface GeneratedRecipe {
+  title: string;
+  description: string;
+  ingredients: {
+    name: string;
+    amount: string;
+    inPantry: boolean;
+  }[];
+  instructions: {
+    step: number;
+    text: string;
+  }[];
+  prepTime: string;
+  cookTime: string;
+  difficulty: "Easy" | "Medium" | "Hard";
+  calories: string;
+}

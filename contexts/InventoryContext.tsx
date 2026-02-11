@@ -3,6 +3,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import createContextHook from "@nkzw/create-context-hook";
 import { supabase, DbInventoryItem } from "@/lib/supabase";
 import { useAuth } from "./AuthContext";
+import { useGamification } from "@/contexts/GamificationContext";
 
 export interface InventoryItem {
   id: string;
@@ -82,6 +83,7 @@ const frontendToDb = (
 export const [InventoryProvider, useInventory] = createContextHook(() => {
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const { awardXP } = useGamification();
   const { user, getUserId } = useAuth();
   const useSupabase = isSupabaseConfigured();
   const userId = getUserId();
@@ -285,7 +287,10 @@ export const [InventoryProvider, useInventory] = createContextHook(() => {
           const updated = [newItem, ...inventory];
           setInventory(updated);
           await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-          console.log("Item added to inventory:", newItem.name);
+          console.log("[Inventory] Added new item:", newItem.name);
+
+          // Award XP for adding item
+          awardXP("scan_item"); // Using generic scan_item award for now
           return true;
         }
       } catch (error) {

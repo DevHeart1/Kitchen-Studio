@@ -34,155 +34,17 @@ import * as Haptics from "expo-haptics";
 import Colors from "@/constants/colors";
 import { Badge } from "@/types";
 
-const BADGES: Badge[] = [
-  {
-    id: "1",
-    name: "Pantry Master",
-    description: "Stock your pantry to the max",
-    requirement: "Stock 50 unique ingredients in your pantry inventory.",
-    icon: "package",
-    color: "#f97316",
-    gradientFrom: "#f97316",
-    gradientTo: "#f59e0b",
-    unlocked: true,
-    earnedDate: "Sep 28, 2023",
-    xpReward: 300,
-    reward: "Recipe",
-    rewardType: "recipe",
-  },
-  {
-    id: "2",
-    name: "Knife Pro",
-    description: "Master the blade",
-    requirement: "Perform 50 perfect vegetable cuts in AR mode without error.",
-    icon: "utensils",
-    color: "#3b82f6",
-    gradientFrom: "#3b82f6",
-    gradientTo: "#06b6d4",
-    unlocked: true,
-    earnedDate: "Oct 12, 2023",
-    xpReward: 500,
-    reward: "Skin",
-    rewardType: "skin",
-  },
-  {
-    id: "3",
-    name: "Sauce Boss",
-    description: "Master the art of sauces",
-    requirement: "Successfully prepare 5 different master sauce recipes.",
-    icon: "soup",
-    color: "#a855f7",
-    gradientFrom: "#a855f7",
-    gradientTo: "#ec4899",
-    unlocked: true,
-    earnedDate: "Oct 20, 2023",
-    xpReward: 400,
-    reward: "Title",
-    rewardType: "title",
-  },
-  {
-    id: "4",
-    name: "Early Bird",
-    description: "Rise and cook",
-    requirement: "Complete 10 recipes before 8 AM.",
-    icon: "sun",
-    color: "#eab308",
-    gradientFrom: "#eab308",
-    gradientTo: "#f59e0b",
-    unlocked: true,
-    earnedDate: "Nov 5, 2023",
-    xpReward: 250,
-    reward: "Recipe",
-    rewardType: "recipe",
-  },
-  {
-    id: "5",
-    name: "Socialite",
-    description: "Share your culinary journey",
-    requirement: "Share 10 completed recipes with the community.",
-    icon: "share",
-    color: "#14b8a6",
-    gradientFrom: "#14b8a6",
-    gradientTo: "#10b981",
-    unlocked: true,
-    earnedDate: "Nov 15, 2023",
-    xpReward: 350,
-    reward: "Tool",
-    rewardType: "tool",
-  },
-  {
-    id: "6",
-    name: "Grill King",
-    description: "Master the flames",
-    requirement: "Complete 20 grilling recipes with perfect technique scores.",
-    icon: "flame",
-    color: "#64748b",
-    gradientFrom: "#64748b",
-    gradientTo: "#475569",
-    unlocked: false,
-    xpReward: 600,
-    reward: "Skin",
-    rewardType: "skin",
-    progress: 12,
-    progressMax: 20,
-  },
-  {
-    id: "7",
-    name: "Master Baker",
-    description: "Baking perfection",
-    requirement: "Bake 15 different pastries with 90%+ accuracy.",
-    icon: "cookie",
-    color: "#64748b",
-    gradientFrom: "#64748b",
-    gradientTo: "#475569",
-    unlocked: false,
-    xpReward: 550,
-    reward: "Recipe",
-    rewardType: "recipe",
-    progress: 8,
-    progressMax: 15,
-  },
-  {
-    id: "8",
-    name: "Drink Master",
-    description: "Mixology expert",
-    requirement: "Prepare 25 different beverages and cocktails.",
-    icon: "wine",
-    color: "#64748b",
-    gradientFrom: "#64748b",
-    gradientTo: "#475569",
-    unlocked: false,
-    xpReward: 450,
-    reward: "Tool",
-    rewardType: "tool",
-    progress: 5,
-    progressMax: 25,
-  },
-  {
-    id: "9",
-    name: "Speed Cook",
-    description: "Fast and flawless",
-    requirement: "Complete 10 recipes under the suggested time limit.",
-    icon: "timer",
-    color: "#64748b",
-    gradientFrom: "#64748b",
-    gradientTo: "#475569",
-    unlocked: false,
-    xpReward: 400,
-    reward: "Title",
-    rewardType: "title",
-    progress: 3,
-    progressMax: 10,
-  },
-];
+import { useGamification } from "@/contexts/GamificationContext";
 
 const getIconComponent = (iconName: string, size: number, color: string) => {
   const icons: Record<string, React.ReactNode> = {
     package: <Package size={size} color={color} />,
     utensils: <UtensilsCrossed size={size} color={color} />,
+    "utensils-crossed": <UtensilsCrossed size={size} color={color} />,
     soup: <Soup size={size} color={color} />,
     sun: <Sun size={size} color={color} />,
     share: <Share2 size={size} color={color} />,
+    "share-2": <Share2 size={size} color={color} />,
     flame: <Flame size={size} color={color} />,
     cookie: <Cookie size={size} color={color} />,
     wine: <Wine size={size} color={color} />,
@@ -194,11 +56,12 @@ const getIconComponent = (iconName: string, size: number, color: string) => {
 export default function AchievementsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { achievements } = useGamification();
   const [selectedBadge, setSelectedBadge] = useState<Badge | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
 
-  const unlockedCount = BADGES.filter((b) => b.unlocked).length;
-  const totalCount = BADGES.length;
+  const unlockedCount = achievements.filter((b) => b.unlocked).length;
+  const totalCount = achievements.length;
   const progressPercent = (unlockedCount / totalCount) * 100;
 
   const handleBadgePress = (badge: Badge) => {
@@ -326,7 +189,7 @@ export default function AchievementsScreen() {
         </View>
 
         <View style={styles.badgesGrid}>
-          {BADGES.map((badge) => (
+          {achievements.map((badge) => (
             <TouchableOpacity
               key={badge.id}
               style={[styles.badgeItem, !badge.unlocked && styles.badgeItemLocked]}

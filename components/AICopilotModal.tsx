@@ -67,6 +67,7 @@ export default function AICopilotModal({
     const { inventory } = useInventory();
     const { saveRecipe } = useSavedRecipes();
     const { addItem } = useShoppingList();
+    const { awardXP } = useGamification();
 
     const [prompt, setPrompt] = useState("");
     const [isLoading, setIsLoading] = useState(false);
@@ -108,6 +109,7 @@ export default function AICopilotModal({
             if (fnError) throw fnError;
             if (data?.recipe) {
                 setRecipe(data.recipe);
+                awardXP("ai_recipe");
             } else {
                 throw new Error("No recipe returned");
             }
