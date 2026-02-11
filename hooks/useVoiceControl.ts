@@ -4,7 +4,7 @@ import {
     useSpeechRecognitionEvent,
     ExpoSpeechRecognitionModule,
     useSpeechRecognition
-} from '@jamsch/expo-speech-recognition';
+} from 'expo-speech-recognition';
 
 interface UseVoiceControlProps {
     onCommand?: (transcript: string) => void;
