@@ -294,9 +294,15 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
                     user_id: user.id,
                     badge_id: badge.id
                 });
+
                 if (error) {
-                    console.error("Error saving badge:", error);
-                    continue; // abort if DB write fails
+                    // Check for unique violation (code 23505) - means already unlocked
+                    if (error.code === '23505') {
+                        console.warn(`[Gamification] Badge ${badge.name} already in DB, skipping insert.`);
+                    } else {
+                        console.error("Error saving badge:", JSON.stringify(error, null, 2));
+                        continue; // abort if legitimate DB write fail
+                    }
                 }
             }
 

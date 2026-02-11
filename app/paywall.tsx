@@ -31,21 +31,6 @@ const { width } = Dimensions.get("window");
 
 type PlanType = "monthly" | "yearly";
 
-interface FeatureRow {
-  name: string;
-  free: string | boolean;
-  pro: string | boolean;
-  proHighlight?: "unlimited" | "gold" | "check" | "realtime";
-}
-
-const FEATURES: FeatureRow[] = [
-  { name: "Video-to-Recipe", free: "2 / day", pro: "Unlimited", proHighlight: "unlimited" },
-  { name: "Pantry Scan", free: "Basic", pro: "Full + Sub", proHighlight: "gold" },
-  { name: "Discovery", free: true, pro: true, proHighlight: "check" },
-  { name: "AR Cooking", free: "Overview", pro: "Guided Full", proHighlight: "gold" },
-  { name: "Technique AI", free: "Preview", pro: "Real-time", proHighlight: "realtime" },
-  { name: "Priority Access", free: false, pro: true, proHighlight: "check" },
-];
 
 export default function PaywallScreen() {
   const router = useRouter();
@@ -53,6 +38,7 @@ export default function PaywallScreen() {
     isLoading,
     isPro,
     offerings,
+    paywallContent,
     buyPackage,
     restorePurchases,
   } = useSubscription();
@@ -61,6 +47,7 @@ export default function PaywallScreen() {
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
 
+  // ... unchanged animations ...
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -229,6 +216,8 @@ export default function PaywallScreen() {
     );
   }
 
+  const { features, hero_title, hero_subtitle, trial_text } = paywallContent;
+
   return (
     <View style={styles.container}>
       <LinearGradient
@@ -282,9 +271,9 @@ export default function PaywallScreen() {
               },
             ]}
           >
-            <Text style={styles.heroTitle}>Level Up Your Kitchen</Text>
+            <Text style={styles.heroTitle}>{hero_title}</Text>
             <Text style={styles.heroSubtitle}>
-              Compare plans and unlock the full power of AI cooking.
+              {hero_subtitle}
             </Text>
           </Animated.View>
 
@@ -306,12 +295,12 @@ export default function PaywallScreen() {
             </View>
 
             <View style={styles.featuresTable}>
-              {FEATURES.map((feature, index) => (
+              {features.map((feature, index) => (
                 <View
                   key={index}
                   style={[
                     styles.featureRow,
-                    index < FEATURES.length - 1 && styles.featureRowBorder,
+                    index < features.length - 1 && styles.featureRowBorder,
                   ]}
                 >
                   <Text style={styles.featureName}>{feature.name}</Text>
@@ -319,7 +308,7 @@ export default function PaywallScreen() {
                     {renderFeatureValue(feature.free, false)}
                   </View>
                   <View style={styles.featureValueCell}>
-                    {renderFeatureValue(feature.pro, true, feature.proHighlight)}
+                    {renderFeatureValue(feature.pro, true, feature.highlight)}
                   </View>
                 </View>
               ))}
@@ -379,8 +368,7 @@ export default function PaywallScreen() {
 
           <View style={styles.ctaSection}>
             <Text style={styles.trialText}>
-              <Text style={styles.trialHighlight}>7 Days Free Trial</Text>
-              , cancel anytime.
+              <Text style={styles.trialHighlight}>{trial_text}</Text>
             </Text>
 
             <Animated.View style={{ transform: [{ scale: pulseAnim }], width: "100%" }}>

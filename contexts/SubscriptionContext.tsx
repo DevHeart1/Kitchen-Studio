@@ -16,11 +16,40 @@ const API_KEYS = {
 
 const ENTITLEMENT_ID = "Kitchen Studio Pro"; // Update this if your entitlement ID is different
 
+export interface FeatureRow {
+    name: string;
+    free: string | boolean;
+    pro: string | boolean;
+    highlight?: "unlimited" | "gold" | "check" | "realtime";
+}
+
+export interface PaywallContent {
+    hero_title: string;
+    hero_subtitle: string;
+    trial_text: string;
+    features: FeatureRow[];
+}
+
+const DEFAULT_PAYWALL_CONTENT: PaywallContent = {
+    hero_title: "Level Up Your Kitchen",
+    hero_subtitle: "Compare plans and unlock the full power of AI cooking.",
+    trial_text: "7 Days Free Trial, cancel anytime.",
+    features: [
+        { name: "Video-to-Recipe", free: "2 / day", pro: "Unlimited", highlight: "unlimited" },
+        { name: "Pantry Scan", free: "Basic", pro: "Full + Sub", highlight: "gold" },
+        { name: "Discovery", free: true, pro: true, highlight: "check" },
+        { name: "AR Cooking", free: "Overview", pro: "Guided Full", highlight: "gold" },
+        { name: "Technique AI", free: "Preview", pro: "Real-time", highlight: "realtime" },
+        { name: "Priority Access", free: false, pro: true, highlight: "check" },
+    ]
+};
+
 interface SubscriptionContextType {
     isPro: boolean;
     isLoading: boolean;
     customerInfo: CustomerInfo | null;
     offerings: PurchasesPackage[];
+    paywallContent: PaywallContent;
     buyPro: () => Promise<boolean>;
     buyPackage: (packageType: "MONTHLY" | "ANNUAL") => Promise<boolean>;
     restorePurchases: () => Promise<void>;
@@ -34,6 +63,7 @@ export const [SubscriptionProvider, useSubscription] = createContextHook<Subscri
         const [isLoading, setIsLoading] = useState(true);
         const [customerInfo, setCustomerInfo] = useState<CustomerInfo | null>(null);
         const [offerings, setOfferings] = useState<PurchasesPackage[]>([]);
+        const [paywallContent, setPaywallContent] = useState<PaywallContent>(DEFAULT_PAYWALL_CONTENT);
 
         useEffect(() => {
             initRevenueCat();
@@ -65,6 +95,24 @@ export const [SubscriptionProvider, useSubscription] = createContextHook<Subscri
                         offerings.current.availablePackages.length !== 0
                     ) {
                         setOfferings(offerings.current.availablePackages);
+
+                        // Extract metadata if available
+                        if (offerings.current.metadata && offerings.current.metadata.paywall) {
+                            try {
+                                const metadata = offerings.current.metadata.paywall as any;
+                                // Simple validation to ensure we have the minimum required fields
+                                if (metadata.features && Array.isArray(metadata.features)) {
+                                    setPaywallContent({
+                                        hero_title: metadata.hero_title || DEFAULT_PAYWALL_CONTENT.hero_title,
+                                        hero_subtitle: metadata.hero_subtitle || DEFAULT_PAYWALL_CONTENT.hero_subtitle,
+                                        trial_text: metadata.trial_text || DEFAULT_PAYWALL_CONTENT.trial_text,
+                                        features: metadata.features
+                                    });
+                                }
+                            } catch (err) {
+                                console.warn("Failed to parse paywall metadata, using default.", err);
+                            }
+                        }
                     }
                 } catch (e) {
                     console.error("Error fetching offerings", e);
@@ -75,6 +123,7 @@ export const [SubscriptionProvider, useSubscription] = createContextHook<Subscri
                 setIsLoading(false);
             }
         };
+
 
         const checkEntitlements = (info: CustomerInfo) => {
             if (
@@ -189,6 +238,7 @@ export const [SubscriptionProvider, useSubscription] = createContextHook<Subscri
             isLoading,
             customerInfo,
             offerings,
+            paywallContent,
             buyPro,
             buyPackage,
             restorePurchases,
