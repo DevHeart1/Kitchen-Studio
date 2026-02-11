@@ -24,8 +24,15 @@ export async function extractRecipeFromVideoUrl(url: string): Promise<DiscoverRe
         // The Edge Function returns the recipe in the correct format including id, image, provenance etc.
         return data as DiscoverRecipe;
 
-    } catch (error) {
-        console.error("Culinara Engine error (Client):", error);
+    } catch (error: any) {
+        if (error.message === "TypeError: Failed to fetch" || error.message.includes("fetch")) {
+            console.error(
+                "[Extraction] Network Error: Failed to connect to Supabase Edge Function. Check if the function is deployed or if you are offline.",
+                error
+            );
+        } else {
+            console.error("Culinara Engine error (Client):", error);
+        }
         return null;
     }
 }
