@@ -188,6 +188,24 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         [isDemoMode, markAsEntered]
     );
 
+    const resetPassword = useCallback(
+        async (email: string) => {
+            if (isDemoMode) {
+                console.log("[Auth] Demo mode - reset password simulated");
+                return { error: null };
+            }
+
+            const { error } = await supabase.auth.resetPasswordForEmail(email);
+
+            if (error) {
+                console.error("[Auth] Reset password error:", error.message);
+            }
+
+            return { error };
+        },
+        [isDemoMode]
+    );
+
     const signOut = useCallback(async () => {
         if (isDemoMode) {
             console.log("[Auth] Demo mode - sign out simulated");
@@ -333,6 +351,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
             signInWithGoogle,
             signInWithApple,
             resendConfirmationEmail,
+            resetPassword,
             getUserId,
             markAsEntered,
         }),
@@ -349,6 +368,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
             signInWithGoogle,
             signInWithApple,
             resendConfirmationEmail,
+            resetPassword,
             getUserId,
             markAsEntered,
         ]

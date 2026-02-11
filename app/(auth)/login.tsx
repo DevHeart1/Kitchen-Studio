@@ -27,7 +27,7 @@ const { width, height } = Dimensions.get("window");
 const BACKGROUND_IMAGE = "https://lh3.googleusercontent.com/aida-public/AB6AXuAzVXoa0ajnxy0VYAcQxOE-9mPMvXX5rNIwC2q3AjMNqotiBXTZTDGLt785UEPyNq00NhtCzGCGtzl_9pedZJd5-c0uCb5im3nLTc4SOOMS5rQfILzGyM-K6XXglbaYcg4XaOGPojaq8pL-w_4LdrM0lJ8jn85kkSU3-gdBKy9qlBeToRZFQXja7ey49GGYVEhM2mJ2aGTH6BZslvxUGCWRi6MwVVsWQeXKDzIjWIbl4Ez0tb5tcr2x5Ib8YbepLL36Rtx3BZOflw";
 
 export default function LoginScreen() {
-    const { signIn, signInWithGoogle, signInWithApple, resendConfirmationEmail, isLoading, isDemoMode } = useAuth();
+    const { signIn, signInWithGoogle, signInWithApple, resendConfirmationEmail, resetPassword, isLoading, isDemoMode } = useAuth();
     const { checkOnboardingStatus } = useUserProfile();
     const [showEmailModal, setShowEmailModal] = useState(false);
     const [email, setEmail] = useState("");
@@ -126,6 +126,34 @@ export default function LoginScreen() {
             showCustomAlert("Error", "An unexpected error occurred", 'error');
         } finally {
             setIsResending(false);
+        }
+    };
+
+    const handleForgotPassword = async () => {
+        if (!email.trim()) {
+            setErrors({ ...errors, email: "Please enter your email to reset password" });
+            return;
+        } else if (!/\S+@\S+\.\S+/.test(email)) {
+            setErrors({ ...errors, email: "Please enter a valid email" });
+            return;
+        }
+
+        setIsSubmitting(true);
+        try {
+            const { error } = await resetPassword(email);
+            if (error) {
+                showCustomAlert("Error", error.message || "Failed to send reset email", 'error');
+            } else {
+                showCustomAlert(
+                    "Email Sent",
+                    "Password reset instructions have been sent to your email.",
+                    'success'
+                );
+            }
+        } catch (error) {
+            showCustomAlert("Error", "An unexpected error occurred", 'error');
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -364,7 +392,7 @@ export default function LoginScreen() {
                                 </View>
                             )}
 
-                            <TouchableOpacity style={styles.forgotButton}>
+                            <TouchableOpacity style={styles.forgotButton} onPress={handleForgotPassword}>
                                 <Text style={styles.forgotText}>Forgot password?</Text>
                             </TouchableOpacity>
 
