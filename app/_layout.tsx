@@ -256,6 +256,7 @@ function RootLayoutNav() {
 
 import { SubscriptionProvider } from "@/contexts/SubscriptionContext";
 import { ShoppingListProvider } from "@/contexts/ShoppingListContext";
+import { UsageProvider } from "@/contexts/UsageContext";
 import { GamificationProvider } from "@/contexts/GamificationContext";
 import XPToastManager from "@/components/XPToast";
 
@@ -267,22 +268,25 @@ function AppProviders({ children }: { children: React.ReactNode }) {
           <NotificationProvider>
             <ShoppingListProvider>
               <SavedRecipesProvider>
-                <SubscriptionProvider>
-                  <UserProfileProvider>
-                    <CookingHistoryProvider>
-                      <GamificationProvider>
-                        {children}
-                        <XPToastManager />
-                      </GamificationProvider>
-                    </CookingHistoryProvider>
-                  </UserProfileProvider>
-                </SubscriptionProvider>
+                <UsageProvider>
+                  <SubscriptionProvider>
+                    <UserProfileProvider>
+                      <CookingHistoryProvider>
+                        <GamificationProvider>
+                          {children}
+                          <XPToastManager />
+                        </GamificationProvider>
+                      </CookingHistoryProvider>
+                    </UserProfileProvider>
+                  </SubscriptionProvider>
+                </UsageProvider>
               </SavedRecipesProvider>
             </ShoppingListProvider>
           </NotificationProvider>
-        </InventoryProvider>
-      </DialogProvider>
-    </AuthProvider>
+
+        </InventoryProvider >
+      </DialogProvider >
+    </AuthProvider >
   );
 }
 
