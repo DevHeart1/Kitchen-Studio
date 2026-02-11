@@ -22,7 +22,7 @@ const XP_VALUES = {
 export type XPAction = keyof typeof XP_VALUES;
 
 // ── Streak Storage ──────────────────────────────────────────────
-const STREAK_KEY = "gamification_streak";
+const STREAK_KEY_PREFIX = "gamification_streak_";
 
 interface StreakData {
     currentStreak: number;
@@ -64,7 +64,9 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
         addXP,
         unlockBadge: unlockBadgeInProfile,
     } = useUserProfile();
-    const { user } = useAuth(); // Get authenticated user for DB ops
+    const { user, getUserId } = useAuth();
+    const userId = getUserId();
+    const streakKey = `${STREAK_KEY_PREFIX}${userId}`;
 
     const { inventory } = useInventory();
     const { savedRecipes } = useSavedRecipes();
@@ -79,14 +81,15 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
     const [badges, setBadges] = useState<Badge[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
-    // Cache triggered badges to avoid repeated DB calls/unlocks in same session
     const unlockedSessionCache = useRef<Set<string>>(new Set());
 
-    // ── Load Data ───────────────────────────────────────────────
     useEffect(() => {
-        loadStreak();
-        loadBadges();
-    }, []);
+        if (userId) {
+            unlockedSessionCache.current.clear();
+            loadStreak();
+            loadBadges();
+        }
+    }, [userId]);
 
     const loadBadges = async () => {
         try {
@@ -129,7 +132,7 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
 
     const loadStreak = async () => {
         try {
-            const stored = await AsyncStorage.getItem(STREAK_KEY);
+            const stored = await AsyncStorage.getItem(streakKey);
             if (stored) {
                 const data: StreakData = JSON.parse(stored);
                 setStreak(data);
@@ -141,7 +144,7 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
                     lastActiveDate: today,
                     longestStreak: 1,
                 };
-                await AsyncStorage.setItem(STREAK_KEY, JSON.stringify(newStreak));
+                await AsyncStorage.setItem(streakKey, JSON.stringify(newStreak));
                 setStreak(newStreak);
                 enqueueToast({ type: "streak", message: "Day 1 streak started! 🔥" });
             }
@@ -183,7 +186,7 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
             }
         }
 
-        await AsyncStorage.setItem(STREAK_KEY, JSON.stringify(newStreak));
+        await AsyncStorage.setItem(streakKey, JSON.stringify(newStreak));
         setStreak(newStreak);
     };
 

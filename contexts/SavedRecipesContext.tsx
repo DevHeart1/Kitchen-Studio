@@ -3,19 +3,15 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import createContextHook from "@nkzw/create-context-hook";
 import { SavedRecipe, GeneratedRecipe } from "@/types";
 import { supabase, DbSavedRecipe } from "@/lib/supabase";
+import { useAuth } from "./AuthContext";
 
-// Interfaces moved to @/types
+const STORAGE_KEY_PREFIX = "saved_recipes_";
 
-const STORAGE_KEY = "saved_recipes";
-const DEMO_USER_ID = "demo-user-00000000-0000-0000-0000-000000000000";
-
-// Check if Supabase is configured
 const isSupabaseConfigured = (): boolean => {
   const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
   return !!url && !url.includes("your-project");
 };
 
-// Convert DB recipe to frontend recipe
 const dbToFrontend = (item: DbSavedRecipe): SavedRecipe => ({
   id: item.id,
   title: item.title,
@@ -30,17 +26,25 @@ export const [SavedRecipesProvider, useSavedRecipes] = createContextHook(() => {
   const [savedRecipes, setSavedRecipes] = useState<SavedRecipe[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const useSupabase = isSupabaseConfigured();
+  const { getUserId } = useAuth();
+  const userId = getUserId();
+  const storageKey = `${STORAGE_KEY_PREFIX}${userId}`;
 
   useEffect(() => {
-    loadSavedRecipes();
-  }, []);
+    if (userId) {
+      setSavedRecipes([]);
+      setIsLoading(true);
+      loadSavedRecipes();
+    }
+  }, [userId]);
 
   const loadSavedRecipes = async () => {
     try {
-      if (useSupabase) {
+      if (useSupabase && userId) {
         const { data, error } = await supabase
           .from("saved_recipes")
           .select("*")
+          .eq("user_id", userId)
           .order("saved_at", { ascending: false });
 
         if (error) {
@@ -61,7 +65,7 @@ export const [SavedRecipesProvider, useSavedRecipes] = createContextHook(() => {
 
   const loadFromAsyncStorage = async () => {
     try {
-      const stored = await AsyncStorage.getItem(STORAGE_KEY);
+      const stored = await AsyncStorage.getItem(storageKey);
       if (stored) {
         setSavedRecipes(JSON.parse(stored));
       }
@@ -72,11 +76,11 @@ export const [SavedRecipesProvider, useSavedRecipes] = createContextHook(() => {
 
   const saveRecipe = useCallback(async (recipe: Omit<SavedRecipe, "id" | "savedAt">) => {
     try {
-      if (useSupabase) {
+      if (useSupabase && userId) {
         const { data, error } = await supabase
           .from("saved_recipes")
           .insert({
-            user_id: DEMO_USER_ID,
+            user_id: userId,
             title: recipe.title,
             video_thumbnail: recipe.videoThumbnail,
             video_duration: recipe.videoDuration,
@@ -104,17 +108,15 @@ export const [SavedRecipesProvider, useSavedRecipes] = createContextHook(() => {
 
         const updated = [newRecipe, ...savedRecipes];
         setSavedRecipes(updated);
-
-        await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+        await AsyncStorage.setItem(storageKey, JSON.stringify(updated));
         console.log("Recipe saved successfully:", newRecipe.title);
-        // awardXP("save_recipe"); // Moved to UI layer to avoid circular dependency
         return true;
       }
     } catch (error) {
       console.log("Error saving recipe:", error);
       return false;
     }
-  }, [savedRecipes, useSupabase]);
+  }, [savedRecipes, useSupabase, userId, storageKey]);
 
   const removeRecipe = useCallback(async (recipeId: string) => {
     try {
@@ -135,8 +137,7 @@ export const [SavedRecipesProvider, useSavedRecipes] = createContextHook(() => {
       } else {
         const updated = savedRecipes.filter((r) => r.id !== recipeId);
         setSavedRecipes(updated);
-
-        await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+        await AsyncStorage.setItem(storageKey, JSON.stringify(updated));
         console.log("Recipe removed successfully");
         return true;
       }
@@ -144,7 +145,7 @@ export const [SavedRecipesProvider, useSavedRecipes] = createContextHook(() => {
       console.log("Error removing recipe:", error);
       return false;
     }
-  }, [savedRecipes, useSupabase]);
+  }, [savedRecipes, useSupabase, storageKey]);
 
   const isRecipeSaved = useCallback((title: string) => {
     return savedRecipes.some((r) => r.title === title);

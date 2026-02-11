@@ -2,24 +2,32 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import createContextHook from "@nkzw/create-context-hook";
 import { RecentCook } from "@/types";
+import { useAuth } from "./AuthContext";
 
-const STORAGE_KEY = "cooking_history";
+const STORAGE_KEY_PREFIX = "cooking_history_";
 
 export const [CookingHistoryProvider, useCookingHistory] = createContextHook(() => {
   const [cookingSessions, setCookingSessions] = useState<RecentCook[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const { getUserId } = useAuth();
+  const userId = getUserId();
+  const storageKey = `${STORAGE_KEY_PREFIX}${userId}`;
 
   useEffect(() => {
-    loadHistory();
-  }, []);
+    if (userId) {
+      setCookingSessions([]);
+      setIsLoading(true);
+      loadHistory();
+    }
+  }, [userId]);
 
   const loadHistory = async () => {
     try {
-      const stored = await AsyncStorage.getItem(STORAGE_KEY);
+      const stored = await AsyncStorage.getItem(storageKey);
       if (stored) {
         const parsed = JSON.parse(stored) as RecentCook[];
         setCookingSessions(parsed);
-        console.log("[CookingHistory] Loaded", parsed.length, "sessions");
+        console.log("[CookingHistory] Loaded", parsed.length, "sessions for user", userId);
       }
     } catch (error) {
       console.log("[CookingHistory] Error loading:", error);
@@ -30,7 +38,7 @@ export const [CookingHistoryProvider, useCookingHistory] = createContextHook(() 
 
   const persist = async (sessions: RecentCook[]) => {
     try {
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
+      await AsyncStorage.setItem(storageKey, JSON.stringify(sessions));
     } catch (error) {
       console.log("[CookingHistory] Error persisting:", error);
     }
@@ -42,7 +50,7 @@ export const [CookingHistoryProvider, useCookingHistory] = createContextHook(() 
     await persist(updated);
     console.log("[CookingHistory] Added session:", session.title);
     return session;
-  }, [cookingSessions]);
+  }, [cookingSessions, storageKey]);
 
   const updateSession = useCallback(async (sessionId: string, updates: Partial<RecentCook>) => {
     const updated = cookingSessions.map((s) =>
@@ -51,14 +59,14 @@ export const [CookingHistoryProvider, useCookingHistory] = createContextHook(() 
     setCookingSessions(updated);
     await persist(updated);
     console.log("[CookingHistory] Updated session:", sessionId);
-  }, [cookingSessions]);
+  }, [cookingSessions, storageKey]);
 
   const removeSession = useCallback(async (sessionId: string) => {
     const updated = cookingSessions.filter((s) => s.id !== sessionId);
     setCookingSessions(updated);
     await persist(updated);
     console.log("[CookingHistory] Removed session:", sessionId);
-  }, [cookingSessions]);
+  }, [cookingSessions, storageKey]);
 
   const getSession = useCallback((sessionId: string) => {
     return cookingSessions.find((s) => s.id === sessionId) ?? null;
