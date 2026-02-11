@@ -9,7 +9,7 @@
 - **API Layer**: Hono (Server-First Web Framework) handling requests via Expo Router API routes.
 - **AI / Intelligence**: Google Gemini 3.0 Flash (via Edge Functions) for voice/text assistance.
 - **AR / 3D**: `expo-gl`, `three.js` for immersive cooking guides.
-- **Voice**: `@jamsch/expo-speech-recognition` for hands-free control.
+- **Voice**: `expo-speech-recognition` for hands-free control.
 
 ---
 
@@ -161,7 +161,6 @@ Stores gamification stats (`level`, `xp`, `unlocked_badge_ids`) and preferences.
 ### Installation
 ```bash
 npm install
-# Note: Manually ensure @jamsch/expo-speech-recognition is ^3.0.1
 ```
 
 ### Running
