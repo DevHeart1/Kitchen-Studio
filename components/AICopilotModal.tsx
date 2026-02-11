@@ -73,11 +73,13 @@ export default function AICopilotModal({
     const [recipe, setRecipe] = useState<GeneratedRecipe | null>(null);
     const [isSaving, setIsSaving] = useState(false);
     const [saveSuccess, setSaveSuccess] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
     const startReset = () => {
         setPrompt("");
         setRecipe(null);
         setSaveSuccess(false);
+        setError(null);
     };
 
     const handleClose = () => {
@@ -89,29 +91,29 @@ export default function AICopilotModal({
         if (!prompt.trim()) return;
 
         setIsLoading(true);
-        setRecipe(null); // Clear previous
+        setRecipe(null);
+        setError(null);
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
         try {
-            // Prepare inventory list for context
             const inventoryList = inventory.map((i) => i.name).join(", ");
 
-            const { data, error } = await supabase.functions.invoke("generate-recipe", {
+            const { data, error: fnError } = await supabase.functions.invoke("generate-recipe", {
                 body: {
                     prompt: prompt.trim(),
                     inventory: inventoryList,
                 },
             });
 
-            if (error) throw error;
+            if (fnError) throw fnError;
             if (data?.recipe) {
                 setRecipe(data.recipe);
             } else {
                 throw new Error("No recipe returned");
             }
-        } catch (error) {
-            console.error("Recipe generation failed:", error);
-            // In a real app, show toast or alert
+        } catch (err: any) {
+            console.error("Recipe generation failed:", err);
+            setError(err?.message || "Something went wrong. Please try again.");
         } finally {
             setIsLoading(false);
         }
@@ -248,6 +250,15 @@ export default function AICopilotModal({
                                         <Text style={styles.suggestionText}>Simple vegetarian</Text>
                                     </TouchableOpacity>
                                 </View>
+
+                                {error && (
+                                    <View style={{ marginTop: 24, padding: 16, backgroundColor: "rgba(239, 68, 68, 0.1)", borderRadius: 12, borderWidth: 1, borderColor: "rgba(239, 68, 68, 0.2)", alignItems: "center" }}>
+                                        <Text style={{ color: Colors.red, fontSize: 14, textAlign: "center", marginBottom: 12 }}>{error}</Text>
+                                        <TouchableOpacity onPress={generateRecipe} style={{ paddingHorizontal: 20, paddingVertical: 10, backgroundColor: "rgba(255,255,255,0.1)", borderRadius: 8 }}>
+                                            <Text style={{ color: Colors.white, fontWeight: "600" }}>Retry</Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                )}
                             </ScrollView>
                         ) : (
                             <View style={styles.recipeContainer}>
