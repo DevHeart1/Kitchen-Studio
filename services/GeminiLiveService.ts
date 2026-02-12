@@ -10,6 +10,9 @@ import * as FileSystem from 'expo-file-system';
 import { Audio } from 'expo-av';
 import { Buffer } from 'buffer';
 
+// Polyfill types for FileSystem if missing
+const FS = FileSystem as any;
+
 // Polyfills for React Native
 global.Buffer = global.Buffer || Buffer;
 import 'react-native-get-random-values';
@@ -133,11 +136,11 @@ async function processAudioQueue() {
     const base64Data = audioQueue.shift();
 
     try {
-        const tempFile = `${FileSystem.cacheDirectory}gemini_response_${Date.now()}.wav`;
+        const tempFile = `${FS.cacheDirectory}gemini_response_${Date.now()}.wav`;
 
         // Write base64 directly
-        await FileSystem.writeAsStringAsync(tempFile, base64Data!, {
-            encoding: FileSystem.EncodingType.Base64,
+        await FS.writeAsStringAsync(tempFile, base64Data!, {
+            encoding: FS.EncodingType.Base64,
         });
 
         // @ts-ignore: expo-av types might be strict

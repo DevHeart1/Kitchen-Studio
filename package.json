@@ -8,7 +8,8 @@
     "start-web-dev": "DEBUG=expo* npx rork start -p xfz2k7dtso3w6nxoqmu8r --web --tunnel",
     "lint": "expo lint",
     "android": "expo run:android",
-    "ios": "expo run:ios"
+    "ios": "expo run:ios",
+    "build:apk": "eas build -p android --profile preview"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
@@ -83,6 +84,7 @@
     "@expo/ngrok": "^4.1.0",
     "@types/node": "^25.0.10",
     "@types/react": "~19.2.0",
+    "eas-cli": "^18.0.1",
     "eslint": "^9.31.0",
     "eslint-config-expo": "~10.0.0",
     "typescript": "~5.9.2"
