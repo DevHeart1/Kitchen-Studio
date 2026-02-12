@@ -96,3 +96,17 @@ These local Expo Config Plugins resolve native incompatibility issues required f
 *   **AR Screen Black**:
     *   *Cause*: Camera permission denied or Viro key missing (not needed for Community version).
     *   *Fix*: Check App Permissions in Android Settings.
+
+---
+
+## 6. Monetization Configuration (Google Play Console)
+
+To enable the Paywall, the following Product IDs must be configured in **Google Play Console** and linked in **RevenueCat**:
+
+### 📅 Subscriptions
+| Type | Product ID | Name |
+| :--- | :--- | :--- |
+| **Monthly** | `kitchen_studio_pro_monthly` | Kitchen Studio Pro (Monthly) |
+| **Yearly** | `kitchen_studio_pro_yearly` | Kitchen Studio Pro (Yearly) |
+
+*Note: Variable pricing tiers and trial durations are managed remotely via the RevenueCat dashboard, not hardcoded in the app.*
