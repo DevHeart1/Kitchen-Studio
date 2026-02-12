@@ -52,7 +52,8 @@
           ]
         }
       ],
-      "./plugins/withSpeechRecognition"
+      "./plugins/withSpeechRecognition",
+      "./plugins/withViroPackaging"
     ],
     "experiments": {
       "typedRoutes": true
