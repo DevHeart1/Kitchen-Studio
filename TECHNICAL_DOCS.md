@@ -1,169 +1,98 @@
 # Kitchen Studio - Technical Documentation
 
 ## 1. Executive Summary
-**Kitchen Studio** is a sophisticated "Food Operating System" built with **React Native (Expo)** and **Supabase**. It goes beyond simple recipe management by integrating **AR Cooking Assistance**, **Voice Control**, and a **Dual-Unit Inventory System** (tracking both user-friendly units like "cups" and precise system units like "grams").
+**Kitchen Studio** is a sophisticated "Food Operating System" built with **React Native (Expo)** and **Supabase**. It integrates **Spatial AI (AR)**, **Multimodal AI (Gemini Live)**, and a **Dual-Unit Inventory System** to create an intelligent cooking companion.
 
 ### Key Technologies
-- **Frontend**: React Native, Expo, TypeScript, Reanimated, Skia/GL.
-- **Backend / Database**: Supabase (PostgreSQL), Edge Functions (Deno).
-- **API Layer**: Hono (Server-First Web Framework) handling requests via Expo Router API routes.
-- **AI / Intelligence**: Google Gemini 3.0 Flash (via Edge Functions) for voice/text assistance.
-- **AR / 3D**: `expo-gl`, `three.js` for immersive cooking guides.
-- **Voice**: `expo-speech-recognition` for hands-free control.
+- **Frontend**: React Native, Expo, TypeScript, **ViroReact (AR)**.
+- **Backend**: Supabase (PostgreSQL), Edge Functions (Deno).
+- **AI / Intelligence**: Google Gemini 2.0 Flash / Pro (via Edge Functions).
+- **Communication**: WebSockets (for real-time audio streaming).
+- **State Management**: React Context + **XState** (for AR logic).
 
 ---
 
-## 2. Architecture Overview
+## 2. Architecture Overview: "The Kitchen OS"
 
-### 2.1 Monorepo Handling (Virtual)
-The project structure is a standard Expo Router app, but conceptually modularized:
-- **`app/`**: File-based routing (screens) and API routes.
-- **`components/`**: Reusable UI blocks and "Smart Components".
-- **`contexts/`**: Global state management (React Context).
-- **`services/`**: Business logic (Unit conversion, heuristics).
-- **`supabase/`**: Backend infrastructure (Schema, Functions).
-
-### 2.2 Data Flow
-1.  **Authentication**: Supabase Auth (managed via `AuthContext`).
-2.  **State**:
-    - **Inventory**: `InventoryContext` caches items and syncs with `inventory_items` table.
-    - **Recipes**: `SavedRecipesContext` manages bookmarks.
-    - **Session**: `CookingHistoryContext` tracks active cooking sessions.
-3.  **Offline/Online**:
-    - Uses `AsyncStorage` for persistence when Supabase is not configured (Demo Mode).
-    - Syncs to Supabase when authenticated.
+The application consists of four core layers:
+1.  **Perception Layer (AR)**: Uses **ViroReact** to render 3D instructions, ingredients, and interactive elements anchored to the real world.
+2.  **Intelligence Layer (AI)**: Uses **Gemini Live** via Supabase Edge Functions for real-time voice guidance, recipe generation, and question answering.
+3.  **Logic Layer (State)**: Uses **XState** (`ARStateMachine`) and React Contexts to manage complex application states (Cooking Steps, Inventory).
+4.  **Data Layer (Backend)**: Uses **Supabase** for user data, recipes, and gamification state.
 
 ---
 
-## 3. Core Modules
+## 3. Directory Structure & Key Modules
 
-### 3.1 App Directory (`/app`)
-Follows **Expo Router** conventions:
-- **`_layout.tsx`**: Root Orchestrator. Handles Authentication guards, Splash screens (`WelcomeBackSplash`), and global providers.
-- **`(tabs)`**: Main navigation (Dashboard, Inventory, Recipes, Profile).
-- **`(auth)`**: Sign-in/Sign-up flows.
-- **`ar-cooking.tsx`**: The core AR experience. Uses `CameraView` overlays with `GLView` (Three.js) for placing 3D ingredient markers.
-- **`scanner.tsx`**: Barcode/Food recognition module.
-- **`api/`**: Server-side API routes (e.g., tRPC endpoints) handled by Expo Router's API capabilities.
+### 3.1 `@[app]` (Screens & Navigation)
+-   **`_layout.tsx`**: Root Orchestrator. Handles Authentication guards, Splash screens (`WelcomeBackSplash`), and global providers.
+-   **`(tabs)`**: Main navigation (Kitchen, Inventory, Discover, Profile).
+-   **`ar-cooking.tsx`**: The core AR experience. Bridges React Native UI (2D) with the Viro Scene (3D).
+-   **`scanner.tsx`**: AI-powered pantry scanner using Camera + Gemini Flash (via `pantry-scan` edge function).
+-   **`components/ar/KitchenScene.tsx`**: The actual 3D Viro scene containing the AR logic and nodes.
 
-### 3.2 Contexts (`/contexts`)
-The nervous system of the app:
-- **`InventoryContext.tsx`**: Manages pantry items. Handles CRUD operations.
-    - *Note*: Historically supported complex dual-unit auto-deduction (`consumeIngredients`), but currently streamlined to focus on CRUD and state availability.
-- **`UnitConversionService.ts`** (Service): The "Brain" of the inventory.
-    - Contains `toSystemUnit`: Converts "2 cups rice" -> "380g rice".
-    - `checkAvailability`: Compares Recipe requirements vs Pantry stock using normalized base units.
-- **`CookingHistoryContext.tsx`**: Tracks ongoing sessions (`activeCookingSession`) for the "Resume Cooking" feature.
+### 3.2 `@[contexts]` (Global State)
+-   **`InventoryContext`**: Manages the user's pantry. Handles dual-unit conversion (e.g., "Tablespoons" to "Cups") and syncs with Supabase.
+-   **`GamificationContext`**: Tracks XP, Streaks, and Badges. Syncs with `xp_ledger` and `user_badges` tables.
+-   **`SavedRecipesContext`**: Stores user's cookbook. Caches recipes locally for offline access.
+-   **`CookingHistoryContext`**: Logs completed sessions for stats and "Resume" functionality.
 
-### 3.3 Services (`/services`)
-- **`UnitConversionService.ts`**:
-    - **`UNIT_DEFINITIONS`**: Database of mass/volume factors.
-    - **`INITIAL_DENSITY_MAP`**: Specific density data (e.g., "Rice = 190g/cup") for converting volume to mass.
-    - **`predictRunOutDate`**: Heuristic algorithm using usage history to estimate stock depletion.
+### 3.3 `@[services]` (Business Logic)
+-   **`GeminiLiveService`**: WebSocket client for `gemini-live-relay` Edge Function.
+    -   **Audio Streaming**: Mic (Base64) -> WebSocket -> Gemini.
+    -   **Playback**: PCM audio -> Buffers -> `expo-av`.
+    -   **Tool Calling**: Executes client-side tools (e.g., `nextStep`, `howMuchLeft`) triggered by Gemini.
+-   **`ARStateMachine`**: XState machine for the cooking flow (`idle` -> `scanning_surface` -> `cooking` -> `paused`).
+-   **`TimelineEngine`**: Manages recipe execution (Steps, Timers).
+-   **`UnitConversionService`**: "The Brain" of the inventory. Normalizes units (e.g., "2 cups rice" -> "380g rice") for precise deduction.
 
-### 3.4 Backend (`/supabase`)
-- **Database Schema** (`supabase-schema.sql`):
-    - **`inventory_items`**: Stores item data plus `base_quantity` (System) and `original_quantity`.
-    - **`ingredient_profiles`**: Crowdsourced/System density data for unit conversion.
-    - **`recipes`, `user_profiles`**: Standard entities.
-- **Edge Functions** (`/functions`):
-    - **`cooking-assistant`**:
-        - Proxies WebSockets to **Google Gemini Live API**.
-        - Handles real-time audio streaming (Client -> Server -> Gemini -> Server -> Client).
-        - Currently configured for `gemini-3-flash-preview`.
+### 3.4 `@[plugins]` (Native Configuration) **CRITICAL**
+These local Expo Config Plugins resolve native incompatibility issues required for Viro and Gemini.
+-   **`withViroFixed.js`**: Patches ViroReact to initialize **ONLY** with `ViroPlatform.AR`.
+    -   *Why*: Official plugin initializes AR and VR (GVR) modes simultaneously, causing crashes on non-VR phones ("Double Initialization").
+-   **`withViroPackaging.js`**: Resolves `libc++_shared.so` conflicts.
+    -   *Why*: Both Viro and React Native (and others) include this C++ library. This plugin injects `pickFirst '**/libc++_shared.so'` into `build.gradle` to prevent build/runtime failures.
+-   **`withSpeechRecognition.js`**: Injects `android.permission.RECORD_AUDIO` into `AndroidManifest.xml` (Required for Gemini Live).
 
----
-
-## 4. Key Features
-
-### 4.1 Dual-Unit Inventory System
-Solves the "Cup vs Gram" problem.
-- **User View**: User adds "1 cup Rice".
-- **System View**: App calculates "190g Rice" (Base Unit) using density maps.
-- **Constraint**: When a recipe asks for "50g Rice", the system knows "1 cup > 50g" even if units mismatch.
-
-### 4.2 AR Cooking Companion (`ar-cooking.tsx`)
-- **Visuals**: Displays cooking steps over camera feed.
-- **3D Elements**: Uses `three.js` to render floating markers (e.g., ingredient spheres).
-- **Voice Control**:
-    - Uses `useVoiceControl` hook.
-    - Commands: "Next step", "Repeat", "Set timer".
-    - Feedback: Toggles `isListening` / `isSpeaking` states visually.
-    - Integration: Uses `ExpoSpeechRecognitionModule` for robust, continuous listening.
-
-### 4.3 AI Cooking Assistant
-- **Architecture**: WebSocket connection to Supabase Edge Function.
-- **Capabilities**:
-    - Real-time Q&A ("Is my pan hot enough?").
-    - Step guidance.
-    - Powered by Gemini's multimodal capabilities (Text/Audio).
-
-### 4.4 Smart Scanner (`scanner.tsx`)
-A high-performance, visual recognition module.
-- **Camera**: integrated via `expo-camera`.
-- **Modes**:
-    - **Pantry Scan**: Captures item image -> Resizes/Compresses -> Sends to Supabase Edge Function (`pantry-scan`) -> Returns detected item details (Name, Category, Quantity Estimation).
-    - **Expiry Scan**: Specialized OCR mode to detect and parse expiry dates from packaging.
-- **Visuals**: Custom shader-like animations (`ScanLineEffect`, `CRTScanLines`) drawn with Reanimated for a "Cyberpunk/Sci-Fi" aesthetic.
-
-### 4.5 Discovery Engine (`app/(tabs)/discover.tsx`)
-A personalized recipe feed powered by **Gemini 2.0 Flash**.
-- **Context-Aware**: Generates recipes based on:
-    - User Profile (Cooking Level, Diet, Goals).
-    - **Available Pantry Items** (RAG-lite approach).
-- **Features**:
-    - **Image-to-Recipe**: Analyzes food photos to extract structured recipe data.
-    - **Search**: Natural language search for recipes.
-    - **Pantry Suggestions**: Dedicated section for recipes you can cook *right now*.
-
-### 4.6 Kitchen Dashboard (`app/(tabs)/kitchen.tsx`)
-The central command center for the home cook.
-- **Recipe Readiness**:
-    - Calculates a "Readiness Score" (0-100%) for every saved recipe.
-    - Logic: Checks `SavedRecipe.ingredients` against `InventoryContext` to see how many items are in stock.
-- **Inventory Health**: Visual indicators for "Expiring Soon" or "Low Stock" items.
-
-### 4.7 Recipe Intelligence Services
-- **`RecipeMatcherService.ts`**:
-    - **Fuzzy Matching**: Normalizes ingredient names (e.g., "Fresh Basil" == "Dried Basil") to find matches.
-    - **Match Calculation**: Returns `matchPercentage` and `missingIngredients` list.
-- **`RecipeExtractionService.ts`**:
-    - **Video-to-Recipe**: Extracts recipe steps and ingredients from YouTube video URLs (via Edge Function).
-    - **Image-to-Recipe**: Multimodal analysis of food images.
+### 3.5 `@[supabase]` (Backend)
+-   **Database Schema**:
+    -   **`inventory_items`**: Stores item data plus `base_quantity` (System unit).
+    -   **`ingredient_profiles`**: Density data for unit conversion.
+-   **Edge Functions**:
+    -   **`pantry-scan`**: Computer Vision via Gemini Flash.
+    -   **`generate-recipe`**: Recipe creation via Gemini Pro.
+    -   **`gemini-live-relay`**: Secure WebSocket proxy for Gemini API.
 
 ---
 
-## 5. Database Schema (Snapshot)
+## 4. Critical Workflows
 
-### `inventory_items`
-| Column | Type | Description |
-| :--- | :--- | :--- |
-| `id` | UUID | PK |
-| `name` | TEXT | Display name ("Basmati Rice") |
-| `quantity` | REAL | User-facing amount (e.g. 2) |
-| `unit` | TEXT | User-facing unit (e.g. "cups") |
-| `base_quantity` | REAL | System amount (e.g. 380) |
-| `base_unit` | TEXT | System unit (e.g. "g") |
-| `original_quantity`| REAL | Initial base amount (for progress bars) |
+### 4.1 The Build Process (Android)
+**Standard Expo Go will NOT work** for AR features due to custom native code (Viro).
+1.  **Prebuild**: `npx expo prebuild --clean` (Generates `android` folder using plugins).
+2.  **Compile**:
+    -   **Testing**: `npm run build:apk` (EAS Build "preview" -> `.apk`).
+    -   **Store**: `npm run build:prod` (EAS Build "production" -> `.aab`).
 
-### `user_profiles`
-Stores gamification stats (`level`, `xp`, `unlocked_badge_ids`) and preferences.
+### 4.2 The AR Cooking Loop
+1.  **Launch**: User selects Recipe -> `ar-cooking.tsx` mounts.
+2.  **Scan**: `ARStateMachine` enters `scanning_surface`. Viro detects plane -> User taps to anchor.
+3.  **Cook**: State moves to `cooking`. `TimelineEngine` loads Step 1.
+4.  **Assistance**: `GeminiLiveService` connects.
+    -   Gemini speaks instructions.
+    -   User says "Next" -> Gemini triggers `nextStep()` tool.
+    -   `TimelineEngine` advances -> 3D Step Cards update.
 
 ---
 
-## 6. Setup & Installation
+## 5. Troubleshooting Guide
 
-### Prerequisites
-- Node.js & npm/bun.
-- Supabase project (for backend).
-- Gemini API Key (for AI features).
-
-### Installation
-```bash
-npm install
-```
-
-### Running
-```bash
-npx expo start
-```
+*   **Crash on Startup**:
+    *   *Cause*: `libc++_shared.so` conflict or Viro Double Init.
+    *   *Fix*: Ensure `withViroPackaging` and `withViroFixed` are in `app.json`. Run `npx expo prebuild --clean`.
+*   **"Microphone Permission Denied"**:
+    *   *Cause*: Missing manifest permission.
+    *   *Fix*: Verify `withSpeechRecognition` plugin is active.
+*   **AR Screen Black**:
+    *   *Cause*: Camera permission denied or Viro key missing (not needed for Community version).
+    *   *Fix*: Check App Permissions in Android Settings.

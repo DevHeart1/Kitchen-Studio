@@ -10,6 +10,7 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "build:apk": "eas build -p android --profile preview",
+    "build:prod": "eas build -p android --profile production",
     "login": "eas login",
     "submit": "eas submit -p android"
   },

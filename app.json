@@ -44,14 +44,7 @@
       ],
       "expo-font",
       "expo-web-browser",
-      [
-        "@viro-community/react-viro",
-        {
-          "androidXrMode": [
-            "AR"
-          ]
-        }
-      ],
+      "./plugins/withViroFixed",
       "./plugins/withSpeechRecognition",
       "./plugins/withViroPackaging"
     ],
