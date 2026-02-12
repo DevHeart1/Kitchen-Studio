@@ -353,6 +353,40 @@ export const [InventoryProvider, useInventory] = createContextHook(() => {
     [inventory]
   );
 
+  const deductInventory = useCallback(
+    async (ingredientName: string, amount: number) => {
+      try {
+        const normalized = normalizeIngredientName(ingredientName);
+        // Find best match
+        const item = inventory.find(i =>
+          (i.normalizedName || normalizeIngredientName(i.name)) === normalized ||
+          i.name.toLowerCase().includes(normalized) ||
+          normalized.includes(i.name.toLowerCase())
+        );
+
+        if (!item) {
+          console.log(`[Inventory] Could not find ${ingredientName} to deduct.`);
+          return false;
+        }
+
+        const currentQty = item.quantity || 1;
+        const newQty = Math.max(0, currentQty - amount);
+        const newStock = Math.max(0, item.stockPercentage - 10); // heuristic drop
+
+        return updateItem(item.id, {
+          quantity: newQty,
+          stockPercentage: newStock,
+          status: newStock < 20 ? 'low' : item.status
+        });
+
+      } catch (error) {
+        console.error("Error deductInventory:", error);
+        return false;
+      }
+    },
+    [inventory, updateItem]
+  );
+
   const getTotalCount = useMemo(() => inventory.length, [inventory]);
 
   const getExpiringCount = useMemo(
@@ -368,6 +402,7 @@ export const [InventoryProvider, useInventory] = createContextHook(() => {
       removeItem,
       updateItem,
       checkIngredientInPantry,
+      deductInventory,
       getTotalCount,
       getExpiringCount,
       refreshInventory: loadInventory,
@@ -379,6 +414,7 @@ export const [InventoryProvider, useInventory] = createContextHook(() => {
       removeItem,
       updateItem,
       checkIngredientInPantry,
+      deductInventory,
       getTotalCount,
       getExpiringCount,
     ]

@@ -1,179 +1,120 @@
-import { setup, assign, createActor } from 'xstate';
-import { GestureType, ARCookingPhase } from '@/types/ar';
+import { createMachine, assign } from 'xstate';
 
-interface ARContext {
-  phase: ARCookingPhase;
-  currentStep: number;
+export interface ARC_Context {
+  recipeId: string | null;
+  currentStepIndex: number;
   totalSteps: number;
-  lastGesture: GestureType;
-  lastGestureTime: number;
-  errorMessage: string | null;
-  mediaPipeReady: boolean;
-  geminiReady: boolean;
+  isTimerRunning: boolean;
+  activeIngredients: string[]; // For AR highlighting
 }
 
-const GESTURE_COOLDOWN_MS = 1200;
+export type ARC_Event =
+  | { type: 'START_COOKING'; recipeId: string; totalSteps: number, initialIngredients: string[] }
+  | { type: 'PAUSE' }
+  | { type: 'RESUME' }
+  | { type: 'NEXT_STEP'; nextIngredients?: string[] }
+  | { type: 'PREV_STEP'; prevIngredients?: string[] }
+  | { type: 'FINISH_COOKING' }
+  | { type: 'GESTURE_DETECTED'; gesture: 'open_hand' | 'pinch' | 'thumbs_up' }
+  | { type: 'VOICE_COMMAND'; command: 'next' | 'back' | 'pause' | 'repeat' | 'how_much' };
 
-export const arCookingMachine = setup({
-  types: {
-    context: {} as ARContext,
-    events: {} as
-      | { type: 'INIT' }
-      | { type: 'LOADED' }
-      | { type: 'LOAD_ERROR'; error: string }
-      | { type: 'START' }
-      | { type: 'PAUSE' }
-      | { type: 'RESUME' }
-      | { type: 'NEXT_STEP' }
-      | { type: 'PREV_STEP' }
-      | { type: 'STEP_COMPLETE' }
-      | { type: 'RECIPE_COMPLETE' }
-      | { type: 'GESTURE'; gesture: GestureType; confidence: number }
-      | { type: 'VOICE_COMMAND'; command: string }
-      | { type: 'TIMER_DONE' }
-      | { type: 'EXIT' }
-      | { type: 'SET_MEDIAPIPE_READY'; ready: boolean }
-      | { type: 'SET_GEMINI_READY'; ready: boolean }
-      | { type: 'SET_TOTAL_STEPS'; total: number },
+export const arCookingMachine = createMachine({
+  types: {} as {
+    context: ARC_Context;
+    events: ARC_Event;
   },
-  guards: {
-    gestureNotOnCooldown: ({ context }) => {
-      return Date.now() - context.lastGestureTime > GESTURE_COOLDOWN_MS;
-    },
-    hasNextStep: ({ context }) => {
-      return context.currentStep < context.totalSteps - 1;
-    },
-    hasPrevStep: ({ context }) => {
-      return context.currentStep > 0;
-    },
-    isLastStep: ({ context }) => {
-      return context.currentStep >= context.totalSteps - 1;
-    },
-  },
-}).createMachine({
   id: 'arCooking',
   initial: 'idle',
   context: {
-    phase: 'idle',
-    currentStep: 0,
+    recipeId: null,
+    currentStepIndex: 0,
     totalSteps: 0,
-    lastGesture: 'none',
-    lastGestureTime: 0,
-    errorMessage: null,
-    mediaPipeReady: false,
-    geminiReady: false,
-  },
-  on: {
-    SET_MEDIAPIPE_READY: {
-      actions: assign({ mediaPipeReady: ({ event }) => event.ready }),
-    },
-    SET_GEMINI_READY: {
-      actions: assign({ geminiReady: ({ event }) => event.ready }),
-    },
-    SET_TOTAL_STEPS: {
-      actions: assign({ totalSteps: ({ event }) => event.total }),
-    },
-    EXIT: { target: '.idle', actions: assign({ phase: 'idle' }) },
+    isTimerRunning: false,
+    activeIngredients: [],
   },
   states: {
     idle: {
-      entry: assign({ phase: 'idle' }),
       on: {
-        INIT: { target: 'initializing' },
-        START: { target: 'cooking' },
-      },
-    },
-    initializing: {
-      entry: assign({ phase: 'initializing', errorMessage: null }),
-      on: {
-        LOADED: { target: 'ready' },
-        LOAD_ERROR: {
-          target: 'ready',
-          actions: assign({ errorMessage: ({ event }) => event.error }),
+        START_COOKING: {
+          target: 'cooking',
+          actions: 'initializeContext',
         },
-      },
-    },
-    ready: {
-      entry: assign({ phase: 'ready' }),
-      on: {
-        START: { target: 'cooking' },
       },
     },
     cooking: {
-      entry: assign({ phase: 'cooking' }),
-      on: {
-        PAUSE: { target: 'paused' },
-        NEXT_STEP: [
-          {
-            guard: 'isLastStep',
-            actions: [
-              assign({ phase: 'complete' }),
+      initial: 'instruction_active',
+      states: {
+        instruction_active: {
+          // Displaying instruction, speaking audio
+          on: {
+            PAUSE: { target: '#arCooking.paused' },
+            GESTURE_DETECTED: [
+              {
+                guard: ({ context, event }) => event.gesture === 'open_hand',
+                target: '#arCooking.paused',
+              },
+              {
+                guard: ({ context, event }) => event.gesture === 'pinch',
+                actions: 'triggerNextStep',
+              }
             ],
-            target: 'complete',
+            VOICE_COMMAND: [
+              { guard: ({ event }) => event.command === 'pause', target: '#arCooking.paused' },
+              { guard: ({ event }) => event.command === 'next', actions: 'triggerNextStep' },
+            ],
+            NEXT_STEP: {
+              target: 'instruction_active',
+              actions: ['incrementStep', 'updateIngredients'],
+              guard: 'hasNextStep',
+            },
+            FINISH_COOKING: { target: '#arCooking.completed' },
           },
-          {
-            guard: 'hasNextStep',
-            actions: assign({
-              currentStep: ({ context }) => context.currentStep + 1,
-              phase: 'cooking',
-            }),
-          },
-        ],
-        PREV_STEP: {
-          guard: 'hasPrevStep',
-          actions: assign({
-            currentStep: ({ context }) => context.currentStep - 1,
-          }),
         },
-        STEP_COMPLETE: [
-          {
-            guard: 'isLastStep',
-            target: 'complete',
-          },
-          {
-            guard: 'hasNextStep',
-            actions: assign({
-              currentStep: ({ context }) => context.currentStep + 1,
-            }),
-          },
-        ],
-        RECIPE_COMPLETE: { target: 'complete' },
-        TIMER_DONE: {},
-        GESTURE: {
-          guard: 'gestureNotOnCooldown',
-          actions: assign({
-            lastGesture: ({ event }) => event.gesture,
-            lastGestureTime: () => Date.now(),
-          }),
-        },
-        VOICE_COMMAND: {},
       },
     },
     paused: {
-      entry: assign({ phase: 'paused' }),
       on: {
-        RESUME: { target: 'cooking' },
-        NEXT_STEP: {
-          guard: 'hasNextStep',
-          target: 'cooking',
-          actions: assign({
-            currentStep: ({ context }) => context.currentStep + 1,
-          }),
+        RESUME: { target: 'cooking.instruction_active' },
+        GESTURE_DETECTED: {
+          guard: ({ event }) => event.gesture === 'thumbs_up',
+          target: 'cooking.instruction_active'
         },
+        VOICE_COMMAND: {
+          guard: ({ event }) => event.command === 'next', // "Resume" or "Next"
+          target: 'cooking.instruction_active'
+        }
       },
     },
-    complete: {
-      entry: assign({ phase: 'complete' }),
+    completed: {
       type: 'final',
     },
   },
+}, {
+  actions: {
+    initializeContext: assign(({ event }) => {
+      if (event.type !== 'START_COOKING') return {};
+      return {
+        recipeId: event.recipeId,
+        totalSteps: event.totalSteps,
+        currentStepIndex: 0,
+        isTimerRunning: true,
+        activeIngredients: event.initialIngredients || [],
+      };
+    }),
+    incrementStep: assign({
+      currentStepIndex: ({ context }) => context.currentStepIndex + 1,
+    }),
+    updateIngredients: assign(({ event }) => {
+      if (event.type === 'NEXT_STEP' && event.nextIngredients) {
+        return { activeIngredients: event.nextIngredients };
+      }
+      return {};
+    }),
+    triggerNextStep: () => {
+      console.log("Trigger next step requested");
+    }
+  },
+  guards: {
+    hasNextStep: ({ context }) => context.currentStepIndex < context.totalSteps - 1,
+  },
 });
-
-export function createARCookingActor(totalSteps: number) {
-  const actor = createActor(arCookingMachine, {
-    input: undefined,
-  });
-  actor.start();
-  actor.send({ type: 'SET_TOTAL_STEPS', total: totalSteps });
-  return actor;
-}
