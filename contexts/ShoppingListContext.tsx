@@ -24,7 +24,7 @@ interface DbShoppingListItem {
     created_at: string;
 }
 
-const STORAGE_KEY = "shopping_list";
+const STORAGE_KEY_PREFIX = "shopping_list_";
 const DEMO_USER_ID = "demo-user-shopping-list";
 
 // Check if Supabase is configured
@@ -59,15 +59,18 @@ export const [ShoppingListProvider, useShoppingList] = createContextHook(() => {
     const [isLoading, setIsLoading] = useState(true);
     const { user, getUserId } = useAuth();
     const useSupabase = isSupabaseConfigured();
-    const userId = getUserId();
+    const userId = getUserId() || DEMO_USER_ID;
+    const storageKey = `${STORAGE_KEY_PREFIX}${userId}`;
 
     useEffect(() => {
-        loadList();
+        if (userId) {
+            loadList();
+        }
     }, [userId]);
 
     const loadList = async () => {
         try {
-            if (useSupabase && userId) {
+            if (useSupabase && userId && userId !== DEMO_USER_ID) {
                 const { data, error } = await supabase
                     .from("shopping_list")
                     .select("*")
@@ -93,7 +96,7 @@ export const [ShoppingListProvider, useShoppingList] = createContextHook(() => {
     };
 
     const loadFromAsyncStorage = async () => {
-        const stored = await AsyncStorage.getItem(STORAGE_KEY);
+        const stored = await AsyncStorage.getItem(storageKey);
         if (stored) {
             setItems(JSON.parse(stored));
         } else {
@@ -102,7 +105,7 @@ export const [ShoppingListProvider, useShoppingList] = createContextHook(() => {
     };
 
     const saveToAsyncStorage = async (newItems: ShoppingListItem[]) => {
-        await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(newItems));
+        await AsyncStorage.setItem(storageKey, JSON.stringify(newItems));
     };
 
     const addItem = useCallback(

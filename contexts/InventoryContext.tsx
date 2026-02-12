@@ -18,8 +18,8 @@ export interface InventoryItem {
   expiresIn?: string;
 }
 
-const STORAGE_KEY = "pantry_inventory";
-const MOCK_CLEARED_KEY = "pantry_mock_cleared_v3";
+const STORAGE_KEY_PREFIX = "pantry_inventory_";
+const MOCK_CLEARED_KEY_PREFIX = "pantry_mock_cleared_v3_";
 const DEMO_USER_ID = "demo-user-00000000-0000-0000-0000-000000000000";
 
 const MOCK_IDS = ["1-1", "1-2", "2-1", "2-2", "3-1", "4-1", "4-2", "4-3"];
@@ -84,9 +84,12 @@ export const [InventoryProvider, useInventory] = createContextHook(() => {
   const [isLoading, setIsLoading] = useState(true);
   const { user, getUserId } = useAuth();
   const useSupabase = isSupabaseConfigured();
-  const userId = getUserId();
+  const userId = getUserId() || DEMO_USER_ID;
+  const storageKey = `${STORAGE_KEY_PREFIX}${userId}`;
+  const mockClearedKey = `${MOCK_CLEARED_KEY_PREFIX}${userId}`;
 
   useEffect(() => {
+    // Always load, either from Supabase (if configured/authed) or AsyncStorage (scoped)
     if (userId) {
       loadInventory();
     }
@@ -94,7 +97,8 @@ export const [InventoryProvider, useInventory] = createContextHook(() => {
 
   const loadInventory = async () => {
     try {
-      if (useSupabase && userId) {
+      setIsLoading(true);
+      if (useSupabase && userId && userId !== DEMO_USER_ID) {
         // Load from Supabase
         const { data, error } = await supabase
           .from("inventory_items")
@@ -110,7 +114,7 @@ export const [InventoryProvider, useInventory] = createContextHook(() => {
           setInventory(data ? data.map(dbToFrontend) : []);
         }
       } else {
-        // Use AsyncStorage (demo mode)
+        // Use AsyncStorage (demo mode or offline)
         await loadFromAsyncStorage();
       }
     } catch (error) {
@@ -122,9 +126,9 @@ export const [InventoryProvider, useInventory] = createContextHook(() => {
   };
 
   const loadFromAsyncStorage = async () => {
-    const mockCleared = await AsyncStorage.getItem(MOCK_CLEARED_KEY);
+    const mockCleared = await AsyncStorage.getItem(mockClearedKey);
     if (!mockCleared) {
-      const stored = await AsyncStorage.getItem(STORAGE_KEY);
+      const stored = await AsyncStorage.getItem(storageKey);
       if (stored) {
         const parsed: InventoryItem[] = JSON.parse(stored);
         const isMockItem = (item: InventoryItem): boolean => {
@@ -135,16 +139,16 @@ export const [InventoryProvider, useInventory] = createContextHook(() => {
         };
         const realItems = parsed.filter((item) => !isMockItem(item));
         console.log(`[Inventory] Purged ${parsed.length - realItems.length} mock items, kept ${realItems.length} real items`);
-        await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(realItems));
+        await AsyncStorage.setItem(storageKey, JSON.stringify(realItems));
         setInventory(realItems);
       } else {
         setInventory([]);
       }
-      await AsyncStorage.setItem(MOCK_CLEARED_KEY, "true");
+      await AsyncStorage.setItem(mockClearedKey, "true");
       return;
     }
 
-    const stored = await AsyncStorage.getItem(STORAGE_KEY);
+    const stored = await AsyncStorage.getItem(storageKey);
     if (stored) {
       setInventory(JSON.parse(stored));
     } else {
@@ -174,7 +178,7 @@ export const [InventoryProvider, useInventory] = createContextHook(() => {
         } else {
           const updated = inventory.filter((item) => item.id !== itemId);
           setInventory(updated);
-          await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+          await AsyncStorage.setItem(storageKey, JSON.stringify(updated));
           console.log("Item removed from inventory");
           return true;
         }
@@ -183,7 +187,7 @@ export const [InventoryProvider, useInventory] = createContextHook(() => {
         return false;
       }
     },
-    [inventory, useSupabase]
+    [inventory, useSupabase, storageKey]
   );
 
   const updateItem = useCallback(
@@ -224,7 +228,7 @@ export const [InventoryProvider, useInventory] = createContextHook(() => {
             item.id === itemId ? { ...item, ...updates } : item
           );
           setInventory(updated);
-          await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+          await AsyncStorage.setItem(storageKey, JSON.stringify(updated));
           return true;
         }
       } catch (error) {
@@ -232,7 +236,7 @@ export const [InventoryProvider, useInventory] = createContextHook(() => {
         return false;
       }
     },
-    [inventory, useSupabase]
+    [inventory, useSupabase, storageKey]
   );
 
   const addItem = useCallback(
@@ -284,7 +288,7 @@ export const [InventoryProvider, useInventory] = createContextHook(() => {
 
           const updated = [newItem, ...inventory];
           setInventory(updated);
-          await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+          await AsyncStorage.setItem(storageKey, JSON.stringify(updated));
           console.log("[Inventory] Added new item:", newItem.name);
 
           // awardXP("scan_item"); // Moved to UI layer to avoid circular dependency
