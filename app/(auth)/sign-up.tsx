@@ -14,13 +14,13 @@ import {
 import { router, Link } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { LinearGradient } from "expo-linear-gradient";
-import { 
-    UtensilsCrossed, 
-    Mail, 
-    Lock, 
-    Eye, 
-    EyeOff, 
-    User, 
+import {
+    UtensilsCrossed,
+    Mail,
+    Lock,
+    Eye,
+    EyeOff,
+    User,
     ArrowRight,
 } from "lucide-react-native";
 import Colors from "@/constants/colors";
@@ -78,9 +78,22 @@ export default function SignUpScreen() {
                 return;
             }
 
-            console.log("[SignUp] Account created, navigating to preferences");
-            router.replace("/(auth)/preferences");
-        } catch {
+            console.log("[SignUp] Account created successfully");
+
+            if (result.data?.user?.id) {
+                console.log("[SignUp] UserId:", result.data.user.id);
+            }
+
+            Alert.alert(
+                "Verification Required",
+                "Please check your email to verify your account before logging in.",
+                [
+                    {
+                        text: "Go to Login",
+                        onPress: () => router.replace("/(auth)/login")
+                    }
+                ]
+            );
             Alert.alert("Error", "An unexpected error occurred");
         } finally {
             setIsSubmitting(false);
@@ -98,7 +111,7 @@ export default function SignUpScreen() {
     return (
         <View style={styles.container}>
             <StatusBar style="light" />
-            
+
             <View style={styles.bgGlowTop} />
             <View style={styles.bgGlowBottom} />
 
