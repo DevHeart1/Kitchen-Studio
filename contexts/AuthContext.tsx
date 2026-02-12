@@ -39,27 +39,12 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
             return;
         }
 
-        // Get initial session with safety timeout
-        const sessionParams = supabase.auth.getSession();
-        const timeoutPromise = new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Session fetch timeout')), 5000)
-        );
-
-        Promise.race([sessionParams, timeoutPromise])
-            .then((result: any) => {
-                const session = result.data?.session;
-                setSession(session);
-                setUser(session?.user ?? null);
-            })
-            .catch((err) => {
-                console.warn("[Auth] Session check failed or timed out:", err);
-                // Fallback to no user
-                setSession(null);
-                setUser(null);
-            })
-            .finally(() => {
-                setIsLoading(false);
-            });
+        // Get initial session
+        supabase.auth.getSession().then(({ data: { session } }) => {
+            setSession(session);
+            setUser(session?.user ?? null);
+            setIsLoading(false);
+        });
 
         // Listen for auth changes
         const {
