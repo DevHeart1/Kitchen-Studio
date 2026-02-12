@@ -39,12 +39,27 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
             return;
         }
 
-        // Get initial session
-        supabase.auth.getSession().then(({ data: { session } }) => {
-            setSession(session);
-            setUser(session?.user ?? null);
-            setIsLoading(false);
-        });
+        // Get initial session with safety timeout
+        const sessionParams = supabase.auth.getSession();
+        const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Session fetch timeout')), 5000)
+        );
+
+        Promise.race([sessionParams, timeoutPromise])
+            .then((result: any) => {
+                const session = result.data?.session;
+                setSession(session);
+                setUser(session?.user ?? null);
+            })
+            .catch((err) => {
+                console.warn("[Auth] Session check failed or timed out:", err);
+                // Fallback to no user
+                setSession(null);
+                setUser(null);
+            })
+            .finally(() => {
+                setIsLoading(false);
+            });
 
         // Listen for auth changes
         const {
@@ -80,7 +95,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
                 email,
                 password,
                 options: {
-                    data: { 
+                    data: {
                         name: name || email.split("@")[0],
                         cooking_interests: cookingInterests || [],
                     },
@@ -93,16 +108,16 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
             }
 
             const needsEmailConfirmation = data?.user && !data?.session;
-            
+
             if (needsEmailConfirmation) {
                 console.log("[Auth] Email confirmation required, marking as entered for onboarding");
                 await markAsEntered();
             }
-            
-            return { 
-                data, 
+
+            return {
+                data,
                 error,
-                needsEmailConfirmation 
+                needsEmailConfirmation
             };
         },
         [isDemoMode, markAsEntered]
@@ -123,9 +138,9 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
 
             if (error) {
                 console.error("[Auth] Sign in error:", error.message);
-                
+
                 const isEmailNotConfirmed = error.message.includes("Email not confirmed");
-                
+
                 if (isEmailNotConfirmed) {
                     console.log("[Auth] Email not confirmed - attempting OTP verification flow");
                     const { error: otpError } = await supabase.auth.signInWithOtp({
@@ -134,7 +149,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
                             shouldCreateUser: false,
                         },
                     });
-                    
+
                     if (!otpError) {
                         return {
                             data,
@@ -143,20 +158,20 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
                         };
                     }
 
-                    return { 
-                        data, 
+                    return {
+                        data,
                         error: { ...error, message: "Your email hasn't been confirmed yet. Please check your inbox for a confirmation or magic link email." },
                         needsEmailConfirmation: true
                     };
                 }
-                
+
                 let userFriendlyMessage = error.message;
                 if (error.message === "Invalid login credentials") {
                     userFriendlyMessage = "Invalid email or password. Please check your credentials or create an account if you haven't signed up yet.";
                 }
-                
-                return { 
-                    data, 
+
+                return {
+                    data,
                     error: { ...error, message: userFriendlyMessage },
                     needsEmailConfirmation: false
                 };
