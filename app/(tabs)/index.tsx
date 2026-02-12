@@ -18,7 +18,7 @@ import {
   ArrowRight,
   Sparkles,
   Package,
-  AlertTriangle,
+  TriangleAlert,
   Play,
   RefreshCw,
   Search,
@@ -209,7 +209,7 @@ export default function HomeScreen() {
             activeOpacity={0.8}
           >
             <View style={styles.alertIconContainer}>
-              <AlertTriangle size={20} color={Colors.orange} />
+              <TriangleAlert size={20} color={Colors.orange} />
             </View>
             <View style={styles.alertContent}>
               <Text style={styles.alertTitle}>

@@ -10,12 +10,13 @@ import {
   Platform,
 } from "react-native";
 import {
-  AlertTriangle,
+  AlertCircle,
+  TriangleAlert,
   CheckCircle,
   Info,
   Trash2,
   XCircle,
-  HelpCircle,
+  CircleHelp,
 } from "lucide-react-native";
 import colors from "@/constants/colors";
 
@@ -65,7 +66,7 @@ const variantConfig: Record<
     bgColor: colors.greenBg,
   },
   warning: {
-    icon: AlertTriangle,
+    icon: TriangleAlert,
     color: colors.orange,
     bgColor: colors.orangeBg,
   },
@@ -80,7 +81,7 @@ const variantConfig: Record<
     bgColor: colors.redBg,
   },
   confirm: {
-    icon: HelpCircle,
+    icon: CircleHelp,
     color: colors.primary,
     bgColor: "rgba(43, 238, 91, 0.15)",
   },
@@ -248,7 +249,7 @@ function CustomDialog({ visible, config, onDismiss }: CustomDialogProps) {
                       (button.style === "destructive" ||
                         (variant === "destructive" &&
                           index === buttons.length - 1)) &&
-                        styles.buttonTextDestructive,
+                      styles.buttonTextDestructive,
                     ]}
                   >
                     {button.text}

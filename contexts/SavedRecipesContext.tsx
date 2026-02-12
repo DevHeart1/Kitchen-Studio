@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback, useMemo } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import createContextHook from "@nkzw/create-context-hook";
 import { SavedRecipe, GeneratedRecipe } from "@/types";
+export type { SavedRecipe };
 import { supabase, DbSavedRecipe } from "@/lib/supabase";
 import { useAuth } from "./AuthContext";
 
