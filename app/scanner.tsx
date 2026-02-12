@@ -16,7 +16,7 @@ import { useRouter } from "expo-router";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import * as Linking from "expo-linking";
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
-import { Zap, Check, Loader, CheckCheck, X, Camera, RefreshCw, Scan, AlertCircle, Plus, Clock, Package, Hash, TriangleAlert, CalendarClock, Eye, SkipForward, Sparkles } from "lucide-react-native";
+import { Zap, Check, Loader, CheckCheck, X, Camera, RefreshCw, Scan, AlertCircle, Plus, Clock, Package, Hash, AlertTriangle, CalendarClock, Eye, SkipForward, Sparkles } from "lucide-react-native";
 import Colors from "@/constants/colors";
 import { useInventory } from "@/contexts/InventoryContext";
 import { useGamification } from "@/contexts/GamificationContext";
@@ -1165,7 +1165,7 @@ export default function ScannerScreen() {
                           {expiryColor && item.expiryStatus !== "unknown" && (
                             <View style={[styles.expiryBadge, { backgroundColor: `${expiryColor}30` }]}>
                               {item.expiryStatus === "expired" ? (
-                                <TriangleAlert size={7} color={expiryColor} strokeWidth={3} />
+                                <AlertTriangle size={7} color={expiryColor} strokeWidth={3} />
                               ) : item.expiryStatus === "expiring_soon" ? (
                                 <Clock size={7} color={expiryColor} strokeWidth={3} />
                               ) : (

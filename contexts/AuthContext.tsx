@@ -9,11 +9,14 @@ import * as Linking from "expo-linking";
 
 WebBrowser.maybeCompleteAuthSession();
 
+// For development/demo mode when Supabase is not configured
+const DEMO_USER_ID = "demo-user-00000000-0000-0000-0000-000000000000";
+
 export const [AuthProvider, useAuth] = createContextHook(() => {
     const [session, setSession] = useState<Session | null>(null);
     const [user, setUser] = useState<User | null>(null);
     const [isLoading, setIsLoading] = useState(true);
-    const [isConfigured, setIsConfigured] = useState(true);
+    const [isDemoMode, setIsDemoMode] = useState(false);
     const [hasEnteredApp, setHasEnteredApp] = useState<boolean | null>(null);
 
     useEffect(() => {
@@ -30,8 +33,8 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         // Check if Supabase is properly configured
         const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
         if (!supabaseUrl || supabaseUrl.includes("your-project")) {
-            console.log("[Auth] Supabase not configured");
-            setIsConfigured(false);
+            console.log("[Auth] Running in demo mode - Supabase not configured");
+            setIsDemoMode(true);
             setIsLoading(false);
             return;
         }
@@ -66,11 +69,18 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
 
     const signUp = useCallback(
         async (email: string, password: string, name?: string, cookingInterests?: string[]) => {
+            if (isDemoMode) {
+                console.log("[Auth] Demo mode - sign up simulated");
+                console.log("[Auth] Cooking interests:", cookingInterests);
+                await markAsEntered();
+                return { error: null };
+            }
+
             const { data, error } = await supabase.auth.signUp({
                 email,
                 password,
                 options: {
-                    data: {
+                    data: { 
                         name: name || email.split("@")[0],
                         cooking_interests: cookingInterests || [],
                     },
@@ -83,23 +93,29 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
             }
 
             const needsEmailConfirmation = data?.user && !data?.session;
-
+            
             if (needsEmailConfirmation) {
                 console.log("[Auth] Email confirmation required, marking as entered for onboarding");
                 await markAsEntered();
             }
-
-            return {
-                data,
+            
+            return { 
+                data, 
                 error,
-                needsEmailConfirmation
+                needsEmailConfirmation 
             };
         },
-        [markAsEntered]
+        [isDemoMode, markAsEntered]
     );
 
     const signIn = useCallback(
         async (email: string, password: string) => {
+            if (isDemoMode) {
+                console.log("[Auth] Demo mode - sign in simulated");
+                await markAsEntered();
+                return { error: null, needsEmailConfirmation: false };
+            }
+
             const { data, error } = await supabase.auth.signInWithPassword({
                 email,
                 password,
@@ -107,9 +123,9 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
 
             if (error) {
                 console.error("[Auth] Sign in error:", error.message);
-
+                
                 const isEmailNotConfirmed = error.message.includes("Email not confirmed");
-
+                
                 if (isEmailNotConfirmed) {
                     console.log("[Auth] Email not confirmed - attempting OTP verification flow");
                     const { error: otpError } = await supabase.auth.signInWithOtp({
@@ -118,7 +134,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
                             shouldCreateUser: false,
                         },
                     });
-
+                    
                     if (!otpError) {
                         return {
                             data,
@@ -127,20 +143,20 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
                         };
                     }
 
-                    return {
-                        data,
+                    return { 
+                        data, 
                         error: { ...error, message: "Your email hasn't been confirmed yet. Please check your inbox for a confirmation or magic link email." },
                         needsEmailConfirmation: true
                     };
                 }
-
+                
                 let userFriendlyMessage = error.message;
                 if (error.message === "Invalid login credentials") {
                     userFriendlyMessage = "Invalid email or password. Please check your credentials or create an account if you haven't signed up yet.";
                 }
-
-                return {
-                    data,
+                
+                return { 
+                    data, 
                     error: { ...error, message: userFriendlyMessage },
                     needsEmailConfirmation: false
                 };
@@ -148,11 +164,16 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
 
             return { data, error, needsEmailConfirmation: false };
         },
-        [markAsEntered]
+        [isDemoMode, markAsEntered]
     );
 
     const resendConfirmationEmail = useCallback(
         async (email: string) => {
+            if (isDemoMode) {
+                console.log("[Auth] Demo mode - resend confirmation simulated");
+                return { error: null };
+            }
+
             const { error } = await supabase.auth.resend({
                 type: "signup",
                 email,
@@ -164,11 +185,16 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
 
             return { error };
         },
-        []
+        [isDemoMode, markAsEntered]
     );
 
     const resetPassword = useCallback(
         async (email: string) => {
+            if (isDemoMode) {
+                console.log("[Auth] Demo mode - reset password simulated");
+                return { error: null };
+            }
+
             const { error } = await supabase.auth.resetPasswordForEmail(email);
 
             if (error) {
@@ -177,10 +203,15 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
 
             return { error };
         },
-        []
+        [isDemoMode]
     );
 
     const signOut = useCallback(async () => {
+        if (isDemoMode) {
+            console.log("[Auth] Demo mode - sign out simulated");
+            return { error: null };
+        }
+
         const { error } = await supabase.auth.signOut();
 
         if (error) {
@@ -188,9 +219,14 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         }
 
         return { error };
-    }, []);
+    }, [isDemoMode, markAsEntered]);
 
     const signInWithGoogle = useCallback(async () => {
+        if (isDemoMode) {
+            console.log("[Auth] Demo mode - Google sign in simulated");
+            return { error: null };
+        }
+
         try {
             const redirectUrl = Linking.createURL("auth/callback");
 
@@ -234,9 +270,14 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
             console.error("[Auth] Google sign in exception:", error);
             return { error: { message: error.message || "Google sign in failed" } };
         }
-    }, [markAsEntered]);
+    }, [isDemoMode, markAsEntered]);
 
     const signInWithApple = useCallback(async () => {
+        if (isDemoMode) {
+            console.log("[Auth] Demo mode - Apple sign in simulated");
+            return { error: null };
+        }
+
         try {
             const redirectUrl = Linking.createURL("auth/callback");
 
@@ -280,23 +321,29 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
             console.error("[Auth] Apple sign in exception:", error);
             return { error: { message: error.message || "Apple sign in failed" } };
         }
-    }, [markAsEntered]);
+    }, [isDemoMode, markAsEntered]);
 
     // Get the current user ID (for database queries)
-    const getUserId = useCallback((): string | null => {
-        return user?.id || null;
-    }, [user]);
+    const getUserId = useCallback((): string => {
+        if (isDemoMode) {
+            return DEMO_USER_ID;
+        }
+        return user?.id ?? DEMO_USER_ID;
+    }, [isDemoMode, user]);
 
     const isAuthenticated = useMemo(() => {
+        if (isDemoMode) {
+            return hasEnteredApp === true;
+        }
         return !!user;
-    }, [user]);
+    }, [isDemoMode, user, hasEnteredApp]);
 
     return useMemo(
         () => ({
             session,
             user,
             isLoading: isLoading || hasEnteredApp === null,
-            isConfigured,
+            isDemoMode,
             isAuthenticated,
             signUp,
             signIn,
@@ -313,7 +360,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
             user,
             isLoading,
             hasEnteredApp,
-            isConfigured,
+            isDemoMode,
             isAuthenticated,
             signUp,
             signIn,

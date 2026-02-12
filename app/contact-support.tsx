@@ -21,8 +21,8 @@ import {
   CheckCircle,
   Bug,
   Lightbulb,
-  CircleHelp,
-  TriangleAlert,
+  HelpCircle,
+  AlertTriangle,
 } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
 import Colors from "@/constants/colors";
@@ -41,8 +41,8 @@ interface ContactOption {
 const ISSUE_TYPES: { type: IssueType; label: string; icon: React.ComponentType<{ size: number; color: string }> }[] = [
   { type: "bug", label: "Bug Report", icon: Bug },
   { type: "feature", label: "Feature Request", icon: Lightbulb },
-  { type: "question", label: "Question", icon: CircleHelp },
-  { type: "other", label: "Other", icon: TriangleAlert },
+  { type: "question", label: "Question", icon: HelpCircle },
+  { type: "other", label: "Other", icon: AlertTriangle },
 ];
 
 export default function ContactSupportScreen() {
@@ -74,9 +74,9 @@ export default function ContactSupportScreen() {
     }
 
     setIsSubmitting(true);
-
+    
     await new Promise((resolve) => setTimeout(resolve, 1500));
-
+    
     console.log("Support ticket submitted:", {
       type: selectedType,
       subject,

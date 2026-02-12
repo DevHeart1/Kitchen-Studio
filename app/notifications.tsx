@@ -16,7 +16,7 @@ import {
   ArrowLeft,
   Bell,
   Clock,
-  TriangleAlert,
+  AlertTriangle,
   Lightbulb,
   Sparkles,
   Check,
@@ -40,7 +40,7 @@ const getNotificationIcon = (type: NotificationType) => {
     case "expiry_urgent":
       return ShieldAlert;
     case "expiry_warning":
-      return TriangleAlert;
+      return AlertTriangle;
     case "recipe_suggestion":
       return ChefHat;
     case "smart_recommendation":

@@ -49,6 +49,7 @@ export interface UserProfile {
 }
 
 const STORAGE_KEY = "user_profile";
+const DEMO_USER_ID = "demo-user-00000000-0000-0000-0000-000000000000";
 
 const DEFAULT_SHARED_RECIPES: SharedRecipe[] = [
   {
@@ -158,18 +159,19 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
   const [isLoading, setIsLoading] = useState(true);
   const [pendingLevelUp, setPendingLevelUp] = useState<{ fromLevel: number; toLevel: number } | null>(null);
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState<boolean | null>(null);
-  const { user, isLoading: authLoading } = useAuth();
-  const useSupabase = isSupabaseConfigured();
+  const { user, isLoading: authLoading, isDemoMode } = useAuth();
+  const useSupabase = isSupabaseConfigured() && !isDemoMode;
 
   const currentUserId = useMemo(() => {
+    if (isDemoMode) return DEMO_USER_ID;
     return user?.id || null;
-  }, [user]);
+  }, [isDemoMode, user]);
 
   useEffect(() => {
     if (!authLoading) {
       loadProfile();
     }
-  }, [authLoading, user, currentUserId]);
+  }, [authLoading, user, isDemoMode, currentUserId]);
 
   const loadProfile = async () => {
     try {

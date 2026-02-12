@@ -13,7 +13,6 @@ import { DialogProvider } from "@/contexts/DialogContext";
 import { NotificationProvider } from "@/contexts/NotificationContext";
 import SplashScreen from "@/components/SplashScreen";
 import WelcomeBackSplash from "@/components/WelcomeBackSplash";
-import ConfigurationError from "@/components/ConfigurationError";
 import { trpc, trpcClient } from "@/lib/trpc";
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
@@ -86,7 +85,7 @@ function useProtectedRoute() {
 }
 
 function RootLayoutNav() {
-  const { isLoading: authLoading, isAuthenticated, isConfigured } = useAuth();
+  const { isLoading: authLoading, isAuthenticated, isDemoMode } = useAuth();
   const { isLoading: profileLoading, hasCompletedOnboarding } = useUserProfile();
   const { activeCookingSession } = useCookingHistory();
   const [showWelcomeBack, setShowWelcomeBack] = useState(true);
@@ -97,11 +96,7 @@ function RootLayoutNav() {
     return <SplashScreen />;
   }
 
-  if (!isConfigured) {
-    return <ConfigurationError />;
-  }
-
-  const isReturningUser = isAuthenticated && hasCompletedOnboarding === true;
+  const isReturningUser = (isAuthenticated || isDemoMode) && hasCompletedOnboarding === true;
   const hasActiveCooking = activeCookingSession !== null;
 
   // Only show WelcomeBackSplash if returning user AND has an active cooking session

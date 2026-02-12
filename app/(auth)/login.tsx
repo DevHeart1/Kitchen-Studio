@@ -27,7 +27,7 @@ const { width, height } = Dimensions.get("window");
 const BACKGROUND_IMAGE = "https://lh3.googleusercontent.com/aida-public/AB6AXuAzVXoa0ajnxy0VYAcQxOE-9mPMvXX5rNIwC2q3AjMNqotiBXTZTDGLt785UEPyNq00NhtCzGCGtzl_9pedZJd5-c0uCb5im3nLTc4SOOMS5rQfILzGyM-K6XXglbaYcg4XaOGPojaq8pL-w_4LdrM0lJ8jn85kkSU3-gdBKy9qlBeToRZFQXja7ey49GGYVEhM2mJ2aGTH6BZslvxUGCWRi6MwVVsWQeXKDzIjWIbl4Ez0tb5tcr2x5Ib8YbepLL36Rtx3BZOflw";
 
 export default function LoginScreen() {
-    const { signIn, signInWithGoogle, signInWithApple, resendConfirmationEmail, resetPassword, isLoading } = useAuth();
+    const { signIn, signInWithGoogle, signInWithApple, resendConfirmationEmail, resetPassword, isLoading, isDemoMode } = useAuth();
     const { checkOnboardingStatus } = useUserProfile();
     const [showEmailModal, setShowEmailModal] = useState(false);
     const [email, setEmail] = useState("");
@@ -205,7 +205,9 @@ export default function LoginScreen() {
         );
     };
 
-
+    const handleDemoMode = () => {
+        router.replace("/(tabs)");
+    };
 
     if (isLoading) {
         return (
@@ -283,7 +285,11 @@ export default function LoginScreen() {
                         <Text style={styles.emailButtonText}>Sign in with Email</Text>
                     </TouchableOpacity>
 
-
+                    {isDemoMode && (
+                        <TouchableOpacity style={styles.demoButton} onPress={handleDemoMode}>
+                            <Text style={styles.demoButtonText}>Continue in Demo Mode</Text>
+                        </TouchableOpacity>
+                    )}
 
                     <View style={styles.signUpContainer}>
                         <Text style={styles.signUpText}>Don't have an account?</Text>

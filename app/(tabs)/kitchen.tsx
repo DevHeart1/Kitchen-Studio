@@ -25,7 +25,7 @@ import {
   ShoppingBasket,
   Search,
   ChefHat,
-  TriangleAlert,
+  AlertTriangle,
   Crown,
   ArrowRight,
   Bot, // NewAI Icon
@@ -115,7 +115,7 @@ export default function KitchenScreen() {
     }
 
     let readyCount = 0;
-    recipe.ingredients.forEach((ingredient: { name: string }) => {
+    recipe.ingredients.forEach((ingredient) => {
       const pantryCheck = checkIngredientInPantry(ingredient.name);
       if (pantryCheck.found) {
         readyCount++;
@@ -142,7 +142,7 @@ export default function KitchenScreen() {
     if (Platform.OS !== "web") {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
-    router.push("/paywall" as any);
+    router.push("/paywall");
   };
 
   const handleRecipePress = (recipe: SavedRecipe) => {
@@ -516,7 +516,7 @@ export default function KitchenScreen() {
                           ]}
                         >
                           {category.hasWarning ? (
-                            <TriangleAlert size={24} color={Colors.orange} />
+                            <AlertTriangle size={24} color={Colors.orange} />
                           ) : (
                             <Package size={24} color={Colors.green} />
                           )}

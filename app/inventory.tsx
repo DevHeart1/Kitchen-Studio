@@ -20,7 +20,7 @@ import {
   Search,
   QrCode,
   MoreVertical,
-  TriangleAlert,
+  AlertTriangle,
   ArrowLeft,
   Plus,
   ScanLine,
@@ -408,7 +408,7 @@ export default function InventoryScreen() {
                     ]}
                   >
                     {selectedItem.status === "expiring" && (
-                      <TriangleAlert size={10} color={getStatusColor(selectedItem.status)} />
+                      <AlertTriangle size={10} color={getStatusColor(selectedItem.status)} />
                     )}
                     <Text
                       style={[styles.detailStatusText, { color: getStatusColor(selectedItem.status) }]}
@@ -669,7 +669,7 @@ export default function InventoryScreen() {
       <View style={styles.emptyFeatures}>
         {[
           { icon: <ScanLine size={18} color={Colors.primary} />, title: "Barcode Scanner", desc: "Scan products to add instantly" },
-          { icon: <TriangleAlert size={18} color={Colors.orange} />, title: "Expiry Tracking", desc: "Get alerts before items expire" },
+          { icon: <AlertTriangle size={18} color={Colors.orange} />, title: "Expiry Tracking", desc: "Get alerts before items expire" },
           { icon: <Sparkles size={18} color="#8b5cf6" />, title: "Smart Suggestions", desc: "Recipes based on what you have" },
         ].map((feature, idx) => (
           <View key={idx} style={styles.featureRow}>
@@ -879,7 +879,7 @@ export default function InventoryScreen() {
                             ]}
                           >
                             {ingredient.status === "expiring" && (
-                              <TriangleAlert
+                              <AlertTriangle
                                 size={10}
                                 color={getStatusColor(ingredient.status)}
                               />
