@@ -43,7 +43,15 @@
         }
       ],
       "expo-font",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "@viro-community/react-viro",
+        {
+          "androidXrMode": [
+            "AR"
+          ]
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
