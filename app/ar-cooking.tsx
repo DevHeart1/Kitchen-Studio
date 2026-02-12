@@ -34,25 +34,30 @@ const DEMO_RECIPE: RecipeStep[] = [
   }
 ];
 
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 export default function ARCookingScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   const [timeline] = useState(() => new TimelineEngine(DEMO_RECIPE));
   const { deductInventory } = useInventory();
+  const insets = useSafeAreaInsets();
 
-  const [state, send] = useMachine(arCookingMachine, {
-    actions: {
-      triggerNextStep: () => {
-        if (timeline.next()) {
-          send({
-            type: 'NEXT_STEP',
-            nextIngredients: timeline.getActiveIngredients()
-          });
-        } else {
-          send({ type: 'FINISH_COOKING' });
-        }
-      },
-    }
-  });
+  const [state, send] = useMachine(
+    arCookingMachine.provide({
+      actions: {
+        triggerNextStep: () => {
+          if (timeline.next()) {
+            send({
+              type: 'NEXT_STEP',
+              nextIngredients: timeline.getActiveIngredients()
+            });
+          } else {
+            send({ type: 'FINISH_COOKING' });
+          }
+        },
+      }
+    })
+  );
 
   const [currentInstruction, setCurrentInstruction] = useState<string>("Initializing...");
   const [activeIngredients, setActiveIngredients] = useState<string[]>([]);
@@ -142,14 +147,20 @@ export default function ARCookingScreen() {
     send({ type: 'GESTURE_DETECTED', gesture: g as any });
   };
 
-  if (!permission) return <View />;
+  if (!permission) return <View style={[styles.container, { backgroundColor: 'black' }]} />;
+
   if (!permission.granted) {
     return (
-      <View style={styles.container}>
-        <Text style={{ color: 'white' }}>No Camera Access</Text>
-        <TouchableOpacity onPress={requestPermission} style={styles.button}>
-          <Text>Grant Permission</Text>
-        </TouchableOpacity>
+      <View style={[styles.container, styles.permissionContainer, { paddingTop: insets.top }]}>
+        <View style={styles.permissionContent}>
+          <Text style={styles.permissionTitle}>Camera Access Required</Text>
+          <Text style={styles.permissionText}>
+            Kitchen Studio needs camera access to display recipe steps in your environment.
+          </Text>
+          <TouchableOpacity onPress={requestPermission} style={styles.permissionButton}>
+            <Text style={styles.permissionButtonText}>Grant Permission</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   }
@@ -166,12 +177,12 @@ export default function ARCookingScreen() {
       <ARWebView onGestureDetected={handleGesture} />
 
       {/* 4. UI Layer */}
-      <View style={styles.uiOverlay}>
+      <View style={[styles.uiOverlay, { paddingTop: insets.top, paddingBottom: insets.bottom + 20 }]}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.closeBtn}>
-            <Text style={styles.closeText}>X</Text>
+            <Text style={styles.closeText}>✕</Text>
           </TouchableOpacity>
-          <View style={styles.badge}>
+          <View style={[styles.badge, state.matches('paused') && styles.badgePaused]}>
             <Text style={styles.badgeText}>{state.value.toString().toUpperCase()}</Text>
           </View>
         </View>
@@ -194,9 +205,13 @@ export default function ARCookingScreen() {
 
         {/* Controls */}
         <View style={styles.controls}>
-          <Text style={styles.gestureText}>Detected: {gesture}</Text>
-          <TouchableOpacity style={styles.actionBtn} onPress={() => send({ type: 'VOICE_COMMAND', command: 'next' })}>
-            <Text style={styles.actionBtnText}>Next Step (Voice)</Text>
+          <Text style={styles.gestureText}>Detected Gesture: {gesture}</Text>
+          <TouchableOpacity
+            style={styles.actionBtn}
+            onPress={() => send({ type: 'VOICE_COMMAND', command: 'next' })}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.actionBtnText}>Next Step (Voice Sim)</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -206,33 +221,41 @@ export default function ARCookingScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: 'black' },
+  permissionContainer: { justifyContent: 'center', alignItems: 'center', padding: 20 },
+  permissionContent: { alignItems: 'center', maxWidth: 300 },
+  permissionTitle: { fontSize: 24, fontWeight: 'bold', color: 'white', marginBottom: 12, textAlign: 'center' },
+  permissionText: { fontSize: 16, color: 'rgba(255,255,255,0.7)', textAlign: 'center', marginBottom: 32 },
+  permissionButton: { backgroundColor: '#fff', paddingVertical: 16, paddingHorizontal: 32, borderRadius: 30 },
+  permissionButtonText: { fontSize: 16, fontWeight: 'bold', color: '#000' },
+
   uiOverlay: { flex: 1, padding: 20, justifyContent: 'space-between' },
-  header: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 40 },
-  closeBtn: { padding: 10, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 20 },
-  closeText: { color: 'white', fontWeight: 'bold' },
-  badge: { padding: 8, backgroundColor: '#4CAF50', borderRadius: 12 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  closeBtn: { width: 40, height: 40, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  closeText: { color: 'white', fontSize: 18, fontWeight: 'bold' },
+  badge: { paddingHorizontal: 12, paddingVertical: 6, backgroundColor: '#4CAF50', borderRadius: 12 },
+  badgePaused: { backgroundColor: '#FF9800' },
   badgeText: { color: 'white', fontSize: 12, fontWeight: 'bold' },
 
   instructionCard: {
-    backgroundColor: 'rgba(255,255,255,0.9)',
-    padding: 20,
-    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    padding: 24,
+    borderRadius: 24,
     marginBottom: 20,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+    marginHorizontal: 10
   },
-  stepTitle: { color: '#666', fontSize: 12, fontWeight: 'bold', marginBottom: 4 },
-  instructionText: { fontSize: 24, fontWeight: 'bold', color: '#333' },
-  ingredientsRow: { flexDirection: 'row', marginTop: 12, gap: 8 },
-  ingChip: { backgroundColor: '#E8F5E9', paddingVertical: 4, paddingHorizontal: 8, borderRadius: 8 },
-  ingText: { color: '#2E7D32', fontWeight: '600' },
+  stepTitle: { color: '#666', fontSize: 13, fontWeight: '700', marginBottom: 8, textTransform: 'uppercase' },
+  instructionText: { fontSize: 22, fontWeight: '700', color: '#1a1a1a', lineHeight: 28 },
+  ingredientsRow: { flexDirection: 'row', marginTop: 16, flexWrap: 'wrap', gap: 8 },
+  ingChip: { backgroundColor: '#E8F5E9', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: '#C8E6C9' },
+  ingText: { color: '#2E7D32', fontWeight: '600', fontSize: 14 },
 
-  controls: { alignItems: 'center', marginBottom: 40 },
-  gestureText: { color: 'rgba(255,255,255,0.8)', marginBottom: 20 },
-  button: { padding: 20, backgroundColor: 'white', marginTop: 20 },
-  actionBtn: { backgroundColor: '#2196F3', padding: 16, borderRadius: 30, width: 200, alignItems: 'center' },
-  actionBtnText: { color: 'white', fontWeight: 'bold' }
+  controls: { alignItems: 'center', marginBottom: 20 },
+  gestureText: { color: 'rgba(255,255,255,0.8)', marginBottom: 16, fontSize: 14, fontWeight: '500' },
+  actionBtn: { backgroundColor: '#2196F3', paddingVertical: 16, paddingHorizontal: 32, borderRadius: 30, alignItems: 'center', elevation: 4 },
+  actionBtnText: { color: 'white', fontWeight: 'bold', fontSize: 16 }
 });

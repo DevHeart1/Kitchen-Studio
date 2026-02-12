@@ -1,12 +1,24 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { Platform, Alert } from "react-native";
-import Purchases, {
-    CustomerInfo,
-    LOG_LEVEL,
-    PurchasesPackage,
-} from "react-native-purchases";
-import RevenueCatUI, { PAYWALL_RESULT } from "react-native-purchases-ui";
+// import Purchases, {
+//     CustomerInfo,
+//     LOG_LEVEL,
+//     PurchasesPackage,
+// } from "react-native-purchases";
+// import RevenueCatUI, { PAYWALL_RESULT } from "react-native-purchases-ui";
 import createContextHook from "@nkzw/create-context-hook";
+
+// MOCK TYPES FOR EXPO GO
+type CustomerInfo = any;
+type PurchasesPackage = any;
+const LOG_LEVEL = { VERBOSE: 'VERBOSE' };
+const PAYWALL_RESULT = {
+    NOT_PRESENTED: 'NOT_PRESENTED',
+    ERROR: 'ERROR',
+    CANCELLED: 'CANCELLED',
+    PURCHASED: 'PURCHASED',
+    RESTORED: 'RESTORED'
+};
 
 const API_KEYS = {
     ios: process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY || "appl_your_ios_key_here",
@@ -59,8 +71,8 @@ interface SubscriptionContextType {
 
 export const [SubscriptionProvider, useSubscription] = createContextHook<SubscriptionContextType>(
     () => {
-        const [isPro, setIsPro] = useState(false);
-        const [isLoading, setIsLoading] = useState(true);
+        const [isPro, setIsPro] = useState(false); // Default to false, can toggle in mock
+        const [isLoading, setIsLoading] = useState(false);
         const [customerInfo, setCustomerInfo] = useState<CustomerInfo | null>(null);
         const [offerings, setOfferings] = useState<PurchasesPackage[]>([]);
         const [paywallContent, setPaywallContent] = useState<PaywallContent>(DEFAULT_PAYWALL_CONTENT);
@@ -70,148 +82,59 @@ export const [SubscriptionProvider, useSubscription] = createContextHook<Subscri
         }, []);
 
         const initRevenueCat = async () => {
-            if (Platform.OS === "web") {
+            console.log("[SubscriptionContext] Running in MOCK Mode for Expo Go compatibility.");
+            // Mock loading delay
+            setTimeout(() => {
+                setOfferings([
+                    { packageType: "MONTHLY", product: { priceString: "$9.99" } },
+                    { packageType: "ANNUAL", product: { priceString: "$79.99" } }
+                ]);
                 setIsLoading(false);
-                return;
-            }
-
-            Purchases.setLogLevel(LOG_LEVEL.VERBOSE);
-
-            try {
-                if (Platform.OS === "ios") {
-                    await Purchases.configure({ apiKey: API_KEYS.ios });
-                } else if (Platform.OS === "android") {
-                    await Purchases.configure({ apiKey: API_KEYS.android });
-                }
-
-                const info = await Purchases.getCustomerInfo();
-                setCustomerInfo(info);
-                checkEntitlements(info);
-
-                try {
-                    const offerings = await Purchases.getOfferings();
-                    if (
-                        offerings.current !== null &&
-                        offerings.current.availablePackages.length !== 0
-                    ) {
-                        setOfferings(offerings.current.availablePackages);
-
-                        // Extract metadata if available
-                        if (offerings.current.metadata && offerings.current.metadata.paywall) {
-                            try {
-                                const metadata = offerings.current.metadata.paywall as any;
-                                // Simple validation to ensure we have the minimum required fields
-                                if (metadata.features && Array.isArray(metadata.features)) {
-                                    setPaywallContent({
-                                        hero_title: metadata.hero_title || DEFAULT_PAYWALL_CONTENT.hero_title,
-                                        hero_subtitle: metadata.hero_subtitle || DEFAULT_PAYWALL_CONTENT.hero_subtitle,
-                                        trial_text: metadata.trial_text || DEFAULT_PAYWALL_CONTENT.trial_text,
-                                        features: metadata.features
-                                    });
-                                }
-                            } catch (err) {
-                                console.warn("Failed to parse paywall metadata, using default.", err);
-                            }
-                        }
-                    }
-                } catch (e) {
-                    console.error("Error fetching offerings", e);
-                }
-            } catch (e) {
-                console.error("Error configuring RevenueCat", e);
-            } finally {
-                setIsLoading(false);
-            }
+            }, 1000);
         };
 
 
         const checkEntitlements = (info: CustomerInfo) => {
-            if (
-                info.entitlements.active[ENTITLEMENT_ID] !== undefined
-            ) {
+            // Mock check
+            if (info?.entitlements?.active?.[ENTITLEMENT_ID]) {
                 setIsPro(true);
-            } else {
-                setIsPro(false);
             }
         };
 
         useEffect(() => {
-            const customerInfoUpdated = (info: CustomerInfo) => {
-                setCustomerInfo(info);
-                checkEntitlements(info);
-            };
-
-            Purchases.addCustomerInfoUpdateListener(customerInfoUpdated);
-
-            return () => {
-                Purchases.removeCustomerInfoUpdateListener(customerInfoUpdated);
-            };
+            // Mock Listener
+            return () => { };
         }, []);
 
         const presentPaywall = async (): Promise<boolean> => {
-            if (Platform.OS === "web") {
-                Alert.alert("Not Available", "Subscriptions are only available on mobile devices.");
-                return false;
-            }
-
-            try {
-                const paywallResult: PAYWALL_RESULT = await RevenueCatUI.presentPaywall({
-                    displayCloseButton: true,
-                });
-
-                switch (paywallResult) {
-                    case PAYWALL_RESULT.NOT_PRESENTED:
-                    case PAYWALL_RESULT.ERROR:
-                    case PAYWALL_RESULT.CANCELLED:
-                        return false;
-                    case PAYWALL_RESULT.PURCHASED:
-                    case PAYWALL_RESULT.RESTORED:
-                        return true;
-                    default:
-                        return false;
-                }
-            } catch (e) {
-                console.error("Error presenting paywall:", e);
-                return false;
-            }
+            console.log("[Mock] Presenting Paywall");
+            // Simulate a purchase after a small delay or just return true for testing
+            // For now, we'll just log
+            return new Promise((resolve) => {
+                Alert.alert(
+                    "Expo Go Mock Paywall",
+                    "This is a mock paywall because native RevenueCat cannot run in Expo Go.\n\nSimulate purchase?",
+                    [
+                        { text: "Cancel", onPress: () => resolve(false), style: "cancel" },
+                        {
+                            text: "Simulate Purchase", onPress: () => {
+                                setIsPro(true);
+                                resolve(true);
+                            }
+                        }
+                    ]
+                );
+            });
         };
 
         const presentCustomerCenter = async () => {
-            if (Platform.OS === "web") {
-                Alert.alert("Not Available", "Customer Center is only available on mobile devices.");
-                return;
-            }
-
-            try {
-                await RevenueCatUI.presentCustomerCenter();
-            } catch (e) {
-                console.error("Error presenting customer center:", e);
-            }
+            Alert.alert("Mock Customer Center", "Not available in mock mode.");
         };
 
         const buyPackage = async (packageType: "MONTHLY" | "ANNUAL"): Promise<boolean> => {
-            if (Platform.OS === "web") {
-                Alert.alert("Not Available", "Subscriptions are only available on mobile devices.");
-                return false;
-            }
-
-            const pkg = offerings.find(p => p.packageType === packageType);
-            if (!pkg) {
-                Alert.alert("Error", "This plan is not available right now. Please try again later.");
-                return false;
-            }
-
-            try {
-                const { customerInfo: info } = await Purchases.purchasePackage(pkg);
-                setCustomerInfo(info);
-                checkEntitlements(info);
-                return info.entitlements.active[ENTITLEMENT_ID] !== undefined;
-            } catch (e: any) {
-                if (!e.userCancelled) {
-                    throw e;
-                }
-                return false;
-            }
+            console.log("[Mock] Buy Package:", packageType);
+            setIsPro(true);
+            return true;
         };
 
         const buyPro = async (): Promise<boolean> => {
@@ -219,18 +142,8 @@ export const [SubscriptionProvider, useSubscription] = createContextHook<Subscri
         };
 
         const restorePurchases = async () => {
-            try {
-                const info = await Purchases.restorePurchases();
-                setCustomerInfo(info);
-                checkEntitlements(info);
-                if (info.entitlements.active[ENTITLEMENT_ID]) {
-                    Alert.alert("Success", "Your purchases have been restored.");
-                } else {
-                    Alert.alert("Notice", "No active subscriptions found to restore.");
-                }
-            } catch (e: any) {
-                Alert.alert("Error", e.message);
-            }
+            console.log("[Mock] Restore Purchases");
+            Alert.alert("Mock Restore", "Purchases 'restored' (nothing happened).");
         };
 
         return {

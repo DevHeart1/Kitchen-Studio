@@ -354,6 +354,35 @@ export default function KitchenScreen() {
           onClose={() => setAiModalVisible(false)}
         />
 
+        <TouchableOpacity
+          style={{
+            backgroundColor: "#1a1a1a",
+            marginHorizontal: 4,
+            marginBottom: 16,
+            borderRadius: 16,
+            padding: 16,
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+            borderWidth: 1,
+            borderColor: "rgba(255,255,255,0.1)"
+          }}
+          onPress={() => router.push("/ar-cooking" as any)}
+          activeOpacity={0.8}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.primary + '20', alignItems: 'center', justifyContent: 'center' }}>
+              {/* Using ChefHat or ScanLine as placeholder icon for now */}
+              <Sparkles size={20} color={Colors.primary} />
+            </View>
+            <View>
+              <Text style={{ color: 'white', fontSize: 16, fontWeight: '700' }}>AR Cooking Mode</Text>
+              <Text style={{ color: Colors.textMuted, fontSize: 13 }}>Try the new immersive experience</Text>
+            </View>
+          </View>
+          <ArrowRight size={20} color={Colors.textMuted} />
+        </TouchableOpacity>
+
         {!isPro && (
           <TouchableOpacity
             style={styles.proUpgradeBanner}
