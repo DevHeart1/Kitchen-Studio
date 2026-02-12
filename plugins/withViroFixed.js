@@ -1,22 +1,20 @@
 const {
     withDangerousMod,
-    withProjectBuildGradle,
     withAppBuildGradle,
     withSettingsGradle,
-    withAndroidManifest,
     withPlugins,
-    AndroidConfig,
 } = require("@expo/config-plugins");
 const fs = require("fs");
 const path = require("path");
 
-const withBranchAndroid = (config) => {
+console.log("Loading withViroFixed plugin...");
+
+// 1. Force AR Mode in MainApplication.kt
+const withForceARInit = (config) => {
     return withDangerousMod(config, [
         "android",
         async (config) => {
-            // FORCE AR ONLY to avoid double-init crash with GVR
-            const viroPluginConfig = ["AR"];
-
+            console.log("[ViroPlugin] Executing withForceARInit");
             let mainApplicationPath = "";
             const mainApplicationPrefix = path.join(
                 config.modRequest.platformProjectRoot,
@@ -24,137 +22,108 @@ const withBranchAndroid = (config) => {
                 ...(config?.android?.package?.split?.(".") || [])
             );
 
-            // Check for .kt or .java
-            const ktPath = path.join(mainApplicationPrefix, "MainApplication.kt");
-            const javaPath = path.join(mainApplicationPrefix, "MainApplication.java");
+            const potentialPaths = [
+                path.join(mainApplicationPrefix, "MainApplication.java"),
+                path.join(mainApplicationPrefix, "MainApplication.kt"),
+            ];
 
-            if (fs.existsSync(ktPath)) {
-                mainApplicationPath = ktPath;
-            } else if (fs.existsSync(javaPath)) {
-                mainApplicationPath = javaPath;
-            } else {
-                // If neither exists (unlikely in prebuild), just skip
-                return config;
-            }
-
-            let data = fs.readFileSync(mainApplicationPath, "utf-8");
-
-            // Add Import
-            if (!data.includes("import com.viromedia.bridge.ReactViroPackage")) {
-                data = data.replace(
-                    /package\s+[\w\.]+/,
-                    `$&
-import com.viromedia.bridge.ReactViroPackage`
-                );
-            }
-
-            // Add Package to List
-            // We only insert if it's NOT already there (to avoid re-running issues)
-            if (!data.includes("ReactViroPackage.ViroPlatform.AR")) {
-                const packageLine = `add(ReactViroPackage(ReactViroPackage.ViroPlatform.AR))`;
-
-                if (data.includes("PackageList(this).packages.apply {")) {
-                    // Kotlin new architecture style
-                    data = data.replace(
-                        "PackageList(this).packages.apply {",
-                        `PackageList(this).packages.apply {\n            ${packageLine}`
-                    );
-                } else if (data.includes("return new ArrayList<>(Arrays.asList(")) {
-                    // Java legacy style
-                    data = data.replace(
-                        "return new ArrayList<>(Arrays.asList(",
-                        `return new ArrayList<>(Arrays.asList(\n            new ReactViroPackage(ReactViroPackage.ViroPlatform.AR),`
-                    );
-                } else if (data.includes("super.getPackages();")) {
-                    // Another Java style
-                    // Skip complex regex for now, rely on standard expo template
+            for (const p of potentialPaths) {
+                if (fs.existsSync(p)) {
+                    mainApplicationPath = p;
+                    break;
                 }
             }
 
-            fs.writeFileSync(mainApplicationPath, data, "utf-8");
+            if (!mainApplicationPath) {
+                console.warn("[ViroPlugin] MainApplication not found via prefix", mainApplicationPrefix);
+                return config;
+            }
+
+            let contents = fs.readFileSync(mainApplicationPath, "utf-8");
+
+            if (contents.includes("ReactViroPackage.ViroPlatform.GVR")) {
+                console.log("[ViroPlugin] Patching MainApplication.kt to remove GVR");
+                contents = contents.replace(
+                    /new ReactViroPackage\(ReactViroPackage\.ViroPlatform\.AR\s*,\s*ReactViroPackage\.ViroPlatform\.GVR\)/g,
+                    "new ReactViroPackage(ReactViroPackage.ViroPlatform.AR)"
+                );
+                contents = contents.replace(
+                    /ReactViroPackage\(ReactViroPackage\.ViroPlatform\.AR\s*,\s*ReactViroPackage\.ViroPlatform\.GVR\)/g,
+                    "ReactViroPackage(ReactViroPackage.ViroPlatform.AR)"
+                );
+                fs.writeFileSync(mainApplicationPath, contents);
+            } else {
+                console.log("[ViroPlugin] MainApplication.kt already patched or GVR not found");
+            }
             return config;
         },
     ]);
 };
 
-// Ensure Min SDK is 24+
-const withViroProjectBuildGradle = (config) => {
-    return withProjectBuildGradle(config, async (config) => {
-        config.modResults.contents = config.modResults.contents.replace(
-            /minSdkVersion\s?=\s?\d+/,
-            `minSdkVersion = 24`
-        );
-        return config;
-    });
-};
+// 2. Inject Viro Dependencies (AR ONLY) into build.gradle
+const withViroBuildGradle = (config) => {
+    return withAppBuildGradle(config, (config) => {
+        console.log("[ViroPlugin] Executing withViroBuildGradle");
+        const buildGradle = config.modResults.contents;
 
-// Add dependencies
-const withViroAppBuildGradle = (config) => {
-    return withAppBuildGradle(config, async (config) => {
-        const dependencies = [
-            "implementation project(':gvr_common')",
-            "implementation project(':arcore_client')",
-            "implementation project(':react_viro')",
-            "implementation project(':viro_renderer')",
-            "implementation 'com.google.android.exoplayer:exoplayer:2.19.1'",
-            "implementation 'com.google.protobuf.nano:protobuf-javanano:3.1.0'"
-        ];
-
-        if (!config.modResults.contents.includes(":react_viro")) {
-            // Simple append to dependencies block
-            const depBlock = dependencies.join("\n    ");
-            config.modResults.contents = config.modResults.contents.replace(
-                /dependencies\s?{/,
-                `dependencies {\n    ${depBlock}`
-            );
+        if (buildGradle.includes("':react_viro'")) {
+            console.log("[ViroPlugin] dependency ':react_viro' already present in build.gradle");
+            return config;
         }
+
+        const dependencies = `
+    implementation project(':arcore_client')
+    implementation project(':react_viro')
+    implementation project(':viro_renderer')
+    implementation 'com.google.android.exoplayer:exoplayer:2.19.1'
+    implementation 'com.google.protobuf.nano:protobuf-javanano:3.1.0'
+    `;
+
+        // Try robust injection
+        if (buildGradle.includes("dependencies {")) {
+            console.log("[ViroPlugin] Inheriting dependencies block found, injecting Viro deps...");
+            config.modResults.contents = buildGradle.replace(
+                /dependencies\s*{/,
+                `dependencies {\n${dependencies}`
+            );
+        } else {
+            console.error("[ViroPlugin] CRITICAL: 'dependencies {' block NOT found in build.gradle!");
+        }
+
         return config;
     });
 };
 
-// Include modules
+// 3. Inject Viro Includes (AR ONLY) into settings.gradle
 const withViroSettingsGradle = (config) => {
-    return withSettingsGradle(config, async (config) => {
-        if (!config.modResults.contents.includes(":react_viro")) {
-            config.modResults.contents += `
-include ':react_viro', ':arcore_client', ':gvr_common', ':viro_renderer'
+    return withSettingsGradle(config, (config) => {
+        console.log("[ViroPlugin] Executing withViroSettingsGradle");
+        const settingsGradle = config.modResults.contents;
+
+        if (settingsGradle.includes("':react_viro'")) {
+            console.log("[ViroPlugin] include ':react_viro' already present in settings.gradle");
+            return config;
+        }
+
+        const includes = `
+include ':react_viro', ':arcore_client', ':viro_renderer'
 project(':arcore_client').projectDir = new File('../node_modules/@viro-community/react-viro/android/arcore_client')
-project(':gvr_common').projectDir = new File('../node_modules/@viro-community/react-viro/android/gvr_common')
 project(':viro_renderer').projectDir = new File('../node_modules/@viro-community/react-viro/android/viro_renderer')
 project(':react_viro').projectDir = new File('../node_modules/@viro-community/react-viro/android/react_viro')
-        `;
-        }
+    `;
+
+        console.log("[ViroPlugin] Appending Viro includes to settings.gradle");
+        config.modResults.contents = settingsGradle + "\n" + includes;
         return config;
     });
 };
 
-// Add Permissions & Metadata
-const withViroManifest = (config) => {
-    return withAndroidManifest(config, async (config) => {
-        const androidManifest = config.modResults;
-
-        // Add Permissions
-        const permissions = ["android.permission.CAMERA", "android.permission.RECORD_AUDIO", "android.permission.Internet"]; // Internet is default but good to ensure
-        AndroidConfig.Permissions.addPermission(androidManifest, permissions);
-
-        // Add Metadata for ARCore
-        const mainApp = AndroidConfig.Manifest.getMainApplicationOrThrow(androidManifest);
-        AndroidConfig.Manifest.addMetaDataItemToMainApplication(
-            mainApp,
-            "com.google.ar.core",
-            "optional"
-        );
-
-        return config;
-    });
-};
-
-module.exports = (config) => {
+const withViroFixed = (config) => {
     return withPlugins(config, [
-        withBranchAndroid,
-        withViroProjectBuildGradle,
-        withViroManifest,
-        withViroSettingsGradle,
-        withViroAppBuildGradle,
+        withForceARInit,
+        withViroBuildGradle,
+        withViroSettingsGradle
     ]);
 };
+
+module.exports = withViroFixed;
