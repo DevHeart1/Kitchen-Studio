@@ -51,7 +51,8 @@
             "AR"
           ]
         }
-      ]
+      ],
+      "./plugins/withSpeechRecognition"
     ],
     "experiments": {
       "typedRoutes": true
