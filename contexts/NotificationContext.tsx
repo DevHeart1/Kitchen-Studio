@@ -5,8 +5,9 @@ import { useInventory, InventoryItem } from "@/contexts/InventoryContext";
 import { supabase } from "@/lib/supabase";
 import { useMutation } from "@tanstack/react-query";
 import { Notification, NotificationType } from "@/types";
+import { useAuth } from "./AuthContext";
 
-const NOTIFICATIONS_KEY = "app_notifications_v2";
+const NOTIFICATIONS_KEY_PREFIX = "app_notifications_v2_";
 const LAST_AI_CHECK_KEY = "last_ai_recommendation_check";
 const AI_CHECK_INTERVAL = 4 * 60 * 60 * 1000;
 
@@ -140,6 +141,10 @@ export const [NotificationProvider, useNotifications] = createContextHook(() => 
   const [isLoading, setIsLoading] = useState(true);
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   const { inventory } = useInventory();
+  const { user } = useAuth();
+  const userId = user?.id || "guest"; // Fallback for demo mode
+
+  const notificationsKey = `${NOTIFICATIONS_KEY_PREFIX}${userId}`;
   const prevInventoryRef = useRef<string>("");
   const recommendationsMutation = useMutation({
     mutationFn: async (data: { inventoryItems: any[] }) => {
@@ -165,14 +170,17 @@ export const [NotificationProvider, useNotifications] = createContextHook(() => 
 
   useEffect(() => {
     loadPersistedState();
-  }, []);
+  }, [userId]); // Reload when user changes
 
   const loadPersistedState = async () => {
     try {
-      const stored = await AsyncStorage.getItem(NOTIFICATIONS_KEY);
+      setIsLoading(true);
+      const stored = await AsyncStorage.getItem(notificationsKey);
       if (stored) {
         const parsed: Notification[] = JSON.parse(stored);
         setNotifications(parsed.filter(n => !n.dismissed));
+      } else {
+        setNotifications([]);
       }
     } catch (e) {
       console.log("[Notifications] Error loading:", e);
@@ -183,11 +191,11 @@ export const [NotificationProvider, useNotifications] = createContextHook(() => 
 
   const persistNotifications = useCallback(async (notifs: Notification[]) => {
     try {
-      await AsyncStorage.setItem(NOTIFICATIONS_KEY, JSON.stringify(notifs));
+      await AsyncStorage.setItem(notificationsKey, JSON.stringify(notifs));
     } catch (e) {
       console.log("[Notifications] Error persisting:", e);
     }
-  }, []);
+  }, [notificationsKey]);
 
   useEffect(() => {
     if (inventory.length === 0) return;
