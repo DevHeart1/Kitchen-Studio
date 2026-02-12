@@ -185,6 +185,9 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
 
         if (profileError && profileError.code !== "PGRST116") {
           console.error("[Profile] Supabase error:", profileError.message);
+          // If network error or other fetch error, do not attempt to create a new profile
+          setIsLoading(false);
+          return;
         }
 
         // Load shared recipes

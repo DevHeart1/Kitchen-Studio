@@ -13,15 +13,18 @@ const isSupabaseConfigured = (): boolean => {
   return !!url && !url.includes("your-project");
 };
 
-const dbToFrontend = (item: DbSavedRecipe): SavedRecipe => ({
-  id: item.id,
-  title: item.title,
-  videoThumbnail: item.video_thumbnail || "",
-  videoDuration: item.video_duration || "",
-  ingredients: item.ingredients || [],
-  instructions: item.instructions || [],
-  savedAt: item.saved_at,
-});
+const dbToFrontend = (item: DbSavedRecipe): SavedRecipe => {
+  // console.log("[SavedRecipes] converting item:", item.id, item.title);
+  return {
+    id: item.id,
+    title: item.title,
+    videoThumbnail: item.video_thumbnail || "",
+    videoDuration: item.video_duration || "",
+    ingredients: item.ingredients || [],
+    instructions: item.instructions || [],
+    savedAt: item.saved_at,
+  };
+};
 
 export const [SavedRecipesProvider, useSavedRecipes] = createContextHook(() => {
   const [savedRecipes, setSavedRecipes] = useState<SavedRecipe[]>([]);

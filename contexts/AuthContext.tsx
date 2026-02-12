@@ -328,7 +328,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         if (isDemoMode) {
             return DEMO_USER_ID;
         }
-        return user?.id ?? DEMO_USER_ID;
+        return user?.id || "";
     }, [isDemoMode, user]);
 
     const isAuthenticated = useMemo(() => {
