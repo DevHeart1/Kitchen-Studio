@@ -18,7 +18,14 @@
                 "EXPO_PUBLIC_GEMINI_API_KEY": "AIzaSyAoLV62EjYgEKfiBP0RBLSEA2MwHldGEos"
             }
         },
-        "production": {}
+        "production": {
+            "env": {
+                "NPM_CONFIG_LEGACY_PEER_DEPS": "true",
+                "EXPO_PUBLIC_SUPABASE_URL": "https://artvqeeykvzigjgpbmmo.supabase.co",
+                "EXPO_PUBLIC_ANON_KEY": "sb_publishable_2yo8nFhrDbuLDcgmrbn1Lw_DtPR9zDi",
+                "EXPO_PUBLIC_GEMINI_API_KEY": "AIzaSyAoLV62EjYgEKfiBP0RBLSEA2MwHldGEos"
+            }
+        }
     },
     "submit": {
         "production": {}
