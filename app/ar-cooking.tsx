@@ -1,35 +1,42 @@
-import React, { useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { ViroARSceneNavigator } from "@viro-community/react-viro";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { KitchenScene } from "@/components/ar/KitchenScene";
-import Colors from "@/constants/colors";
-import { StatusBar } from "expo-status-bar";
+import { useRecipe } from "@/hooks/useRecipe";
+import { useARSession } from "@/hooks/useARSession";
+import { useState, useEffect } from "react";
 
 export default function ARCookingScreen() {
-  const params = useLocalSearchParams();
+  const { recipeId } = useLocalSearchParams<{ recipeId: string }>();
   const router = useRouter();
-  const [stepIndex, setStepIndex] = useState(0);
+  const { recipe, loading } = useRecipe(recipeId);
 
-  // Parse recipe data from params
-  const recipe = params.recipeData ? JSON.parse(params.recipeData as string) : null;
+  // Parse ingredients and instructions for useARSession
+  const recipeIngredients = recipe?.ingredients?.map((i: any) => ({
+    name: i.ingredient || i.name,
+    amount: i.amount?.toString() || "1",
+    unit: i.unit || "pcs"
+  })) || [];
 
-  const handleStepComplete = () => {
-    if (recipe && stepIndex < (recipe.instructions?.length || 0) - 1) {
-      setStepIndex(stepIndex + 1);
-    } else {
-      // Finished
-      router.back();
-    }
-  };
+  const recipeInstructions = recipe?.instructions?.map((i: any, index: number) => ({
+    step: index + 1,
+    text: i.step,
+    time: i.timerSeconds || 0
+  })) || [];
 
-  if (!recipe) {
-    return null; // Handle loading/error
-  }
+  // Initialize the AR Session Engine (State Machine + Timeline + XP)
+  const session = useARSession({
+    recipeId: recipeId || "unknown",
+    recipeTitle: recipe?.title || "Unknown Recipe",
+    recipeImage: recipe?.image || "",
+    recipeIngredients,
+    recipeInstructions,
+  });
+
+  if (loading || !recipe) return <View style={styles.container} />;
 
   return (
     <View style={styles.container}>
-      <StatusBar hidden />
       <ViroARSceneNavigator
         autofocus={true}
         initialScene={{
@@ -37,21 +44,18 @@ export default function ARCookingScreen() {
         }}
         viroAppProps={{
           recipe: recipe,
-          currentStepIndex: stepIndex,
-          onStepComplete: handleStepComplete,
+          currentStepIndex: session.currentStepIndex,
+          onStepComplete: session.handleNext,
+          onPanPlaced: session.handleStart, // Start the timeline when pan is placed
+          session: session // Pass full session if needed for advanced features
         }}
-        style={styles.arView}
+        style={styles.f1}
       />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.black,
-  },
-  arView: {
-    flex: 1,
-  },
+  f1: { flex: 1 },
+  container: { flex: 1, backgroundColor: "black" },
 });
