@@ -41,6 +41,15 @@ const withForceARInit = (config) => {
 
             let contents = fs.readFileSync(mainApplicationPath, "utf-8");
 
+            // Add import if missing
+            if (!contents.includes("import com.viromedia.bridge.ReactViroPackage")) {
+                contents = contents.replace(
+                    /package\s+[\w.]+/,
+                    (match) => `${match}\nimport com.viromedia.bridge.ReactViroPackage`
+                );
+            }
+
+            // Remove old GVR references if any
             if (contents.includes("ReactViroPackage.ViroPlatform.GVR")) {
                 console.log("[ViroPlugin] Patching MainApplication.kt to remove GVR");
                 contents = contents.replace(
@@ -51,10 +60,36 @@ const withForceARInit = (config) => {
                     /ReactViroPackage\(ReactViroPackage\.ViroPlatform\.AR\s*,\s*ReactViroPackage\.ViroPlatform\.GVR\)/g,
                     "ReactViroPackage(ReactViroPackage.ViroPlatform.AR)"
                 );
-                fs.writeFileSync(mainApplicationPath, contents);
-            } else {
-                console.log("[ViroPlugin] MainApplication.kt already patched or GVR not found");
             }
+
+            // Inject ReactViroPackage if missing
+            if (!contents.includes("new ReactViroPackage(ReactViroPackage.ViroPlatform.AR)") &&
+                !contents.includes("ReactViroPackage(ReactViroPackage.ViroPlatform.AR)")) {
+
+                console.log("[ViroPlugin] Injecting ReactViroPackage (AR) into MainApplication.kt");
+
+                // Check for Kotlin "PackageList(this).packages"
+                if (contents.includes("PackageList(this).packages")) {
+                    // Try to wrap it in apply block if not already
+                     contents = contents.replace(
+                        /return\s+PackageList\(this\)\.packages(?!\.apply)/,
+                        "return PackageList(this).packages.apply { add(ReactViroPackage(ReactViroPackage.ViroPlatform.AR)) }"
+                    );
+                     // If that regex didn't match, maybe it's "val packages = PackageList(this).packages"
+                     if (!contents.includes("ReactViroPackage(ReactViroPackage.ViroPlatform.AR)")) {
+                         contents = contents.replace(
+                             /PackageList\(this\)\.packages(?!\.apply)/,
+                             "PackageList(this).packages.apply { add(ReactViroPackage(ReactViroPackage.ViroPlatform.AR)) }"
+                         );
+                     }
+                } else if (contents.includes("getPackages()")) {
+                    // Java fallback or complex Kotlin
+                    // This is harder to patch reliably with regex without context
+                    console.warn("[ViroPlugin] Could not reliably inject ReactViroPackage. Manual intervention may be needed.");
+                }
+            }
+
+            fs.writeFileSync(mainApplicationPath, contents);
             return config;
         },
     ]);
