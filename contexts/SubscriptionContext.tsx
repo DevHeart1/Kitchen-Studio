@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { Platform, Alert } from "react-native";
+import Constants, { ExecutionEnvironment } from "expo-constants";
 import Purchases, {
     CustomerInfo,
     LOG_LEVEL,
@@ -75,6 +76,15 @@ export const [SubscriptionProvider, useSubscription] = createContextHook<Subscri
                 return;
             }
 
+            const apiKey = Platform.OS === 'ios' ? API_KEYS.ios : API_KEYS.android;
+            const isDefaultKey = !apiKey || apiKey.includes('your_ios_key_here') || apiKey.includes('your_android_key_here');
+
+            if (isDefaultKey) {
+                console.warn("RevenueCat API keys missing or using placeholders. Subscriptions disabled.");
+                setIsLoading(false);
+                return;
+            }
+
             Purchases.setLogLevel(LOG_LEVEL.VERBOSE);
 
             try {
@@ -117,8 +127,13 @@ export const [SubscriptionProvider, useSubscription] = createContextHook<Subscri
                 } catch (e) {
                     console.error("Error fetching offerings", e);
                 }
-            } catch (e) {
-                console.error("Error configuring RevenueCat", e);
+            } catch (e: any) {
+                // Handle Expo Go environment specific error
+                if (e.message && (e.message.includes("native store is not available") || e.message.includes("Expo Go"))) {
+                    console.warn("RevenueCat configuration skipped (Expo Go detected): " + e.message);
+                } else {
+                    console.error("Error configuring RevenueCat", e);
+                }
             } finally {
                 setIsLoading(false);
             }
