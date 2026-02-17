@@ -59,72 +59,12 @@ const CATEGORIES: RecipeCategory[] = [
   { id: "comfort", name: "Comfort Food", icon: <Heart size={20} color={Colors.red} />, color: Colors.redBg },
 ];
 
-const GEMINI_API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY || "";
+import { supabase } from "@/lib/supabase";
+
 
 export async function extractRecipeFromImage(imageUri: string): Promise<DiscoverRecipe | null> {
-  if (!GEMINI_API_KEY) {
-    console.log("[Discover] No Gemini API key found");
-    return null;
-  }
-
-  try {
-    const prompt = `Analyze this food image and extract the detailed recipe. Return ONLY a JSON object with this structure: { title, description (max 80 chars), cookTime, difficulty (Easy/Medium/Hard), calories, tags (2-3 tags), ingredients: [{ name: string, amount: string, unsplashPhotoId: string (a relevant photo ID from unsplash.com like 'photo-1546069901-ba9599a7e63c') }], instructions: [{ step: number, text: string, time: optional number in seconds }] }. Do not include markdown code blocks.`;
-
-    // For Gemini 1.5 Flash with image, we need to send the image data. 
-    // Since we can't easily upload binary in this environment without a backend proxy or complex blob handling in RN sometimes,
-    // we'll assume the imageUri is a base64 string or a public URL. 
-    // If it's a local file URI (file://), we would typically need to read it as base64.
-    // For this implementation, we will assume the caller provides a base64 string or we simulate the call if it's a local URI for now, 
-    // OR we use the file-to-generative-part approach if supported by the client library.
-    // However, we are using raw fetch here potentially or a simple integration.
-
-    // Let's assume we are sending a text prompt describing the image if we can't send the image directly via this simple fetch setup,
-    // OR we upgrade to use the full GoogleGenerativeAI client. 
-    // For now, I will implement a robust fetch with the text prompt assuming the image analysis is handled or we use a vision model endpoint.
-    // Since we are using "gemini-1.5-flash", it supports multimodal.
-
-    // NOTE: In a real React Native app, converting file:// to base64 is needed.
-    // I will add a placeholder comment for base64 conversion.
-
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                { text: prompt },
-                // { inline_data: { mime_type: "image/jpeg", data: base64Image } } // TODO: Add image data here
-              ],
-            },
-          ],
-        }),
-      }
-    );
-
-    const data = await response.json();
-    if (!data.candidates?.[0]?.content?.parts?.[0]?.text) {
-      console.log("Gemini extraction failed no data");
-      return null;
-    }
-
-    const text = data.candidates[0].content.parts[0].text;
-    const jsonStr = text.replace(/```json/g, "").replace(/```/g, "").trim();
-    const recipe = JSON.parse(jsonStr);
-
-    return {
-      id: Date.now().toString(), // Generate temporary ID
-      image: imageUri, // Use the uploaded image
-      ...recipe
-    };
-  } catch (error) {
-    console.error("Gemini extraction error:", error);
-    return null;
-  }
+  console.log("[Discover] Image extraction not implemented.");
+  return null;
 }
 
 import { extractRecipeFromVideoUrl } from '@/services/RecipeExtractionService';
@@ -142,95 +82,23 @@ async function fetchRecipesFromGemini(
     pantryItems: string[];
   }
 ): Promise<DiscoverRecipe[]> {
-  if (!GEMINI_API_KEY) {
-    console.log("[Discover] No Gemini API key found");
-    return [];
-  }
-
-  const dietStr = preferences.dietaryPreferences?.length
-    ? `Dietary restrictions: ${preferences.dietaryPreferences.join(", ")}.`
-    : "";
-  const levelStr = preferences.cookingLevel
-    ? `Cooking skill level: ${preferences.cookingLevel}.`
-    : "";
-  const goalStr = preferences.primaryGoal
-    ? `Primary cooking goal: ${preferences.primaryGoal}.`
-    : "";
-  const pantryStr = preferences.pantryItems.length
-    ? `Available pantry items: ${preferences.pantryItems.slice(0, 15).join(", ")}.`
-    : "";
-
-  let categoryPrompt = "";
-  switch (category) {
-    case "quick":
-      categoryPrompt = "Focus on recipes that take 30 minutes or less.";
-      break;
-    case "healthy":
-      categoryPrompt = "Focus on nutritious, low-calorie, wholesome recipes.";
-      break;
-    case "trending":
-      categoryPrompt = "Focus on popular, trendy recipes from 2025-2026 food trends like smash burgers, birria, ube desserts, or viral TikTok recipes.";
-      break;
-    case "comfort":
-      categoryPrompt = "Focus on hearty comfort food like pasta, stews, baked dishes, and homestyle meals.";
-      break;
-    case "pantry":
-      categoryPrompt = `Focus on recipes that can be made with these pantry items: ${preferences.pantryItems.slice(0, 15).join(", ")}. Prioritize recipes using available ingredients.`;
-      break;
-    default:
-      categoryPrompt = "Suggest a diverse mix of popular recipes.";
-  }
-
-  const prompt = `Generate exactly 6 recipe suggestions as a JSON array. ${categoryPrompt} ${dietStr} ${levelStr} ${goalStr} ${pantryStr}
-
-Each recipe must have these fields:
-- title: string (recipe name)
-- description: string (1 sentence description, max 80 chars)
-- cookTime: string (e.g. "25 min", "1 hr")
-- difficulty: string ("Easy", "Medium", or "Hard")
-- calories: string (e.g. "350 cal")
-- tags: string[] (2-3 tags like "vegetarian", "high-protein", "one-pot")
-- ingredients: { name: string, amount: string, unsplashPhotoId: string (specific Unsplash ID) }[] (5-8 main ingredients)
-- instructions: { step: number, text: string, time?: number }[] (5-8 step-by-step instructions. "time" is optional duration in seconds for that step, e.g. 120 for 2 mins)
-
-Return ONLY the JSON array, no markdown, no explanation.`;
-
   try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.8,
-            maxOutputTokens: 2048,
-          },
-        }),
-      }
-    );
+    const { data, error } = await supabase.functions.invoke("discover-recipes", {
+      body: {
+        mode: "discover",
+        category,
+        preferences: {
+          level: preferences.cookingLevel,
+          dietary: preferences.dietaryPreferences,
+          goal: preferences.primaryGoal,
+          pantry: preferences.pantryItems,
+        },
+      },
+    });
 
-    if (!response.ok) {
-      console.log("[Discover] Gemini API error:", response.status);
-      return [];
-    }
+    if (error) throw error;
 
-    const data = await response.json();
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
-    console.log("[Discover] Gemini response length:", text.length);
-
-    const cleaned = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-    const recipes = JSON.parse(cleaned) as {
-      title: string;
-      description: string;
-      cookTime: string;
-      difficulty: string;
-      calories: string;
-      tags: string[];
-      ingredients: { name: string; amount: string; unsplashPhotoId: string }[];
-      instructions: { step: number; text: string; time?: number }[];
-    }[];
+    const recipes = (data?.recipes || []) as any[];
 
     const FOOD_IMAGES = [
       "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&h=300&fit=crop",
@@ -317,42 +185,20 @@ export default function DiscoverScreen() {
   }, [fadeAnim]);
 
   const handleSearch = useCallback(async () => {
-    if (!searchQuery.trim() || !GEMINI_API_KEY) return;
+    if (!searchQuery.trim()) return;
     setIsSearching(true);
-    try {
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [
-              {
-                parts: [
-                  {
-                    text: `Generate 4 recipe suggestions for: "${searchQuery}". Return ONLY a JSON array. Each recipe: { "title": string, "description": string (max 80 chars), "cookTime": string, "difficulty": string, "calories": string, "tags": string[], "ingredients": string[], "instructions": { "step": number, "text": string, "time": number }[] }`,
-                  },
-                ],
-              },
-            ],
-            generationConfig: { temperature: 0.7, maxOutputTokens: 1500 },
-          }),
-        }
-      );
-      const data = await response.json();
-      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "[]";
-      const cleaned = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-      const parsed = JSON.parse(cleaned) as {
-        title: string;
-        description: string;
-        cookTime: string;
-        difficulty: string;
-        calories: string;
-        tags: string[];
-        ingredients: { name: string; amount: string; unsplashPhotoId: string }[];
-        instructions: { step: number; text: string; time?: number }[];
-      }[];
 
+    try {
+      const { data, error } = await supabase.functions.invoke("discover-recipes", {
+        body: {
+          mode: "search",
+          query: searchQuery,
+        },
+      });
+
+      if (error) throw error;
+
+      const parsed = (data?.recipes || []) as any[];
       const SEARCH_IMAGES = [
         "https://images.unsplash.com/photo-1498837167922-ddd27525d352?w=400&h=300&fit=crop",
         "https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=400&h=300&fit=crop",
@@ -588,9 +434,7 @@ export default function DiscoverScreen() {
             <View style={styles.emptyContainer}>
               <ChefHat size={40} color={Colors.textMuted} />
               <Text style={styles.emptyText}>
-                {GEMINI_API_KEY
-                  ? "No recipes found. Pull down to refresh."
-                  : "Add your Gemini API key to discover recipes."}
+                {"Pull down to refresh recipes."}
               </Text>
             </View>
           ) : (
