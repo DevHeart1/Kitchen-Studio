@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { GoogleGenerativeAI } from "npm:@google/generative-ai@^0.21.0";
+import { GoogleGenAI } from "npm:@google/genai";
 
 const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
@@ -36,12 +36,7 @@ serve(async (req) => {
 
         console.log(`[DiscoverRecipes] Mode: ${mode}, Category: ${category}, Query: ${query}`);
 
-        const genAI = new GoogleGenerativeAI(apiKey);
-        // Use flash model for speed and cost effectiveness
-        const model = genAI.getGenerativeModel({
-            model: "gemini-1.5-flash",
-            generationConfig: { responseMimeType: "application/json" }
-        });
+        const ai = new GoogleGenAI({ apiKey });
 
         let prompt = "";
         const count = mode === "search" ? 4 : 6;
@@ -82,8 +77,42 @@ serve(async (req) => {
         Provide strictly the JSON array.
         `;
 
-        const result = await model.generateContent(prompt);
-        const responseText = result.response.text();
+        // Use the new Google Gen AI SDK
+        const response = await ai.models.generateContent({
+            model: 'gemini-3-flash-preview',
+            config: {
+                responseMimeType: 'application/json',
+            },
+            contents: [
+                {
+                    role: 'user',
+                    parts: [
+                        { text: prompt }
+                    ]
+                }
+            ]
+        });
+
+        // The response format for the new SDK
+        // According to documentation/usage, we should access text.
+        // Assuming response.text() is available as in other Google AI SDKs,
+        // or response.candidates[0].content.parts[0].text
+
+        let responseText: string | null = null;
+
+        if (typeof response.text === 'function') {
+            responseText = response.text();
+        } else if (response.candidates && response.candidates.length > 0 && response.candidates[0].content.parts.length > 0) {
+            responseText = response.candidates[0].content.parts[0].text;
+        } else {
+            // Fallback for debugging - stringify the whole response
+            console.log("Unexpected response structure:", JSON.stringify(response));
+            throw new Error("Unexpected response structure from Gemini API");
+        }
+
+        if (!responseText) {
+            throw new Error("Empty response from AI");
+        }
 
         // Clean potentially markdown-wrapped JSON
         const cleaned = responseText.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
