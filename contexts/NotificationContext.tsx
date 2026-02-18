@@ -1,13 +1,13 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import createContextHook from "@nkzw/create-context-hook";
 import { useInventory, InventoryItem } from "@/contexts/InventoryContext";
 import { supabase } from "@/lib/supabase";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Notification, NotificationType } from "@/types";
+import { useAuth } from "@/contexts/AuthContext";
 
-const NOTIFICATIONS_KEY = "app_notifications_v2";
-const LAST_AI_CHECK_KEY = "last_ai_recommendation_check";
+const NOTIFICATIONS_TABLE = "notifications";
+const LAST_AI_CHECK_KEY = "last_ai_recommendation_check"; // Keep this local for now or move to user settings
 const AI_CHECK_INTERVAL = 4 * 60 * 60 * 1000;
 
 interface ShelfLifeEstimate {
@@ -140,7 +140,74 @@ export const [NotificationProvider, useNotifications] = createContextHook(() => 
   const [isLoading, setIsLoading] = useState(true);
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   const { inventory } = useInventory();
+  const { user } = useAuth();
   const prevInventoryRef = useRef<string>("");
+  const queryClient = useQueryClient();
+
+  const loadNotifications = useCallback(async () => {
+    if (!user) {
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from(NOTIFICATIONS_TABLE)
+        .select("*")
+        .eq("user_id", user.id)
+        .order("timestamp", { ascending: false });
+
+      if (error) throw error;
+
+      const parsed: Notification[] = (data || []).map((n: any) => ({
+        id: n.id,
+        type: n.type as NotificationType,
+        title: n.title,
+        message: n.message,
+        timestamp: n.timestamp,
+        read: n.read,
+        dismissed: n.dismissed,
+        priority: n.priority,
+        image: n.image,
+        actionLabel: n.action_label,
+        actionRoute: n.action_route,
+        actionParams: n.action_params,
+        relatedItems: n.related_items,
+        aiGenerated: n.ai_generated,
+      }));
+
+      setNotifications(parsed.filter(n => !n.dismissed));
+    } catch (e) {
+      console.log("[Notifications] Error loading from Supabase:", e);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    loadNotifications();
+
+    const channel = supabase
+      .channel('notifications_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: NOTIFICATIONS_TABLE,
+          filter: user ? `user_id=eq.${user.id}` : undefined,
+        },
+        () => {
+          loadNotifications();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, loadNotifications]);
+
   const recommendationsMutation = useMutation({
     mutationFn: async (data: { inventoryItems: any[] }) => {
       const { data: response, error } = await supabase.functions.invoke('pantry-scan', {
@@ -163,73 +230,58 @@ export const [NotificationProvider, useNotifications] = createContextHook(() => 
     }
   });
 
-  useEffect(() => {
-    loadPersistedState();
-  }, []);
-
-  const loadPersistedState = async () => {
+  const addNotificationToDb = useCallback(async (notif: Partial<Notification>) => {
+    if (!user) return;
     try {
-      const stored = await AsyncStorage.getItem(NOTIFICATIONS_KEY);
-      if (stored) {
-        const parsed: Notification[] = JSON.parse(stored);
-        setNotifications(parsed.filter(n => !n.dismissed));
-      }
-    } catch (e) {
-      console.log("[Notifications] Error loading:", e);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+      const dbNotif = {
+        user_id: user.id,
+        type: notif.type,
+        title: notif.title,
+        message: notif.message,
+        timestamp: notif.timestamp,
+        read: notif.read,
+        dismissed: notif.dismissed,
+        priority: notif.priority,
+        image: notif.image,
+        action_label: notif.actionLabel,
+        action_route: notif.actionRoute,
+        action_params: notif.actionParams,
+        related_items: notif.relatedItems,
+        ai_generated: notif.aiGenerated,
+      };
 
-  const persistNotifications = useCallback(async (notifs: Notification[]) => {
-    try {
-      await AsyncStorage.setItem(NOTIFICATIONS_KEY, JSON.stringify(notifs));
+      const { error } = await supabase.from(NOTIFICATIONS_TABLE).insert(dbNotif);
+      if (error) throw error;
     } catch (e) {
-      console.log("[Notifications] Error persisting:", e);
+      console.error("[Notifications] Error adding to DB:", e);
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
-    if (inventory.length === 0) return;
+    if (inventory.length === 0 || !user) return;
 
     const inventoryKey = inventory.map(i => `${i.id}-${i.status}-${i.expiresIn}`).join("|");
     if (inventoryKey === prevInventoryRef.current) return;
     prevInventoryRef.current = inventoryKey;
 
-    console.log("[Notifications] Inventory changed, generating expiry notifications...");
+    console.log("[Notifications] Inventory changed, checking for expiry alerts...");
     const expiryNotifs = generateExpiryNotifications(inventory);
 
-    setNotifications(prev => {
-      const aiNotifs = prev.filter(n => n.aiGenerated);
-      const manualNotifs = prev.filter(n => !n.aiGenerated && !n.type.startsWith("expiry") && n.type !== "ingredient_alert");
-
-      const merged = [...expiryNotifs, ...aiNotifs, ...manualNotifs];
-
-      const readMap = new Map<string, boolean>();
-      prev.forEach(n => { if (n.read) readMap.set(n.id, true); });
-      const withReadState = merged.map(n => ({
-        ...n,
-        read: readMap.has(n.id) ? true : n.read,
-      }));
-
-      persistNotifications(withReadState);
-      return withReadState;
+    const newNotifs = expiryNotifs.filter(en => {
+      return !notifications.some(existing => existing.title === en.title && !existing.dismissed);
     });
-  }, [inventory, persistNotifications]);
+
+    if (newNotifs.length > 0) {
+      newNotifs.forEach(n => {
+        addNotificationToDb({ ...n, aiGenerated: false });
+      });
+    }
+  }, [inventory, user, notifications, addNotificationToDb]);
 
   const fetchAIRecommendations = useCallback(async () => {
-    if (inventory.length === 0 || isGeneratingAI) return;
+    if (inventory.length === 0 || isGeneratingAI || !user) return;
 
     try {
-      const lastCheck = await AsyncStorage.getItem(LAST_AI_CHECK_KEY);
-      if (lastCheck) {
-        const elapsed = Date.now() - parseInt(lastCheck);
-        if (elapsed < AI_CHECK_INTERVAL) {
-          console.log("[Notifications] AI check skipped - too recent");
-          return;
-        }
-      }
-
       setIsGeneratingAI(true);
       console.log("[Notifications] Fetching AI recommendations...");
 
@@ -243,7 +295,7 @@ export const [NotificationProvider, useNotifications] = createContextHook(() => 
 
       const result = await recommendationsMutation.mutateAsync({ inventoryItems });
 
-      const aiNotifs: Notification[] = result.recommendations.map((rec: any) => {
+      const aiNotifs = result.recommendations.map((rec: any) => {
         let notifType: NotificationType = "smart_recommendation";
         if (rec.type === "expiry_warning") notifType = "expiry_warning";
         else if (rec.type === "recipe_suggestion") notifType = "recipe_suggestion";
@@ -251,7 +303,6 @@ export const [NotificationProvider, useNotifications] = createContextHook(() => 
         else if (rec.type === "waste_reduction") notifType = "waste_reduction";
 
         return {
-          id: `ai-${rec.id}`,
           type: notifType,
           title: rec.title,
           message: rec.message,
@@ -265,21 +316,19 @@ export const [NotificationProvider, useNotifications] = createContextHook(() => 
         };
       });
 
-      setNotifications(prev => {
-        const nonAI = prev.filter(n => !n.aiGenerated);
-        const merged = [...nonAI, ...aiNotifs];
-        persistNotifications(merged);
-        return merged;
-      });
+      for (const n of aiNotifs) {
+        if (!notifications.some(ex => ex.title === n.title)) {
+          await addNotificationToDb(n);
+        }
+      }
 
-      await AsyncStorage.setItem(LAST_AI_CHECK_KEY, Date.now().toString());
       console.log(`[Notifications] Generated ${aiNotifs.length} AI recommendations`);
     } catch (e) {
       console.error("[Notifications] AI recommendations error:", e);
     } finally {
       setIsGeneratingAI(false);
     }
-  }, [inventory, isGeneratingAI, recommendationsMutation, persistNotifications]);
+  }, [inventory, isGeneratingAI, user, recommendationsMutation, addNotificationToDb, notifications]);
 
   const estimateShelfLifeForItems = useCallback(async (items: { name: string; category: string; isPackaged?: boolean }[]): Promise<ShelfLifeEstimate[]> => {
     try {
@@ -292,48 +341,55 @@ export const [NotificationProvider, useNotifications] = createContextHook(() => 
     }
   }, [shelfLifeMutation]);
 
-  const markAsRead = useCallback((id: string) => {
-    setNotifications(prev => {
-      const updated = prev.map(n => n.id === id ? { ...n, read: true } : n);
-      persistNotifications(updated);
-      return updated;
-    });
-  }, [persistNotifications]);
+  const markAsRead = useCallback(async (id: string) => {
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+    try {
+      await supabase.from(NOTIFICATIONS_TABLE).update({ read: true }).eq('id', id);
+    } catch (e) {
+      console.error("Failed to mark as read:", e);
+    }
+  }, []);
 
-  const markAllAsRead = useCallback(() => {
-    setNotifications(prev => {
-      const updated = prev.map(n => ({ ...n, read: true }));
-      persistNotifications(updated);
-      return updated;
-    });
-  }, [persistNotifications]);
+  const markAllAsRead = useCallback(async () => {
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    try {
+      if (user) {
+        await supabase.from(NOTIFICATIONS_TABLE).update({ read: true }).eq('user_id', user.id);
+      }
+    } catch (e) {
+      console.error("Failed to mark all as read:", e);
+    }
+  }, [user]);
 
-  const dismissNotification = useCallback((id: string) => {
-    setNotifications(prev => {
-      const updated = prev.filter(n => n.id !== id);
-      persistNotifications(updated);
-      return updated;
-    });
-  }, [persistNotifications]);
+  const dismissNotification = useCallback(async (id: string) => {
+    setNotifications(prev => prev.filter(n => n.id !== id));
+    try {
+      await supabase.from(NOTIFICATIONS_TABLE).update({ dismissed: true }).eq('id', id);
+    } catch (e) {
+      console.error("Failed to dismiss:", e);
+    }
+  }, []);
 
-  const clearAll = useCallback(() => {
+  const clearAll = useCallback(async () => {
     setNotifications([]);
-    persistNotifications([]);
-  }, [persistNotifications]);
+    try {
+      if (user) {
+        await supabase.from(NOTIFICATIONS_TABLE).delete().eq('user_id', user.id);
+      }
+    } catch (e) {
+      console.error("Failed to clear all:", e);
+    }
+  }, [user]);
 
-  const addNotification = useCallback((notif: Omit<Notification, "id" | "timestamp" | "read">) => {
-    const newNotif: Notification = {
+  const addNotification = useCallback(async (notif: Omit<Notification, "id" | "timestamp" | "read">) => {
+    const newNotif = {
       ...notif,
-      id: `manual-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
       timestamp: new Date().toISOString(),
       read: false,
+      aiGenerated: notif.aiGenerated || false
     };
-    setNotifications(prev => {
-      const updated = [newNotif, ...prev];
-      persistNotifications(updated);
-      return updated;
-    });
-  }, [persistNotifications]);
+    await addNotificationToDb(newNotif);
+  }, [addNotificationToDb]);
 
   const unreadCount = useMemo(() => notifications.filter(n => !n.read).length, [notifications]);
 
