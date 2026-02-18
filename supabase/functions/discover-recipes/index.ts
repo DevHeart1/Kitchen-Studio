@@ -77,6 +77,8 @@ serve(async (req) => {
         Provide strictly the JSON array.
         `;
 
+        console.log("[DiscoverRecipes] Calling Gemini...");
+
         // Use the new Google Gen AI SDK
         const response = await ai.models.generateContent({
             model: 'gemini-3-flash-preview',
@@ -93,22 +95,32 @@ serve(async (req) => {
             ]
         });
 
-        // The response format for the new SDK
-        // According to documentation/usage, we should access text.
-        // Assuming response.text() is available as in other Google AI SDKs,
-        // or response.candidates[0].content.parts[0].text
+        console.log("[DiscoverRecipes] Gemini Response Received");
+        // Debug logging for response structure
+        try {
+            console.log("[DiscoverRecipes] Response Keys:", Object.keys(response));
+            if (response.candidates) {
+                console.log("[DiscoverRecipes] Candidates length:", response.candidates.length);
+            }
+        } catch (e) {
+            console.log("[DiscoverRecipes] Error logging response keys:", e);
+        }
 
         let responseText: string | null = null;
 
+        // Robust check for text content in new SDK
         if (typeof response.text === 'function') {
             responseText = response.text();
-        } else if (response.candidates && response.candidates.length > 0 && response.candidates[0].content.parts.length > 0) {
+        } else if (response.text && typeof response.text === 'string') {
+            responseText = response.text;
+        } else if (response.candidates && response.candidates.length > 0 && response.candidates[0].content && response.candidates[0].content.parts.length > 0) {
             responseText = response.candidates[0].content.parts[0].text;
         } else {
-            // Fallback for debugging - stringify the whole response
-            console.log("Unexpected response structure:", JSON.stringify(response));
+            console.log("[DiscoverRecipes] Unexpected response structure:", JSON.stringify(response));
             throw new Error("Unexpected response structure from Gemini API");
         }
+
+        console.log("[DiscoverRecipes] Response Text Length:", responseText ? responseText.length : 0);
 
         if (!responseText) {
             throw new Error("Empty response from AI");
@@ -131,7 +143,7 @@ serve(async (req) => {
         });
 
     } catch (error) {
-        console.error("Error:", error);
+        console.error("[DiscoverRecipes] Error:", error);
         return new Response(JSON.stringify({ error: error.message, recipes: [] }), {
             status: 500,
             headers: { ...corsHeaders, "Content-Type": "application/json" },
